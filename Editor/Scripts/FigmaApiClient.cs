@@ -83,8 +83,9 @@ namespace FigmaUiImporter.Editor
 
         private async Task<string> SendTextWithRetryAsync(string url, bool authenticated, CancellationToken cancellationToken)
         {
-            const int maxAttempts = 3;
+            const int maxAttempts = 5;
             Exception lastException = null;
+            int retryDelayMs = 0;
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
@@ -109,8 +110,17 @@ namespace FigmaUiImporter.Editor
                     lastException = exception;
                     if (!ShouldRetry(exception.StatusCode) || attempt == maxAttempts)
                     {
+                        if (exception.StatusCode == 429)
+                        {
+                            throw new FigmaApiException(
+                                exception.StatusCode,
+                                exception.RawMessage + "。Figma API 已限流，请等待一段时间后重试；插件已自动重试但仍未恢复。");
+                        }
+
                         throw;
                     }
+
+                    retryDelayMs = GetRetryDelayMs(exception, attempt);
                 }
                 catch (Exception exception)
                 {
@@ -119,9 +129,11 @@ namespace FigmaUiImporter.Editor
                     {
                         throw;
                     }
+
+                    retryDelayMs = 1000 * attempt;
                 }
 
-                await Task.Delay(300 * attempt, cancellationToken);
+                await Task.Delay(retryDelayMs, cancellationToken);
             }
 
             throw lastException ?? new InvalidOperationException("Figma 请求失败。");
@@ -166,7 +178,8 @@ namespace FigmaUiImporter.Editor
                     message += "。如果当前网络需要代理或自签证书，可在插件窗口勾选“忽略 SSL 证书错误”后重试。";
                 }
 
-                throw new FigmaApiException((int)request.responseCode, message);
+                string retryAfter = request.GetResponseHeader("Retry-After");
+                throw new FigmaApiException((int)request.responseCode, message, retryAfter);
             }
         }
 
@@ -217,16 +230,39 @@ namespace FigmaUiImporter.Editor
         {
             return statusCode == 429 || statusCode >= 500 || statusCode == 0;
         }
+
+        private static int GetRetryDelayMs(FigmaApiException exception, int attempt)
+        {
+            int retryAfterSeconds;
+            if (!string.IsNullOrEmpty(exception.RetryAfter)
+                && int.TryParse(exception.RetryAfter, NumberStyles.Integer, CultureInfo.InvariantCulture, out retryAfterSeconds))
+            {
+                return Math.Max(1000, Math.Min(120000, retryAfterSeconds * 1000));
+            }
+
+            if (exception.StatusCode == 429)
+            {
+                int[] delays = { 5000, 10000, 20000, 40000, 60000 };
+                int index = Math.Max(0, Math.Min(delays.Length - 1, attempt - 1));
+                return delays[index];
+            }
+
+            return 1000 * attempt;
+        }
     }
 
     internal sealed class FigmaApiException : Exception
     {
         public int StatusCode { get; private set; }
+        public string RawMessage { get; private set; }
+        public string RetryAfter { get; private set; }
 
-        public FigmaApiException(int statusCode, string message)
+        public FigmaApiException(int statusCode, string message, string retryAfter = null)
             : base(string.Format("Figma API 请求失败 ({0})：{1}", statusCode, message))
         {
             StatusCode = statusCode;
+            RawMessage = message;
+            RetryAfter = retryAfter;
         }
     }
 

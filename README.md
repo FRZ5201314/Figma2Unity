@@ -66,6 +66,7 @@ Canvas
 
 - Token 使用 `EditorPrefs` 保存在本机，不会写入项目资源。
 - 如果 Unity 报 `Unable to complete SSL connection`，可在插件窗口临时勾选 `忽略 SSL 证书错误` 后重试；该选项会跳过 HTTPS 证书校验，仅建议在受信任网络或代理环境中使用。
+- 如果 Figma 返回 `429 Rate limit exceeded`，说明当前 token 或网络出口触发了 Figma 限流。插件会自动退避重试；仍失败时请等待几分钟后再导入，或降低重复加载/导入频率。
 - 插件按视觉还原导入，不会把 Figma Text 转成 TMP，也不会自动生成 Button、Toggle、ScrollView 等语义组件。
 - Page 可能很大，建议优先选择具体 Frame。
 - Figma 图片 URL 有时效，插件会立即下载到 Unity 项目资源目录。
