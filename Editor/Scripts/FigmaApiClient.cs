@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine.Networking;
@@ -11,10 +12,17 @@ namespace FigmaUiImporter.Editor
     {
         private const string ApiBaseUrl = "https://api.figma.com/v1";
         private readonly string _accessToken;
+        private readonly bool _ignoreSslCertificateErrors;
 
-        public FigmaApiClient(string accessToken)
+        static FigmaApiClient()
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        }
+
+        public FigmaApiClient(string accessToken, bool ignoreSslCertificateErrors)
         {
             _accessToken = accessToken;
+            _ignoreSslCertificateErrors = ignoreSslCertificateErrors;
         }
 
         public async Task<FigmaNodeInfo> LoadFileAsync(string fileKey, CancellationToken cancellationToken)
@@ -67,6 +75,7 @@ namespace FigmaUiImporter.Editor
         {
             using (UnityWebRequest request = UnityWebRequest.Get(url))
             {
+                ConfigureRequest(request);
                 await SendRequestAsync(request, cancellationToken);
                 return request.downloadHandler.data;
             }
@@ -85,6 +94,7 @@ namespace FigmaUiImporter.Editor
                 {
                     using (UnityWebRequest request = UnityWebRequest.Get(url))
                     {
+                        ConfigureRequest(request);
                         if (authenticated)
                         {
                             request.SetRequestHeader("X-Figma-Token", _accessToken);
@@ -117,6 +127,16 @@ namespace FigmaUiImporter.Editor
             throw lastException ?? new InvalidOperationException("Figma 请求失败。");
         }
 
+        private void ConfigureRequest(UnityWebRequest request)
+        {
+            request.timeout = 60;
+            if (_ignoreSslCertificateErrors)
+            {
+                request.certificateHandler = new TrustAllCertificateHandler();
+                request.disposeCertificateHandlerOnDispose = true;
+            }
+        }
+
         private static async Task SendRequestAsync(UnityWebRequest request, CancellationToken cancellationToken)
         {
             UnityWebRequestAsyncOperation operation = request.SendWebRequest();
@@ -140,6 +160,12 @@ namespace FigmaUiImporter.Editor
                 string message = string.IsNullOrEmpty(request.downloadHandler.text)
                     ? request.error
                     : request.downloadHandler.text;
+                if (!string.IsNullOrEmpty(message)
+                    && message.IndexOf("SSL", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    message += "。如果当前网络需要代理或自签证书，可在插件窗口勾选“忽略 SSL 证书错误”后重试。";
+                }
+
                 throw new FigmaApiException((int)request.responseCode, message);
             }
         }
@@ -201,6 +227,14 @@ namespace FigmaUiImporter.Editor
             : base(string.Format("Figma API 请求失败 ({0})：{1}", statusCode, message))
         {
             StatusCode = statusCode;
+        }
+    }
+
+    internal sealed class TrustAllCertificateHandler : CertificateHandler
+    {
+        protected override bool ValidateCertificate(byte[] certificateData)
+        {
+            return true;
         }
     }
 }

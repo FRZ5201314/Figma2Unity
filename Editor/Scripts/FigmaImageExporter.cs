@@ -111,7 +111,7 @@ namespace FigmaUiImporter.Editor
             return exported;
         }
 
-        private static async Task DownloadToAssetPathAsync(string url, string assetPath, CancellationToken cancellationToken)
+        private async Task DownloadToAssetPathAsync(string url, string assetPath, CancellationToken cancellationToken)
         {
             string fullPath = FigmaPathUtility.ToFullPath(assetPath);
             string directory = Path.GetDirectoryName(fullPath);
@@ -120,31 +120,8 @@ namespace FigmaUiImporter.Editor
                 Directory.CreateDirectory(directory);
             }
 
-            using (UnityEngine.Networking.UnityWebRequest request = UnityEngine.Networking.UnityWebRequest.Get(url))
-            {
-                UnityEngine.Networking.UnityWebRequestAsyncOperation operation = request.SendWebRequest();
-                while (!operation.isDone)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await Task.Delay(50, cancellationToken);
-                }
-
-                bool failed;
-#if UNITY_2020_2_OR_NEWER
-                failed = request.result == UnityEngine.Networking.UnityWebRequest.Result.ConnectionError
-                    || request.result == UnityEngine.Networking.UnityWebRequest.Result.ProtocolError
-                    || request.result == UnityEngine.Networking.UnityWebRequest.Result.DataProcessingError;
-#else
-                failed = request.isNetworkError || request.isHttpError;
-#endif
-
-                if (failed)
-                {
-                    throw new FigmaApiException((int)request.responseCode, request.error);
-                }
-
-                File.WriteAllBytes(fullPath, request.downloadHandler.data);
-            }
+            byte[] bytes = await _client.DownloadBytesAsync(url, cancellationToken);
+            File.WriteAllBytes(fullPath, bytes);
         }
     }
 }

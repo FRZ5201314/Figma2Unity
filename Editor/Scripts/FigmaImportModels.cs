@@ -25,6 +25,7 @@ namespace FigmaUiImporter.Editor
         public float ReferenceAlpha = 0.5f;
         public bool DisableRaycastTarget = true;
         public bool OverwriteExisting;
+        public bool IgnoreSslCertificateErrors;
         public TextureImporterCompressionMode CompressionMode = TextureImporterCompressionMode.None;
     }
 

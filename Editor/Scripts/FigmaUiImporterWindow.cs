@@ -19,6 +19,7 @@ namespace FigmaUiImporter.Editor
         private const string PrefCreateReference = "FigmaUiImporter.CreateReference";
         private const string PrefDisableRaycast = "FigmaUiImporter.DisableRaycast";
         private const string PrefOverwrite = "FigmaUiImporter.Overwrite";
+        private const string PrefIgnoreSslCertificateErrors = "FigmaUiImporter.IgnoreSslCertificateErrors";
 
         private static readonly string[] SliceModeLabels =
         {
@@ -39,6 +40,7 @@ namespace FigmaUiImporter.Editor
         private float _referenceAlpha;
         private bool _disableRaycastTarget;
         private bool _overwriteExisting;
+        private bool _ignoreSslCertificateErrors;
 
         private FigmaNodeInfo _documentRoot;
         private FigmaNodeInfo _selectedNode;
@@ -75,6 +77,7 @@ namespace FigmaUiImporter.Editor
             _createReference = EditorPrefs.GetBool(PrefCreateReference, true);
             _disableRaycastTarget = EditorPrefs.GetBool(PrefDisableRaycast, true);
             _overwriteExisting = EditorPrefs.GetBool(PrefOverwrite, false);
+            _ignoreSslCertificateErrors = EditorPrefs.GetBool(PrefIgnoreSslCertificateErrors, false);
             _status = "等待加载 Figma 文件。";
         }
 
@@ -129,6 +132,11 @@ namespace FigmaUiImporter.Editor
 
                 _disableRaycastTarget = EditorGUILayout.Toggle("关闭图片射线检测", _disableRaycastTarget);
                 _overwriteExisting = EditorGUILayout.Toggle("覆盖同名场景根节点", _overwriteExisting);
+                _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
+                if (_ignoreSslCertificateErrors)
+                {
+                    EditorGUILayout.HelpBox("仅在 Unity 报 Unable to complete SSL connection 时使用。该选项会跳过 HTTPS 证书校验。", MessageType.Warning);
+                }
             }
         }
 
@@ -327,7 +335,7 @@ namespace FigmaUiImporter.Editor
 
             try
             {
-                FigmaApiClient client = new FigmaApiClient(_accessToken);
+                FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors);
                 _documentRoot = await client.LoadFileAsync(fileKey, _cancellation.Token);
                 _loadedFileKey = fileKey;
                 _selectedNode = null;
@@ -412,7 +420,7 @@ namespace FigmaUiImporter.Editor
             try
             {
                 FigmaImportSettings settings = BuildSettings(fileKey);
-                FigmaApiClient client = new FigmaApiClient(_accessToken);
+                FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors);
                 FigmaImportOrchestrator importer = new FigmaImportOrchestrator(client);
                 Progress<FigmaImportProgress> progress = new Progress<FigmaImportProgress>(OnProgress);
                 FigmaImportResult result = await importer.ImportAsync(settings, _selectedNode, progress, _cancellation.Token);
@@ -456,6 +464,7 @@ namespace FigmaUiImporter.Editor
             settings.ReferenceAlpha = _referenceAlpha;
             settings.DisableRaycastTarget = _disableRaycastTarget;
             settings.OverwriteExisting = _overwriteExisting;
+            settings.IgnoreSslCertificateErrors = _ignoreSslCertificateErrors;
             return settings;
         }
 
@@ -532,6 +541,7 @@ namespace FigmaUiImporter.Editor
             EditorPrefs.SetBool(PrefCreateReference, _createReference);
             EditorPrefs.SetBool(PrefDisableRaycast, _disableRaycastTarget);
             EditorPrefs.SetBool(PrefOverwrite, _overwriteExisting);
+            EditorPrefs.SetBool(PrefIgnoreSslCertificateErrors, _ignoreSslCertificateErrors);
         }
 
         private void PickOutputFolder()
