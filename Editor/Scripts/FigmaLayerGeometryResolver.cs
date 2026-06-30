@@ -205,7 +205,7 @@ namespace FigmaUiImporter.Editor
 
             if (IsRectangle(layer))
             {
-                return imageSize.x > layer.SizeDelta.x + 2f || imageSize.y > layer.SizeDelta.y + 2f;
+                return false;
             }
 
             return true;
@@ -226,7 +226,7 @@ namespace FigmaUiImporter.Editor
             float deltaY = Mathf.Abs(matchedPosition.y - originalPosition.y);
             if (IsText(layer))
             {
-                return deltaX <= 12f && deltaY <= 12f;
+                return deltaY <= 12f;
             }
 
             bool hasMeaningfulExpansion = imageSize.x > layer.FigmaBounds.width + 4f
