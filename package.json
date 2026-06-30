@@ -1,0 +1,19 @@
+{
+  "name": "com.local.figma-ui-importer",
+  "displayName": "Figma UI Importer",
+  "version": "0.1.0",
+  "unity": "2021.3",
+  "description": "Unity editor tool for importing Figma frames as reference images and sliced UI layers.",
+  "keywords": [
+    "figma",
+    "ui",
+    "importer",
+    "editor"
+  ],
+  "dependencies": {
+    "com.unity.ugui": "1.0.0"
+  },
+  "author": {
+    "name": "Local"
+  }
+}
