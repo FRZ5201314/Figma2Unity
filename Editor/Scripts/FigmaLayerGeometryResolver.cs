@@ -55,6 +55,12 @@ namespace FigmaUiImporter.Editor
                     layerTexture.Width / _pixelScale.x,
                     layerTexture.Height / _pixelScale.y);
 
+                if (IsRectangle(layer))
+                {
+                    ResolveRectangleGeometry(layer, layerTexture, imageSize);
+                    return;
+                }
+
                 if (!ShouldUseImageSize(layer, imageSize))
                 {
                     return;
@@ -74,6 +80,32 @@ namespace FigmaUiImporter.Editor
                     return;
                 }
             }
+        }
+
+        private void ResolveRectangleGeometry(
+            ImportedLayerInfo layer,
+            TextureData layerTexture,
+            Vector2 imageSize)
+        {
+            if (imageSize.x <= layer.SizeDelta.x + 2f && imageSize.y <= layer.SizeDelta.y + 2f)
+            {
+                return;
+            }
+
+            layer.SizeDelta = imageSize;
+
+            AlphaBounds alphaBounds;
+            if (!layerTexture.TryGetAlphaBounds(out alphaBounds) || !_rootBounds.HasUsableSize())
+            {
+                return;
+            }
+
+            Rect imageBounds = new Rect(
+                layer.FigmaBounds.x - alphaBounds.X / _pixelScale.x,
+                layer.FigmaBounds.y - alphaBounds.Y / _pixelScale.y,
+                imageSize.x,
+                imageSize.y);
+            layer.AnchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(_rootBounds, imageBounds);
         }
 
         public void Dispose()
@@ -309,6 +341,18 @@ namespace FigmaUiImporter.Editor
             return new Vector2(scale, scale);
         }
 
+        private struct AlphaBounds
+        {
+            public readonly int X;
+            public readonly int Y;
+
+            public AlphaBounds(int x, int y)
+            {
+                X = x;
+                Y = y;
+            }
+        }
+
         private struct SamplePoint
         {
             public readonly int X;
@@ -360,6 +404,39 @@ namespace FigmaUiImporter.Editor
             public Color32 GetPixelTopLeft(int x, int y)
             {
                 return _pixels[(Height - 1 - y) * Width + x];
+            }
+
+            public bool TryGetAlphaBounds(out AlphaBounds bounds)
+            {
+                int minX = Width;
+                int minY = Height;
+                int maxX = -1;
+                int maxY = -1;
+
+                for (int y = 0; y < Height; y++)
+                {
+                    for (int x = 0; x < Width; x++)
+                    {
+                        if (GetPixelTopLeft(x, y).a == 0)
+                        {
+                            continue;
+                        }
+
+                        minX = Mathf.Min(minX, x);
+                        minY = Mathf.Min(minY, y);
+                        maxX = Mathf.Max(maxX, x);
+                        maxY = Mathf.Max(maxY, y);
+                    }
+                }
+
+                if (maxX < minX || maxY < minY)
+                {
+                    bounds = new AlphaBounds();
+                    return false;
+                }
+
+                bounds = new AlphaBounds(minX, minY);
+                return true;
             }
 
             public void Dispose()
