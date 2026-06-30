@@ -57,6 +57,53 @@ namespace FigmaUiImporter.Editor
             return manifestPath;
         }
 
+        public FigmaManifestRebuildData LoadForRebuild(string manifestPath)
+        {
+            string normalizedManifestPath = NormalizeManifestAssetPath(manifestPath);
+            string fullPath = FigmaPathUtility.ToFullPath(normalizedManifestPath);
+            if (!File.Exists(fullPath))
+            {
+                throw new FileNotFoundException("未找到 manifest 文件：" + normalizedManifestPath);
+            }
+
+            ManifestDto manifest = JsonUtility.FromJson<ManifestDto>(File.ReadAllText(fullPath));
+            if (manifest == null || string.IsNullOrEmpty(manifest.selectedNodeId))
+            {
+                throw new InvalidOperationException("manifest 内容无效，缺少 selectedNodeId。");
+            }
+
+            string outputFolder = GetAssetDirectory(normalizedManifestPath);
+            FigmaManifestRebuildData data = new FigmaManifestRebuildData();
+            data.FileKey = manifest.fileKey;
+            data.ManifestPath = normalizedManifestPath;
+            data.OutputFolder = outputFolder;
+            data.RootNode = CreateRootNode(manifest);
+            data.ReferenceAssetPath = ResolveAssetPath(outputFolder, manifest.referenceImage);
+
+            if (!string.IsNullOrEmpty(data.ReferenceAssetPath))
+            {
+                EnsureAssetFileExists(data.ReferenceAssetPath, "参考图");
+            }
+
+            if (manifest.layers != null)
+            {
+                for (int i = 0; i < manifest.layers.Count; i++)
+                {
+                    LayerDto dto = manifest.layers[i];
+                    if (dto == null)
+                    {
+                        continue;
+                    }
+
+                    ImportedLayerInfo layer = CreateLayerInfo(outputFolder, data.RootNode.AbsoluteBounds, dto, i);
+                    EnsureAssetFileExists(layer.AssetPath, "切图");
+                    data.Layers.Add(layer);
+                }
+            }
+
+            return data;
+        }
+
         private static BoundsDto ToBoundsDto(Rect rect)
         {
             BoundsDto dto = new BoundsDto();
@@ -85,6 +132,147 @@ namespace FigmaUiImporter.Editor
             }
 
             return normalizedAsset;
+        }
+
+        private static FigmaNodeInfo CreateRootNode(ManifestDto manifest)
+        {
+            FigmaNodeInfo root = new FigmaNodeInfo();
+            root.Id = manifest.selectedNodeId;
+            root.Name = manifest.selectedNodeName;
+            root.Type = string.IsNullOrEmpty(manifest.selectedNodeType) ? "FRAME" : manifest.selectedNodeType;
+            root.Visible = true;
+            root.AbsoluteBounds = ToRect(manifest.rootBounds);
+            root.HasAbsoluteBounds = true;
+            return root;
+        }
+
+        private static ImportedLayerInfo CreateLayerInfo(
+            string outputFolder,
+            Rect rootBounds,
+            LayerDto dto,
+            int fallbackSiblingIndex)
+        {
+            ImportedLayerInfo layer = new ImportedLayerInfo();
+            layer.NodeId = dto.nodeId;
+            layer.NodeName = dto.nodeName;
+            layer.NodeType = dto.type;
+            layer.AssetPath = ResolveAssetPath(outputFolder, dto.image);
+            layer.FigmaBounds = ToRect(dto.bounds);
+            layer.SiblingIndex = dto.siblingIndex;
+
+            if (layer.SiblingIndex < 0)
+            {
+                layer.SiblingIndex = fallbackSiblingIndex;
+            }
+
+            if (dto.unity != null)
+            {
+                layer.AnchoredPosition = ToVector(dto.unity.anchoredPosition);
+                layer.SizeDelta = ToVector(dto.unity.sizeDelta);
+            }
+
+            if (layer.SizeDelta.x <= 0.01f || layer.SizeDelta.y <= 0.01f)
+            {
+                layer.SizeDelta = new Vector2(layer.FigmaBounds.width, layer.FigmaBounds.height);
+            }
+
+            if (layer.SizeDelta.x <= 0.01f || layer.SizeDelta.y <= 0.01f)
+            {
+                throw new InvalidOperationException("manifest 中存在尺寸无效的切图：" + layer.NodeName);
+            }
+
+            if (dto.unity == null)
+            {
+                layer.AnchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(rootBounds, layer.FigmaBounds);
+            }
+
+            layer.UnityObjectPath = dto.unityObjectPath;
+            return layer;
+        }
+
+        private static Rect ToRect(BoundsDto dto)
+        {
+            if (dto == null)
+            {
+                return new Rect();
+            }
+
+            return new Rect(dto.x, dto.y, dto.width, dto.height);
+        }
+
+        private static Vector2 ToVector(VectorDto dto)
+        {
+            if (dto == null)
+            {
+                return Vector2.zero;
+            }
+
+            return new Vector2(dto.x, dto.y);
+        }
+
+        private static string ResolveAssetPath(string outputFolder, string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            string normalized = path.Trim().Replace('\\', '/');
+            if (normalized.StartsWith("Assets/", StringComparison.Ordinal) || string.Equals(normalized, "Assets", StringComparison.Ordinal))
+            {
+                return normalized;
+            }
+
+            return FigmaPathUtility.CombineAssetPath(outputFolder, normalized);
+        }
+
+        private static void EnsureAssetFileExists(string assetPath, string label)
+        {
+            if (string.IsNullOrEmpty(assetPath) || !File.Exists(FigmaPathUtility.ToFullPath(assetPath)))
+            {
+                throw new FileNotFoundException(label + "资源不存在：" + assetPath);
+            }
+        }
+
+        private static string NormalizeManifestAssetPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new InvalidOperationException("请先选择 manifest.json。");
+            }
+
+            string normalized = path.Trim().Replace('\\', '/');
+            if (normalized.StartsWith("Assets/", StringComparison.Ordinal) || string.Equals(normalized, "Assets", StringComparison.Ordinal))
+            {
+                return normalized;
+            }
+
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName.Replace('\\', '/');
+            string fullPath = Path.GetFullPath(path).Replace('\\', '/');
+            if (!fullPath.StartsWith(projectRoot + "/", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("manifest 必须位于当前 Unity 项目的 Assets 目录内。");
+            }
+
+            string assetPath = fullPath.Substring(projectRoot.Length + 1);
+            if (!assetPath.StartsWith("Assets/", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("manifest 必须位于当前 Unity 项目的 Assets 目录内。");
+            }
+
+            return assetPath;
+        }
+
+        private static string GetAssetDirectory(string assetPath)
+        {
+            string normalized = assetPath.Replace('\\', '/');
+            int slashIndex = normalized.LastIndexOf("/", StringComparison.Ordinal);
+            if (slashIndex <= 0)
+            {
+                return "Assets";
+            }
+
+            return normalized.Substring(0, slashIndex);
         }
 
         [Serializable]

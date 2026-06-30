@@ -89,11 +89,19 @@ namespace FigmaUiImporter.Editor
         private void OnDisable()
         {
             SavePrefs();
-            if (_cancellation != null)
+            CancellationTokenSource cancellation = _cancellation;
+            _cancellation = null;
+            if (cancellation != null)
             {
-                _cancellation.Cancel();
-                _cancellation.Dispose();
-                _cancellation = null;
+                try
+                {
+                    cancellation.Cancel();
+                    cancellation.Dispose();
+                }
+                catch (Exception)
+                {
+                    // Unity may call OnDisable during domain reload after async state has already been torn down.
+                }
             }
         }
 
@@ -178,6 +186,17 @@ namespace FigmaUiImporter.Editor
                     {
                         _cancellation.Cancel();
                     }
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                if (GUILayout.Button("从 Manifest 重建场景", GUILayout.Height(26f)))
+                {
+                    RebuildFromManifest();
                 }
             }
 
@@ -495,6 +514,44 @@ namespace FigmaUiImporter.Editor
             }
         }
 
+        private void RebuildFromManifest()
+        {
+            string pickedManifest = EditorUtility.OpenFilePanel("选择 manifest.json", Application.dataPath, "json");
+            if (string.IsNullOrEmpty(pickedManifest))
+            {
+                return;
+            }
+
+            BeginBusy("准备从 manifest 重建场景...");
+            SavePrefs();
+
+            try
+            {
+                FigmaImportSettings settings = BuildSettings(FigmaPathUtility.ExtractFileKey(_fileInput));
+                FigmaOfflineSceneRebuilder rebuilder = new FigmaOfflineSceneRebuilder();
+                FigmaImportResult result = rebuilder.Rebuild(settings, pickedManifest, new ImmediateProgress(OnProgress));
+
+                _status = "离线重建完成：" + result.LayerCount + " 个切图图层。";
+                _progress = 1f;
+                AddLog("离线重建输出目录：" + result.OutputFolder);
+                AddLog("Manifest：" + result.ManifestPath);
+                if (result.RootObject != null)
+                {
+                    AddLog("场景根节点：" + result.RootObject.name);
+                }
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "离线重建失败。";
+                AddLog("离线重建失败：" + exception.Message);
+            }
+            finally
+            {
+                EndBusy();
+            }
+        }
+
         private bool ConfirmSliceEstimate()
         {
             if (_selectedNode == null || _sliceMode == FigmaSliceMode.FlattenSelectedFrameAsSingleImage)
@@ -702,6 +759,24 @@ namespace FigmaUiImporter.Editor
             }
 
             return roots;
+        }
+
+        private sealed class ImmediateProgress : IProgress<FigmaImportProgress>
+        {
+            private readonly Action<FigmaImportProgress> _handler;
+
+            public ImmediateProgress(Action<FigmaImportProgress> handler)
+            {
+                _handler = handler;
+            }
+
+            public void Report(FigmaImportProgress value)
+            {
+                if (_handler != null)
+                {
+                    _handler(value);
+                }
+            }
         }
     }
 }

@@ -12,6 +12,7 @@
 - 导入切图资源并设置为 Sprite
 - 按 Figma `absoluteBoundingBox` 还原 RectTransform 坐标
 - 生成 `manifest.json`
+- 支持从已有 `manifest.json` 离线重建场景
 - 支持覆盖同名场景根节点
 
 ## 安装
@@ -31,6 +32,8 @@
 5. 点击 `加载 Figma 文件`。默认会优先读取本地缓存，避免频繁请求 Figma；需要获取最新设计稿时点击 `强制重新加载`。
 6. 在 Page / Frame 树中选择要导入的目标。
 7. 点击 `导入选中项`。
+
+如果 Figma API 正在限流，且项目里已经有一次成功导入生成的 `manifest.json` 和 PNG 资源，可以点击 `从 Manifest 重建场景`，选择对应的 `manifest.json`。该流程不会请求 Figma，只会使用本地 `reference.png` 和 `layers/*.png` 重新生成 Canvas 层级。
 
 导入后会生成类似目录：
 
@@ -69,6 +72,7 @@ Canvas
 - 如果 Figma 返回 `429 Rate limit exceeded`，说明当前 token 或网络出口触发了 Figma 限流。插件会自动退避重试；仍失败时请等待几分钟后再导入，或降低重复加载/导入频率。
 - 插件会把 Figma 文件结构缓存到 Unity 项目的 `Library/FigmaUiImporterCache`，该目录不会进入版本库。导入时会优先使用已加载的节点树，减少额外 API 请求。
 - 导入前如果预估切图数量较多，插件会弹窗确认，避免自动切片一次性触发过多图片导出请求。
+- `从 Manifest 重建场景` 只能使用当前 Unity 项目 `Assets` 目录内的 manifest 和图片资源；如果移动了 `reference.png` 或 `layers` 目录，需要保持 manifest 中记录的相对路径仍然可用。
 - 插件按视觉还原导入，不会把 Figma Text 转成 TMP，也不会自动生成 Button、Toggle、ScrollView 等语义组件。
 - Page 可能很大，建议优先选择具体 Frame。
 - Figma 图片 URL 有时效，插件会立即下载到 Unity 项目资源目录。

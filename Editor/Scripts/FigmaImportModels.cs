@@ -117,6 +117,16 @@ namespace FigmaUiImporter.Editor
         public int LayerCount;
     }
 
+    internal sealed class FigmaManifestRebuildData
+    {
+        public string FileKey;
+        public string ManifestPath;
+        public string OutputFolder;
+        public FigmaNodeInfo RootNode;
+        public string ReferenceAssetPath;
+        public readonly List<ImportedLayerInfo> Layers = new List<ImportedLayerInfo>();
+    }
+
     internal sealed class FigmaImportProgress
     {
         public readonly string Message;
