@@ -44,6 +44,8 @@ namespace FigmaUiImporter.Editor
         private FigmaNodeInfo _selectedNode;
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
         private readonly List<string> _logs = new List<string>();
+        private int _loadedPageCount;
+        private int _loadedFrameCount;
         private Vector2 _mainScroll;
         private Vector2 _treeScroll;
         private Vector2 _logScroll;
@@ -166,11 +168,16 @@ namespace FigmaUiImporter.Editor
         private void DrawSelectionTree()
         {
             EditorGUILayout.LabelField("页面 / Frame", EditorStyles.boldLabel);
-            Rect treeRect = GUILayoutUtility.GetRect(1f, 260f, GUILayout.ExpandWidth(true));
-            GUI.Box(treeRect, GUIContent.none);
 
-            GUILayout.BeginArea(new Rect(treeRect.x + 6f, treeRect.y + 4f, treeRect.width - 12f, treeRect.height - 8f));
-            _treeScroll = EditorGUILayout.BeginScrollView(_treeScroll);
+            if (_documentRoot != null)
+            {
+                EditorGUILayout.LabelField(
+                    string.Format("已加载：{0} 个 Page，{1} 个 Frame / Component / Instance", _loadedPageCount, _loadedFrameCount),
+                    EditorStyles.miniLabel);
+            }
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Height(260f));
+            _treeScroll = EditorGUILayout.BeginScrollView(_treeScroll, GUILayout.ExpandHeight(true));
 
             if (_documentRoot == null)
             {
@@ -179,23 +186,48 @@ namespace FigmaUiImporter.Editor
             else
             {
                 List<FigmaNodeInfo> pages = FigmaDocumentParser.GetPages(_documentRoot);
-                if (pages.Count == 0)
+                List<FigmaNodeInfo> roots = pages.Count > 0 ? pages : GetFallbackTreeRoots(_documentRoot);
+
+                if (pages.Count == 0 && roots.Count > 0)
                 {
-                    EditorGUILayout.HelpBox("没有读取到 Page。", MessageType.Warning);
+                    EditorGUILayout.HelpBox("没有读取到标准 CANVAS 类型 Page，已改为显示 document 的一级节点。", MessageType.Warning);
                 }
 
-                for (int i = 0; i < pages.Count; i++)
+                if (roots.Count == 0)
                 {
-                    DrawNodeRow(pages[i], 0, true);
-                    if (GetFoldout(pages[i]))
-                    {
-                        DrawFrameDescendants(pages[i], 1);
-                    }
+                    EditorGUILayout.HelpBox("Figma 返回的 document 没有可显示的子节点。请确认 token 有权限访问该文件，且文件不是空文件。", MessageType.Warning);
+                }
+
+                for (int i = 0; i < roots.Count; i++)
+                {
+                    DrawNodeTreeRoot(roots[i], 0);
                 }
             }
 
             EditorGUILayout.EndScrollView();
-            GUILayout.EndArea();
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawNodeTreeRoot(FigmaNodeInfo node, int indent)
+        {
+            bool selectable = node.IsPage || node.IsFrameLike || node.HasUsableBounds;
+            DrawNodeRow(node, indent, selectable);
+
+            if (!GetFoldout(node))
+            {
+                return;
+            }
+
+            if (node.IsPage)
+            {
+                DrawFrameDescendants(node, indent + 1);
+                return;
+            }
+
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                DrawNodeTreeRoot(node.Children[i], indent + 1);
+            }
         }
 
         private void DrawFrameDescendants(FigmaNodeInfo node, int indent)
@@ -302,13 +334,27 @@ namespace FigmaUiImporter.Editor
                 _foldouts.Clear();
 
                 List<FigmaNodeInfo> pages = FigmaDocumentParser.GetPages(_documentRoot);
+                List<FigmaNodeInfo> frames = new List<FigmaNodeInfo>();
+                FigmaDocumentParser.CollectSelectableFrames(_documentRoot, frames);
+                _loadedPageCount = pages.Count;
+                _loadedFrameCount = frames.Count;
+
                 for (int i = 0; i < pages.Count; i++)
                 {
                     SetFoldout(pages[i], true);
                 }
 
-                _status = "加载完成。请选择 Page 或 Frame。";
-                AddLog("加载完成：" + pages.Count + " 个 Page。");
+                if (pages.Count == 0)
+                {
+                    List<FigmaNodeInfo> fallbackRoots = GetFallbackTreeRoots(_documentRoot);
+                    for (int i = 0; i < fallbackRoots.Count; i++)
+                    {
+                        SetFoldout(fallbackRoots[i], true);
+                    }
+                }
+
+                _status = string.Format("加载完成。读取到 {0} 个 Page，{1} 个 Frame。请选择 Page 或 Frame。", _loadedPageCount, _loadedFrameCount);
+                AddLog(string.Format("加载完成：{0} 个 Page，{1} 个 Frame，document 一级节点 {2} 个。", _loadedPageCount, _loadedFrameCount, _documentRoot.Children.Count));
             }
             catch (OperationCanceledException)
             {
@@ -544,6 +590,27 @@ namespace FigmaUiImporter.Editor
             }
 
             return false;
+        }
+
+        private static List<FigmaNodeInfo> GetFallbackTreeRoots(FigmaNodeInfo documentRoot)
+        {
+            List<FigmaNodeInfo> roots = new List<FigmaNodeInfo>();
+            if (documentRoot == null)
+            {
+                return roots;
+            }
+
+            for (int i = 0; i < documentRoot.Children.Count; i++)
+            {
+                roots.Add(documentRoot.Children[i]);
+            }
+
+            if (roots.Count == 0 && !string.IsNullOrEmpty(documentRoot.Id))
+            {
+                roots.Add(documentRoot);
+            }
+
+            return roots;
         }
     }
 }
