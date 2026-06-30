@@ -2,6 +2,7 @@
   "name": "FigmaUiImporter.Editor",
   "rootNamespace": "FigmaUiImporter.Editor",
   "references": [
+    "FigmaUiImporter.Runtime",
     "UnityEngine.UI"
   ],
   "includePlatforms": [

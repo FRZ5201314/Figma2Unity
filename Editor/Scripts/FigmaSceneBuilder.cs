@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FigmaUiImporter;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -57,7 +58,7 @@ namespace FigmaUiImporter.Editor
                     geometryResolver.Resolve(layer);
 
                     GameObject layerObject = CreateRectObject(
-                        "Layer_" + FigmaPathUtility.SafeObjectName(layer.NodeName) + "_" + FigmaPathUtility.SafeFileName(layer.NodeId),
+                        FigmaPathUtility.SafeObjectName(layer.NodeName),
                         layersRoot.transform);
                     RectTransform rectTransform = layerObject.GetComponent<RectTransform>();
                     rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
@@ -70,6 +71,9 @@ namespace FigmaUiImporter.Editor
                     image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(layer.AssetPath);
                     image.preserveAspect = false;
                     image.raycastTarget = !settings.DisableRaycastTarget;
+
+                    FigmaLayerBinding binding = layerObject.AddComponent<FigmaLayerBinding>();
+                    binding.SetLayerInfo(layer.NodeId, layer.NodeName, layer.NodeType, layer.AssetPath, layer.SiblingIndex);
 
                     layerObject.transform.SetSiblingIndex(i);
                     layer.UnityObjectPath = GetHierarchyPath(layerObject.transform);
