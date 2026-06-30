@@ -20,6 +20,8 @@ namespace FigmaUiImporter.Editor
         private const string PrefDisableRaycast = "FigmaUiImporter.DisableRaycast";
         private const string PrefOverwrite = "FigmaUiImporter.Overwrite";
         private const string PrefIgnoreSslCertificateErrors = "FigmaUiImporter.IgnoreSslCertificateErrors";
+        private const string PrefPreferCachedFile = "FigmaUiImporter.PreferCachedFile";
+        private const int SliceWarningThreshold = 80;
 
         private static readonly string[] SliceModeLabels =
         {
@@ -41,11 +43,13 @@ namespace FigmaUiImporter.Editor
         private bool _disableRaycastTarget;
         private bool _overwriteExisting;
         private bool _ignoreSslCertificateErrors;
+        private bool _preferCachedFile;
 
         private FigmaNodeInfo _documentRoot;
         private FigmaNodeInfo _selectedNode;
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
         private readonly List<string> _logs = new List<string>();
+        private readonly FigmaFileCacheService _fileCache = new FigmaFileCacheService();
         private int _loadedPageCount;
         private int _loadedFrameCount;
         private Vector2 _mainScroll;
@@ -78,6 +82,7 @@ namespace FigmaUiImporter.Editor
             _disableRaycastTarget = EditorPrefs.GetBool(PrefDisableRaycast, true);
             _overwriteExisting = EditorPrefs.GetBool(PrefOverwrite, false);
             _ignoreSslCertificateErrors = EditorPrefs.GetBool(PrefIgnoreSslCertificateErrors, false);
+            _preferCachedFile = EditorPrefs.GetBool(PrefPreferCachedFile, true);
             _status = "等待加载 Figma 文件。";
         }
 
@@ -132,6 +137,7 @@ namespace FigmaUiImporter.Editor
 
                 _disableRaycastTarget = EditorGUILayout.Toggle("关闭图片射线检测", _disableRaycastTarget);
                 _overwriteExisting = EditorGUILayout.Toggle("覆盖同名场景根节点", _overwriteExisting);
+                _preferCachedFile = EditorGUILayout.Toggle("优先使用本地缓存", _preferCachedFile);
                 _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
                 if (_ignoreSslCertificateErrors)
                 {
@@ -147,7 +153,12 @@ namespace FigmaUiImporter.Editor
             {
                 if (GUILayout.Button("加载 Figma 文件", GUILayout.Height(30f)))
                 {
-                    _ = LoadFileAsync();
+                    _ = LoadFileAsync(false);
+                }
+
+                if (GUILayout.Button("强制重新加载", GUILayout.Width(110f), GUILayout.Height(30f)))
+                {
+                    _ = LoadFileAsync(true);
                 }
 
                 using (new EditorGUI.DisabledScope(_selectedNode == null))
@@ -322,7 +333,7 @@ namespace FigmaUiImporter.Editor
             GUILayout.EndArea();
         }
 
-        private async Task LoadFileAsync()
+        private async Task LoadFileAsync(bool forceRemote)
         {
             string fileKey = FigmaPathUtility.ExtractFileKey(_fileInput);
             if (!ValidateConnectionInput(fileKey))
@@ -335,34 +346,31 @@ namespace FigmaUiImporter.Editor
 
             try
             {
-                FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors, OnClientStatus);
-                _documentRoot = await client.LoadFileAsync(fileKey, _cancellation.Token);
-                _loadedFileKey = fileKey;
-                _selectedNode = null;
-                _foldouts.Clear();
-
-                List<FigmaNodeInfo> pages = FigmaDocumentParser.GetPages(_documentRoot);
-                List<FigmaNodeInfo> frames = new List<FigmaNodeInfo>();
-                FigmaDocumentParser.CollectSelectableFrames(_documentRoot, frames);
-                _loadedPageCount = pages.Count;
-                _loadedFrameCount = frames.Count;
-
-                for (int i = 0; i < pages.Count; i++)
+                string json;
+                string cacheMessage = string.Empty;
+                if (!forceRemote && _preferCachedFile && _fileCache.TryLoad(fileKey, out json, out cacheMessage))
                 {
-                    SetFoldout(pages[i], true);
-                }
-
-                if (pages.Count == 0)
-                {
-                    List<FigmaNodeInfo> fallbackRoots = GetFallbackTreeRoots(_documentRoot);
-                    for (int i = 0; i < fallbackRoots.Count; i++)
+                    try
                     {
-                        SetFoldout(fallbackRoots[i], true);
+                        AddLog(cacheMessage);
+                        ApplyLoadedDocument(fileKey, FigmaDocumentParser.ParseFile(json), "从本地缓存加载完成。");
+                        return;
+                    }
+                    catch (Exception cacheException)
+                    {
+                        AddLog("本地缓存解析失败，将改为远程加载：" + cacheException.Message);
                     }
                 }
 
-                _status = string.Format("加载完成。读取到 {0} 个 Page，{1} 个 Frame。请选择 Page 或 Frame。", _loadedPageCount, _loadedFrameCount);
-                AddLog(string.Format("加载完成：{0} 个 Page，{1} 个 Frame，document 一级节点 {2} 个。", _loadedPageCount, _loadedFrameCount, _documentRoot.Children.Count));
+                if (!forceRemote && _preferCachedFile && !string.IsNullOrEmpty(cacheMessage))
+                {
+                    AddLog(cacheMessage);
+                }
+
+                FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors, OnClientStatus);
+                json = await client.LoadFileJsonAsync(fileKey, _cancellation.Token);
+                _fileCache.Save(fileKey, json);
+                ApplyLoadedDocument(fileKey, FigmaDocumentParser.ParseFile(json), forceRemote ? "强制重新加载完成。" : "远程加载完成并已写入本地缓存。");
             }
             catch (OperationCanceledException)
             {
@@ -379,6 +387,37 @@ namespace FigmaUiImporter.Editor
             {
                 EndBusy();
             }
+        }
+
+        private void ApplyLoadedDocument(string fileKey, FigmaNodeInfo documentRoot, string sourceMessage)
+        {
+            _documentRoot = documentRoot;
+            _loadedFileKey = fileKey;
+            _selectedNode = null;
+            _foldouts.Clear();
+
+            List<FigmaNodeInfo> pages = FigmaDocumentParser.GetPages(_documentRoot);
+            List<FigmaNodeInfo> frames = new List<FigmaNodeInfo>();
+            FigmaDocumentParser.CollectSelectableFrames(_documentRoot, frames);
+            _loadedPageCount = pages.Count;
+            _loadedFrameCount = frames.Count;
+
+            for (int i = 0; i < pages.Count; i++)
+            {
+                SetFoldout(pages[i], true);
+            }
+
+            if (pages.Count == 0)
+            {
+                List<FigmaNodeInfo> fallbackRoots = GetFallbackTreeRoots(_documentRoot);
+                for (int i = 0; i < fallbackRoots.Count; i++)
+                {
+                    SetFoldout(fallbackRoots[i], true);
+                }
+            }
+
+            _status = string.Format("{0} 读取到 {1} 个 Page，{2} 个 Frame。请选择 Page 或 Frame。", sourceMessage, _loadedPageCount, _loadedFrameCount);
+            AddLog(string.Format("{0} {1} 个 Page，{2} 个 Frame，document 一级节点 {3} 个。", sourceMessage, _loadedPageCount, _loadedFrameCount, _documentRoot.Children.Count));
         }
 
         private async Task ImportSelectedAsync()
@@ -412,6 +451,11 @@ namespace FigmaUiImporter.Editor
                 {
                     return;
                 }
+            }
+
+            if (!ConfirmSliceEstimate())
+            {
+                return;
             }
 
             BeginBusy("准备导入...");
@@ -451,6 +495,29 @@ namespace FigmaUiImporter.Editor
             }
         }
 
+        private bool ConfirmSliceEstimate()
+        {
+            if (_selectedNode == null || _sliceMode == FigmaSliceMode.FlattenSelectedFrameAsSingleImage)
+            {
+                return true;
+            }
+
+            FigmaDocumentParser.EnsureBoundsFromChildren(_selectedNode);
+            List<FigmaNodeInfo> importableNodes = FigmaDocumentParser.CollectImportableNodes(_selectedNode, _sliceMode);
+            int sliceCount = importableNodes.Count;
+            AddLog("预计切图数量：" + sliceCount);
+
+            if (sliceCount <= SliceWarningThreshold)
+            {
+                return true;
+            }
+
+            string message = string.Format(
+                "预计将导出 {0} 个切图。\n\n这会请求 Figma 图片地址并下载大量 PNG，可能再次触发 429 限流。\n\n建议先改用“仅导入整张参考图”或“只导入已设置 Export 的节点”。\n\n是否继续导入？",
+                sliceCount);
+            return EditorUtility.DisplayDialog("切图数量较多", message, "继续导入", "取消");
+        }
+
         private FigmaImportSettings BuildSettings(string fileKey)
         {
             FigmaImportSettings settings = new FigmaImportSettings();
@@ -465,6 +532,7 @@ namespace FigmaUiImporter.Editor
             settings.DisableRaycastTarget = _disableRaycastTarget;
             settings.OverwriteExisting = _overwriteExisting;
             settings.IgnoreSslCertificateErrors = _ignoreSslCertificateErrors;
+            settings.UseLoadedNodeTree = true;
             return settings;
         }
 
@@ -554,6 +622,7 @@ namespace FigmaUiImporter.Editor
             EditorPrefs.SetBool(PrefDisableRaycast, _disableRaycastTarget);
             EditorPrefs.SetBool(PrefOverwrite, _overwriteExisting);
             EditorPrefs.SetBool(PrefIgnoreSslCertificateErrors, _ignoreSslCertificateErrors);
+            EditorPrefs.SetBool(PrefPreferCachedFile, _preferCachedFile);
         }
 
         private void PickOutputFolder()

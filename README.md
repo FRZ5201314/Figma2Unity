@@ -28,7 +28,7 @@
 2. 填写 Figma Personal Access Token。
 3. 填写 Figma File Key 或文件 URL。
 4. 设置输出资源目录，默认是 `Assets/FigmaImports`。
-5. 点击 `加载 Figma 文件`。
+5. 点击 `加载 Figma 文件`。默认会优先读取本地缓存，避免频繁请求 Figma；需要获取最新设计稿时点击 `强制重新加载`。
 6. 在 Page / Frame 树中选择要导入的目标。
 7. 点击 `导入选中项`。
 
@@ -67,6 +67,8 @@ Canvas
 - Token 使用 `EditorPrefs` 保存在本机，不会写入项目资源。
 - 如果 Unity 报 `Unable to complete SSL connection`，可在插件窗口临时勾选 `忽略 SSL 证书错误` 后重试；该选项会跳过 HTTPS 证书校验，仅建议在受信任网络或代理环境中使用。
 - 如果 Figma 返回 `429 Rate limit exceeded`，说明当前 token 或网络出口触发了 Figma 限流。插件会自动退避重试；仍失败时请等待几分钟后再导入，或降低重复加载/导入频率。
+- 插件会把 Figma 文件结构缓存到 Unity 项目的 `Library/FigmaUiImporterCache`，该目录不会进入版本库。导入时会优先使用已加载的节点树，减少额外 API 请求。
+- 导入前如果预估切图数量较多，插件会弹窗确认，避免自动切片一次性触发过多图片导出请求。
 - 插件按视觉还原导入，不会把 Figma Text 转成 TMP，也不会自动生成 Button、Toggle、ScrollView 等语义组件。
 - Page 可能很大，建议优先选择具体 Frame。
 - Figma 图片 URL 有时效，插件会立即下载到 Unity 项目资源目录。

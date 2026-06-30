@@ -29,7 +29,17 @@ namespace FigmaUiImporter.Editor
             CancellationToken cancellationToken)
         {
             progress.Report(new FigmaImportProgress("读取所选节点...", 0.08f));
-            FigmaNodeInfo selectedRoot = await _client.LoadNodeTreeAsync(settings.FileKey, selectedNode.Id, cancellationToken);
+            FigmaNodeInfo selectedRoot = null;
+            if (settings.UseLoadedNodeTree && selectedNode != null)
+            {
+                selectedRoot = selectedNode;
+                progress.Report(new FigmaImportProgress("使用已加载的节点结构，跳过节点 API 请求...", 0.1f));
+            }
+            else
+            {
+                selectedRoot = await _client.LoadNodeTreeAsync(settings.FileKey, selectedNode.Id, cancellationToken);
+            }
+
             FigmaDocumentParser.EnsureBoundsFromChildren(selectedRoot);
 
             if (!selectedRoot.HasUsableBounds)

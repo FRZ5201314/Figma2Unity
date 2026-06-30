@@ -29,11 +29,16 @@ namespace FigmaUiImporter.Editor
 
         public async Task<FigmaNodeInfo> LoadFileAsync(string fileKey, CancellationToken cancellationToken)
         {
-            ReportStatus("正在请求 Figma 文件结构...");
-            string url = ApiBaseUrl + "/files/" + Uri.EscapeDataString(fileKey);
-            string json = await SendTextWithRetryAsync(url, true, cancellationToken);
+            string json = await LoadFileJsonAsync(fileKey, cancellationToken);
             ReportStatus("Figma 文件结构读取完成，正在解析...");
             return FigmaDocumentParser.ParseFile(json);
+        }
+
+        public async Task<string> LoadFileJsonAsync(string fileKey, CancellationToken cancellationToken)
+        {
+            ReportStatus("正在请求 Figma 文件结构...");
+            string url = ApiBaseUrl + "/files/" + Uri.EscapeDataString(fileKey);
+            return await SendTextWithRetryAsync(url, true, cancellationToken);
         }
 
         public async Task<FigmaNodeInfo> LoadNodeTreeAsync(string fileKey, string nodeId, CancellationToken cancellationToken)
