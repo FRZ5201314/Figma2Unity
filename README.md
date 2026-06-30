@@ -11,6 +11,7 @@
 - 导入完整参考图，自动添加 `CanvasGroup`，默认透明度 `0.5`
 - 导入切图资源并设置为 Sprite
 - 按 Figma `absoluteBoundingBox` 还原 RectTransform 坐标
+- 使用导出 PNG 实际尺寸和参考图局部匹配校准切图位置
 - 生成 `manifest.json`
 - 支持从已有 `manifest.json` 离线重建场景
 - 支持覆盖同名场景根节点
@@ -73,6 +74,7 @@ Canvas
 - 插件会把 Figma 文件结构缓存到 Unity 项目的 `Library/FigmaUiImporterCache`，该目录不会进入版本库。导入时会优先使用已加载的节点树，减少额外 API 请求。
 - 导入前如果预估切图数量较多，插件会弹窗确认，避免自动切片一次性触发过多图片导出请求。
 - `从 Manifest 重建场景` 只能使用当前 Unity 项目 `Assets` 目录内的 manifest 和图片资源；如果移动了 `reference.png` 或 `layers` 目录，需要保持 manifest 中记录的相对路径仍然可用。
+- 为了让切图大小和位置更贴近参考图，建议保留 `创建参考图`。没有参考图时，插件仍会使用 PNG 实际尺寸，但无法进行像素位置校准。
 - 插件按视觉还原导入，不会把 Figma Text 转成 TMP，也不会自动生成 Button、Toggle、ScrollView 等语义组件。
 - Page 可能很大，建议优先选择具体 Frame。
 - Figma 图片 URL 有时效，插件会立即下载到 Unity 项目资源目录。

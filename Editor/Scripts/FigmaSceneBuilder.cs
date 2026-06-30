@@ -48,29 +48,31 @@ namespace FigmaUiImporter.Editor
             GameObject layersRoot = CreateRectObject("Layers", rootObject.transform);
             MatchRootRect(layersRoot.GetComponent<RectTransform>(), selectedRoot);
 
-            for (int i = 0; i < layers.Count; i++)
+            using (FigmaLayerGeometryResolver geometryResolver = new FigmaLayerGeometryResolver(settings, selectedRoot, referenceAssetPath))
             {
-                ImportedLayerInfo layer = layers[i];
-                GameObject layerObject = CreateRectObject(
-                    "Layer_" + FigmaPathUtility.SafeObjectName(layer.NodeName) + "_" + FigmaPathUtility.SafeFileName(layer.NodeId),
-                    layersRoot.transform);
-                RectTransform rectTransform = layerObject.GetComponent<RectTransform>();
-                rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-                rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-                rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                rectTransform.anchoredPosition = layer.AnchoredPosition;
+                for (int i = 0; i < layers.Count; i++)
+                {
+                    ImportedLayerInfo layer = layers[i];
+                    geometryResolver.Resolve(layer);
 
-                Image image = layerObject.AddComponent<Image>();
-                Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(layer.AssetPath);
-                image.sprite = sprite;
-                image.preserveAspect = false;
-                image.raycastTarget = !settings.DisableRaycastTarget;
+                    GameObject layerObject = CreateRectObject(
+                        "Layer_" + FigmaPathUtility.SafeObjectName(layer.NodeName) + "_" + FigmaPathUtility.SafeFileName(layer.NodeId),
+                        layersRoot.transform);
+                    RectTransform rectTransform = layerObject.GetComponent<RectTransform>();
+                    rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+                    rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                    rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                    rectTransform.anchoredPosition = layer.AnchoredPosition;
+                    rectTransform.sizeDelta = layer.SizeDelta;
 
-                layer.SizeDelta = ResolveLayerSize(settings, layer, sprite);
-                rectTransform.sizeDelta = layer.SizeDelta;
+                    Image image = layerObject.AddComponent<Image>();
+                    image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(layer.AssetPath);
+                    image.preserveAspect = false;
+                    image.raycastTarget = !settings.DisableRaycastTarget;
 
-                layerObject.transform.SetSiblingIndex(i);
-                layer.UnityObjectPath = GetHierarchyPath(layerObject.transform);
+                    layerObject.transform.SetSiblingIndex(i);
+                    layer.UnityObjectPath = GetHierarchyPath(layerObject.transform);
+                }
             }
 
             EditorSceneManager.MarkSceneDirty(rootObject.scene);
@@ -99,31 +101,6 @@ namespace FigmaUiImporter.Editor
             canvasGroup.alpha = Mathf.Clamp01(settings.ReferenceAlpha);
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
-        }
-
-        private static Vector2 ResolveLayerSize(FigmaImportSettings settings, ImportedLayerInfo layer, Sprite sprite)
-        {
-            Vector2 size = layer.SizeDelta;
-            if (sprite == null)
-            {
-                return size;
-            }
-
-            float imageScale = settings != null ? Mathf.Max(0.01f, settings.ImageScale) : 1f;
-            Vector2 spriteSize = new Vector2(sprite.rect.width / imageScale, sprite.rect.height / imageScale);
-            const float tolerance = 1f;
-
-            if (spriteSize.x > size.x + tolerance)
-            {
-                size.x = spriteSize.x;
-            }
-
-            if (spriteSize.y > size.y + tolerance)
-            {
-                size.y = spriteSize.y;
-            }
-
-            return size;
         }
 
         private static Canvas GetOrCreateCanvas(Canvas targetCanvas)
