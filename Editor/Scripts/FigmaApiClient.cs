@@ -13,33 +13,39 @@ namespace FigmaUiImporter.Editor
         private const string ApiBaseUrl = "https://api.figma.com/v1";
         private readonly string _accessToken;
         private readonly bool _ignoreSslCertificateErrors;
+        private readonly Action<string> _statusReporter;
 
         static FigmaApiClient()
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
         }
 
-        public FigmaApiClient(string accessToken, bool ignoreSslCertificateErrors)
+        public FigmaApiClient(string accessToken, bool ignoreSslCertificateErrors, Action<string> statusReporter = null)
         {
             _accessToken = accessToken;
             _ignoreSslCertificateErrors = ignoreSslCertificateErrors;
+            _statusReporter = statusReporter;
         }
 
         public async Task<FigmaNodeInfo> LoadFileAsync(string fileKey, CancellationToken cancellationToken)
         {
+            ReportStatus("正在请求 Figma 文件结构...");
             string url = ApiBaseUrl + "/files/" + Uri.EscapeDataString(fileKey);
             string json = await SendTextWithRetryAsync(url, true, cancellationToken);
+            ReportStatus("Figma 文件结构读取完成，正在解析...");
             return FigmaDocumentParser.ParseFile(json);
         }
 
         public async Task<FigmaNodeInfo> LoadNodeTreeAsync(string fileKey, string nodeId, CancellationToken cancellationToken)
         {
+            ReportStatus("正在读取所选节点结构...");
             string url = ApiBaseUrl
                 + "/files/"
                 + Uri.EscapeDataString(fileKey)
                 + "/nodes?ids="
                 + Uri.EscapeDataString(nodeId);
             string json = await SendTextWithRetryAsync(url, true, cancellationToken);
+            ReportStatus("所选节点结构读取完成，正在解析...");
             return FigmaDocumentParser.ParseNodeResponse(json, nodeId);
         }
 
@@ -55,6 +61,7 @@ namespace FigmaUiImporter.Editor
                 return new Dictionary<string, string>();
             }
 
+            ReportStatus("正在请求 Figma 图片地址：" + nodeIds.Count + " 个节点...");
             string joinedIds = string.Join(",", nodeIds);
             string scaleText = Math.Max(0.01f, Math.Min(4f, scale)).ToString("0.###", CultureInfo.InvariantCulture);
             string url = ApiBaseUrl
@@ -68,6 +75,7 @@ namespace FigmaUiImporter.Editor
                 + scaleText;
 
             string json = await SendTextWithRetryAsync(url, true, cancellationToken);
+            ReportStatus("Figma 图片地址读取完成。");
             return ParseImageUrls(json);
         }
 
@@ -90,6 +98,7 @@ namespace FigmaUiImporter.Editor
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                ReportStatus(string.Format("正在连接 Figma API（第 {0}/{1} 次）...", attempt, maxAttempts));
 
                 try
                 {
@@ -121,6 +130,7 @@ namespace FigmaUiImporter.Editor
                     }
 
                     retryDelayMs = GetRetryDelayMs(exception, attempt);
+                    ReportRetry(exception, retryDelayMs, attempt, maxAttempts);
                 }
                 catch (Exception exception)
                 {
@@ -131,6 +141,7 @@ namespace FigmaUiImporter.Editor
                     }
 
                     retryDelayMs = 1000 * attempt;
+                    ReportStatus(string.Format("Figma 请求异常，等待 {0} 秒后重试（第 {1}/{2} 次）：{3}", retryDelayMs / 1000, attempt, maxAttempts, exception.Message));
                 }
 
                 await Task.Delay(retryDelayMs, cancellationToken);
@@ -146,6 +157,26 @@ namespace FigmaUiImporter.Editor
             {
                 request.certificateHandler = new TrustAllCertificateHandler();
                 request.disposeCertificateHandlerOnDispose = true;
+            }
+        }
+
+        private void ReportRetry(FigmaApiException exception, int retryDelayMs, int attempt, int maxAttempts)
+        {
+            int seconds = Math.Max(1, (retryDelayMs + 999) / 1000);
+            if (exception.StatusCode == 429)
+            {
+                ReportStatus(string.Format("Figma API 已限流，等待 {0} 秒后自动重试（第 {1}/{2} 次）。", seconds, attempt, maxAttempts));
+                return;
+            }
+
+            ReportStatus(string.Format("Figma API 请求失败，等待 {0} 秒后自动重试（第 {1}/{2} 次）：{3}", seconds, attempt, maxAttempts, exception.RawMessage));
+        }
+
+        private void ReportStatus(string message)
+        {
+            if (_statusReporter != null && !string.IsNullOrEmpty(message))
+            {
+                _statusReporter(message);
             }
         }
 

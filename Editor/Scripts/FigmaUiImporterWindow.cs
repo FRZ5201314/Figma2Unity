@@ -335,7 +335,7 @@ namespace FigmaUiImporter.Editor
 
             try
             {
-                FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors);
+                FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors, OnClientStatus);
                 _documentRoot = await client.LoadFileAsync(fileKey, _cancellation.Token);
                 _loadedFileKey = fileKey;
                 _selectedNode = null;
@@ -420,7 +420,7 @@ namespace FigmaUiImporter.Editor
             try
             {
                 FigmaImportSettings settings = BuildSettings(fileKey);
-                FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors);
+                FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors, OnClientStatus);
                 FigmaImportOrchestrator importer = new FigmaImportOrchestrator(client);
                 Progress<FigmaImportProgress> progress = new Progress<FigmaImportProgress>(OnProgress);
                 FigmaImportResult result = await importer.ImportAsync(settings, _selectedNode, progress, _cancellation.Token);
@@ -517,6 +517,18 @@ namespace FigmaUiImporter.Editor
         {
             _status = progress.Message;
             _progress = progress.Value;
+            Repaint();
+        }
+
+        private void OnClientStatus(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+            {
+                return;
+            }
+
+            _status = message;
+            AddLog(message);
             Repaint();
         }
 
