@@ -22,6 +22,16 @@ namespace FigmaUiImporter.Editor
             "INSTANCE"
         };
 
+        private static readonly HashSet<string> ContainerTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "DOCUMENT",
+            "CANVAS",
+            "FRAME",
+            "GROUP",
+            "COMPONENT",
+            "INSTANCE"
+        };
+
         public static FigmaNodeInfo ParseFile(string json)
         {
             Dictionary<string, object> root = MiniJson.Deserialize(json) as Dictionary<string, object>;
@@ -120,11 +130,22 @@ namespace FigmaUiImporter.Editor
                 CollectMarkedNodes(selectedRoot, selectedRoot, results);
             }
 
-            if (sliceMode == FigmaSliceMode.AutoSliceVisibleLayers
-                || (sliceMode == FigmaSliceMode.ExportSettingsThenAutoSlice && results.Count == 0))
+            if (sliceMode == FigmaSliceMode.ExportMarkedNodesOnly)
             {
-                results.Clear();
-                CollectAutoSliceNodes(selectedRoot, selectedRoot, results);
+                return results;
+            }
+
+            List<FigmaNodeInfo> autoSliceNodes = new List<FigmaNodeInfo>();
+            CollectAutoSliceNodes(selectedRoot, selectedRoot, autoSliceNodes);
+
+            if (sliceMode == FigmaSliceMode.ExportSettingsThenAutoSlice)
+            {
+                return MergeMarkedAndAutoSliceNodes(selectedRoot, results, autoSliceNodes);
+            }
+
+            if (sliceMode == FigmaSliceMode.AutoSliceVisibleLayers)
+            {
+                return autoSliceNodes;
             }
 
             return results;
@@ -201,32 +222,144 @@ namespace FigmaUiImporter.Editor
             }
         }
 
-        private static void CollectAutoSliceNodes(FigmaNodeInfo root, FigmaNodeInfo node, List<FigmaNodeInfo> results)
+        private static bool CollectAutoSliceNodes(FigmaNodeInfo root, FigmaNodeInfo node, List<FigmaNodeInfo> results)
         {
             if (node == null || !node.Visible || !node.HasUsableBounds || !IsNodeInsideRoot(root, node))
             {
-                return;
+                return false;
             }
 
             bool canRenderSelf = node != root && IsRenderableNode(node);
-            bool isLeaf = node.Children.Count == 0;
-            bool hasVisualContainer = canRenderSelf && (node.HasVisibleFills || node.HasVisibleStrokes || node.HasEffects || node.HasTextCharacters);
+            bool isContainer = IsContainerNode(node);
 
-            if (canRenderSelf && (isLeaf || hasVisualContainer || node.HasExportSettings))
+            if (canRenderSelf && !isContainer && HasRenderableSelf(node))
             {
                 results.Add(node);
+                return true;
+            }
+
+            bool hasCollectedChild = false;
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                hasCollectedChild |= CollectAutoSliceNodes(root, node.Children[i], results);
+            }
+
+            if (node == root)
+            {
+                return hasCollectedChild;
+            }
+
+            if (canRenderSelf && !hasCollectedChild && (node.HasExportSettings || node.Children.Count == 0 || HasRenderableSelf(node)))
+            {
+                results.Add(node);
+                return true;
+            }
+
+            return hasCollectedChild;
+        }
+
+        private static List<FigmaNodeInfo> MergeMarkedAndAutoSliceNodes(
+            FigmaNodeInfo root,
+            IList<FigmaNodeInfo> markedNodes,
+            IList<FigmaNodeInfo> autoSliceNodes)
+        {
+            Dictionary<string, FigmaNodeInfo> markedMap = ToNodeMap(markedNodes);
+            Dictionary<string, FigmaNodeInfo> autoSliceMap = ToNodeMap(autoSliceNodes);
+            List<FigmaNodeInfo> merged = new List<FigmaNodeInfo>();
+            CollectMergedNodesInDrawOrder(root, markedMap, autoSliceMap, merged);
+            return merged;
+        }
+
+        private static void CollectMergedNodesInDrawOrder(
+            FigmaNodeInfo node,
+            IDictionary<string, FigmaNodeInfo> markedMap,
+            IDictionary<string, FigmaNodeInfo> autoSliceMap,
+            IList<FigmaNodeInfo> results)
+        {
+            if (node == null)
+            {
                 return;
             }
 
             for (int i = 0; i < node.Children.Count; i++)
             {
-                CollectAutoSliceNodes(root, node.Children[i], results);
+                FigmaNodeInfo child = node.Children[i];
+                FigmaNodeInfo markedNode;
+                if (markedMap.TryGetValue(child.Id, out markedNode))
+                {
+                    results.Add(markedNode);
+                    continue;
+                }
+
+                FigmaNodeInfo autoSliceNode;
+                if (autoSliceMap.TryGetValue(child.Id, out autoSliceNode) && !HasMappedDescendant(child, markedMap))
+                {
+                    results.Add(autoSliceNode);
+                    continue;
+                }
+
+                CollectMergedNodesInDrawOrder(child, markedMap, autoSliceMap, results);
             }
+        }
+
+        private static bool HasMappedDescendant(FigmaNodeInfo node, IDictionary<string, FigmaNodeInfo> map)
+        {
+            if (node == null || map == null || map.Count == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                FigmaNodeInfo child = node.Children[i];
+                if (map.ContainsKey(child.Id) || HasMappedDescendant(child, map))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Dictionary<string, FigmaNodeInfo> ToNodeMap(IList<FigmaNodeInfo> nodes)
+        {
+            Dictionary<string, FigmaNodeInfo> map = new Dictionary<string, FigmaNodeInfo>();
+            if (nodes == null)
+            {
+                return map;
+            }
+
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                FigmaNodeInfo node = nodes[i];
+                if (node != null && !string.IsNullOrEmpty(node.Id) && !map.ContainsKey(node.Id))
+                {
+                    map.Add(node.Id, node);
+                }
+            }
+
+            return map;
         }
 
         private static bool IsRenderableNode(FigmaNodeInfo node)
         {
             return node != null && RenderableTypes.Contains(node.Type);
+        }
+
+        private static bool IsContainerNode(FigmaNodeInfo node)
+        {
+            return node != null && ContainerTypes.Contains(node.Type);
+        }
+
+        private static bool HasRenderableSelf(FigmaNodeInfo node)
+        {
+            return node != null
+                && (node.HasExportSettings
+                    || node.HasVisibleFills
+                    || node.HasVisibleStrokes
+                    || node.HasEffects
+                    || node.HasTextCharacters
+                    || node.Children.Count == 0);
         }
 
         private static bool IsNodeInsideRoot(FigmaNodeInfo root, FigmaNodeInfo node)
@@ -262,6 +395,7 @@ namespace FigmaUiImporter.Editor
             {
                 node.HasAbsoluteBounds = TryGetBounds(data, "absoluteRenderBounds", out node.AbsoluteBounds);
             }
+            NormalizeThinBounds(node);
 
             node.HasExportSettings = HasNonEmptyList(data, "exportSettings");
             node.HasVisibleFills = HasVisiblePaints(data, "fills");
@@ -299,7 +433,25 @@ namespace FigmaUiImporter.Editor
                 GetFloat(bounds, "y"),
                 GetFloat(bounds, "width"),
                 GetFloat(bounds, "height"));
-            return rect.width > 0.01f && rect.height > 0.01f;
+            return rect.width > 0.01f || rect.height > 0.01f;
+        }
+
+        private static void NormalizeThinBounds(FigmaNodeInfo node)
+        {
+            if (node == null || !node.HasAbsoluteBounds)
+            {
+                return;
+            }
+
+            if (!string.Equals(node.Type, "LINE", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            Rect bounds = node.AbsoluteBounds;
+            bounds.width = Mathf.Max(1f, bounds.width);
+            bounds.height = Mathf.Max(1f, bounds.height);
+            node.AbsoluteBounds = bounds;
         }
 
         private static bool HasVisiblePaints(Dictionary<string, object> data, string key)

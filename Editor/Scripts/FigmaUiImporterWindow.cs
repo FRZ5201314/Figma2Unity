@@ -22,7 +22,7 @@ namespace FigmaUiImporter.Editor
 
         private static readonly string[] SliceModeLabels =
         {
-            "ExportSettings 优先，没有则自动切片",
+            "ExportSettings 优先，并补齐自动切片",
             "只导入已设置 Export 的节点",
             "自动切片可见图层",
             "仅导入整张参考图"
