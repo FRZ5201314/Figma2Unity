@@ -93,19 +93,11 @@ namespace FigmaUiImporter.Editor
             }
 
             layer.SizeDelta = imageSize;
-
-            AlphaBounds alphaBounds;
-            if (!layerTexture.TryGetAlphaBounds(out alphaBounds) || !_rootBounds.HasUsableSize())
+            Vector2 matchedPosition;
+            if (TryMatchReference(layer, layerTexture, imageSize, out matchedPosition))
             {
-                return;
+                layer.AnchoredPosition = matchedPosition;
             }
-
-            Rect imageBounds = new Rect(
-                layer.FigmaBounds.x - alphaBounds.X / _pixelScale.x,
-                layer.FigmaBounds.y - alphaBounds.Y / _pixelScale.y,
-                imageSize.x,
-                imageSize.y);
-            layer.AnchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(_rootBounds, imageBounds);
         }
 
         public void Dispose()
@@ -146,11 +138,12 @@ namespace FigmaUiImporter.Editor
             int expectedY = Mathf.RoundToInt((layer.FigmaBounds.y - _rootBounds.y) * _pixelScale.y);
             int radiusX = GetSearchRadius(layerTexture.Width, layer.FigmaBounds.width * _pixelScale.x, _pixelScale.x);
             int radiusY = GetSearchRadius(layerTexture.Height, layer.FigmaBounds.height * _pixelScale.y, _pixelScale.y);
+            int minComparedSamples = Mathf.Max(8, Mathf.CeilToInt(samples.Count * 0.25f));
 
-            int minX = Mathf.Max(0, expectedX - radiusX);
-            int maxX = Mathf.Min(_reference.Width - layerTexture.Width, expectedX + radiusX);
-            int minY = Mathf.Max(0, expectedY - radiusY);
-            int maxY = Mathf.Min(_reference.Height - layerTexture.Height, expectedY + radiusY);
+            int minX = Mathf.Max(-layerTexture.Width + 1, expectedX - radiusX);
+            int maxX = Mathf.Min(_reference.Width - 1, expectedX + radiusX);
+            int minY = Mathf.Max(-layerTexture.Height + 1, expectedY - radiusY);
+            int maxY = Mathf.Min(_reference.Height - 1, expectedY + radiusY);
             if (minX > maxX || minY > maxY)
             {
                 return false;
@@ -164,7 +157,13 @@ namespace FigmaUiImporter.Editor
             {
                 for (int x = minX; x <= maxX; x++)
                 {
-                    float score = ScoreAt(_reference, layerTexture, samples, x, y);
+                    int comparedSamples;
+                    float score = ScoreAt(_reference, layerTexture, samples, x, y, out comparedSamples);
+                    if (comparedSamples < minComparedSamples)
+                    {
+                        continue;
+                    }
+
                     if (score < bestScore)
                     {
                         bestScore = score;
@@ -179,7 +178,16 @@ namespace FigmaUiImporter.Editor
                 return false;
             }
 
-            bestX = ResolveHorizontalPosition(layer, layerTexture, samples, bestX, bestY, bestScore, minX, maxX);
+            bestX = ResolveHorizontalPosition(
+                layer,
+                layerTexture,
+                samples,
+                bestX,
+                bestY,
+                bestScore,
+                minX,
+                maxX,
+                minComparedSamples);
 
             Rect imageBounds = new Rect(
                 _rootBounds.x + bestX / _pixelScale.x,
@@ -198,7 +206,8 @@ namespace FigmaUiImporter.Editor
             int matchedY,
             float matchedScore,
             int minX,
-            int maxX)
+            int maxX,
+            int minComparedSamples)
         {
             float layerCenterX = layer.FigmaBounds.x + layer.FigmaBounds.width * 0.5f;
             int centeredX = Mathf.RoundToInt((layerCenterX - _rootBounds.x) * _pixelScale.x - layerTexture.Width * 0.5f);
@@ -207,7 +216,13 @@ namespace FigmaUiImporter.Editor
                 return matchedX;
             }
 
-            float centeredScore = ScoreAt(_reference, layerTexture, samples, centeredX, matchedY);
+            int comparedSamples;
+            float centeredScore = ScoreAt(_reference, layerTexture, samples, centeredX, matchedY, out comparedSamples);
+            if (comparedSamples < minComparedSamples)
+            {
+                return matchedX;
+            }
+
             if (centeredScore <= matchedScore + CenteredXScoreTolerance)
             {
                 return centeredX;
@@ -312,20 +327,32 @@ namespace FigmaUiImporter.Editor
             TextureData layer,
             IList<SamplePoint> samples,
             int offsetX,
-            int offsetY)
+            int offsetY,
+            out int comparedSamples)
         {
             int total = 0;
+            comparedSamples = 0;
             for (int i = 0; i < samples.Count; i++)
             {
                 SamplePoint sample = samples[i];
-                Color32 referenceColor = reference.GetPixelTopLeft(offsetX + sample.X, offsetY + sample.Y);
+                int referenceX = offsetX + sample.X;
+                int referenceY = offsetY + sample.Y;
+                if (!reference.Contains(referenceX, referenceY))
+                {
+                    continue;
+                }
+
+                Color32 referenceColor = reference.GetPixelTopLeft(referenceX, referenceY);
                 Color32 layerColor = layer.GetPixelTopLeft(sample.X, sample.Y);
                 total += Math.Abs(referenceColor.r - layerColor.r);
                 total += Math.Abs(referenceColor.g - layerColor.g);
                 total += Math.Abs(referenceColor.b - layerColor.b);
+                comparedSamples++;
             }
 
-            return total / (samples.Count * 3f);
+            return comparedSamples > 0
+                ? total / (comparedSamples * 3f)
+                : float.MaxValue;
         }
 
         private static int GetSearchRadius(int imagePixels, float figmaPixels, float pixelScale)
@@ -339,18 +366,6 @@ namespace FigmaUiImporter.Editor
         {
             float scale = settings != null ? Mathf.Max(0.01f, settings.ImageScale) : 1f;
             return new Vector2(scale, scale);
-        }
-
-        private struct AlphaBounds
-        {
-            public readonly int X;
-            public readonly int Y;
-
-            public AlphaBounds(int x, int y)
-            {
-                X = x;
-                Y = y;
-            }
         }
 
         private struct SamplePoint
@@ -406,37 +421,9 @@ namespace FigmaUiImporter.Editor
                 return _pixels[(Height - 1 - y) * Width + x];
             }
 
-            public bool TryGetAlphaBounds(out AlphaBounds bounds)
+            public bool Contains(int x, int y)
             {
-                int minX = Width;
-                int minY = Height;
-                int maxX = -1;
-                int maxY = -1;
-
-                for (int y = 0; y < Height; y++)
-                {
-                    for (int x = 0; x < Width; x++)
-                    {
-                        if (GetPixelTopLeft(x, y).a == 0)
-                        {
-                            continue;
-                        }
-
-                        minX = Mathf.Min(minX, x);
-                        minY = Mathf.Min(minY, y);
-                        maxX = Mathf.Max(maxX, x);
-                        maxY = Mathf.Max(maxY, y);
-                    }
-                }
-
-                if (maxX < minX || maxY < minY)
-                {
-                    bounds = new AlphaBounds();
-                    return false;
-                }
-
-                bounds = new AlphaBounds(minX, minY);
-                return true;
+                return x >= 0 && x < Width && y >= 0 && y < Height;
             }
 
             public void Dispose()
