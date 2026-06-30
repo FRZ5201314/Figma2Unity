@@ -108,14 +108,25 @@ namespace FigmaUiImporter.Editor
                 layer.NodeName = node.Name;
                 layer.NodeType = node.Type;
                 layer.AssetPath = assetPath;
-                layer.FigmaBounds = node.AbsoluteBounds;
-                layer.AnchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(rootBounds, node.AbsoluteBounds);
-                layer.SizeDelta = new Vector2(node.AbsoluteBounds.width, node.AbsoluteBounds.height);
+                Rect sliceBounds = GetSliceLayoutBounds(node);
+                layer.FigmaBounds = sliceBounds;
+                layer.AnchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(rootBounds, sliceBounds);
+                layer.SizeDelta = new Vector2(sliceBounds.width, sliceBounds.height);
                 layer.SiblingIndex = layers.Count;
                 layers.Add(layer);
             }
 
             return layers;
+        }
+
+        private static Rect GetSliceLayoutBounds(FigmaNodeInfo node)
+        {
+            if (node == null)
+            {
+                return new Rect();
+            }
+
+            return node.HasAbsoluteRenderBounds ? node.AbsoluteRenderBounds : node.AbsoluteBounds;
         }
     }
 }

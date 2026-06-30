@@ -42,6 +42,8 @@ namespace FigmaUiImporter.Editor
         public bool Visible = true;
         public Rect AbsoluteBounds;
         public bool HasAbsoluteBounds;
+        public Rect AbsoluteRenderBounds;
+        public bool HasAbsoluteRenderBounds;
         public bool HasExportSettings;
         public bool HasVisibleFills;
         public bool HasVisibleStrokes;
@@ -53,6 +55,16 @@ namespace FigmaUiImporter.Editor
         public bool HasUsableBounds
         {
             get { return HasAbsoluteBounds && AbsoluteBounds.width > 0.01f && AbsoluteBounds.height > 0.01f; }
+        }
+
+        public Rect SliceBounds
+        {
+            get { return HasAbsoluteRenderBounds ? AbsoluteRenderBounds : AbsoluteBounds; }
+        }
+
+        public bool HasUsableSliceBounds
+        {
+            get { return SliceBounds.width > 0.01f && SliceBounds.height > 0.01f; }
         }
 
         public bool IsPage

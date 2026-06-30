@@ -32,6 +32,11 @@ namespace FigmaUiImporter.Editor
             "INSTANCE"
         };
 
+        private static readonly HashSet<string> AtomicContainerTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "INSTANCE"
+        };
+
         public static FigmaNodeInfo ParseFile(string json)
         {
             Dictionary<string, object> root = MiniJson.Deserialize(json) as Dictionary<string, object>;
@@ -230,6 +235,12 @@ namespace FigmaUiImporter.Editor
             }
 
             bool canRenderSelf = node != root && IsRenderableNode(node);
+            if (canRenderSelf && IsAtomicContainerNode(node))
+            {
+                results.Add(node);
+                return true;
+            }
+
             bool isContainer = IsContainerNode(node);
 
             if (canRenderSelf && !isContainer && HasRenderableSelf(node))
@@ -292,7 +303,8 @@ namespace FigmaUiImporter.Editor
                 }
 
                 FigmaNodeInfo autoSliceNode;
-                if (autoSliceMap.TryGetValue(child.Id, out autoSliceNode) && !HasMappedDescendant(child, markedMap))
+                if (autoSliceMap.TryGetValue(child.Id, out autoSliceNode)
+                    && (IsAtomicContainerNode(child) || !HasMappedDescendant(child, markedMap)))
                 {
                     results.Add(autoSliceNode);
                     continue;
@@ -351,6 +363,11 @@ namespace FigmaUiImporter.Editor
             return node != null && ContainerTypes.Contains(node.Type);
         }
 
+        private static bool IsAtomicContainerNode(FigmaNodeInfo node)
+        {
+            return node != null && AtomicContainerTypes.Contains(node.Type);
+        }
+
         private static bool HasRenderableSelf(FigmaNodeInfo node)
         {
             return node != null
@@ -391,9 +408,11 @@ namespace FigmaUiImporter.Editor
             node.Type = GetString(data, "type");
             node.Visible = !data.ContainsKey("visible") || GetBool(data, "visible", true);
             node.HasAbsoluteBounds = TryGetBounds(data, "absoluteBoundingBox", out node.AbsoluteBounds);
-            if (!node.HasAbsoluteBounds)
+            node.HasAbsoluteRenderBounds = TryGetBounds(data, "absoluteRenderBounds", out node.AbsoluteRenderBounds);
+            if ((!node.HasAbsoluteBounds || !IsUsableRect(node.AbsoluteBounds)) && node.HasAbsoluteRenderBounds)
             {
-                node.HasAbsoluteBounds = TryGetBounds(data, "absoluteRenderBounds", out node.AbsoluteBounds);
+                node.AbsoluteBounds = node.AbsoluteRenderBounds;
+                node.HasAbsoluteBounds = true;
             }
             NormalizeThinBounds(node);
 
@@ -436,6 +455,11 @@ namespace FigmaUiImporter.Editor
             return rect.width > 0.01f || rect.height > 0.01f;
         }
 
+        private static bool IsUsableRect(Rect rect)
+        {
+            return rect.width > 0.01f && rect.height > 0.01f;
+        }
+
         private static void NormalizeThinBounds(FigmaNodeInfo node)
         {
             if (node == null || !node.HasAbsoluteBounds)
@@ -452,6 +476,14 @@ namespace FigmaUiImporter.Editor
             bounds.width = Mathf.Max(1f, bounds.width);
             bounds.height = Mathf.Max(1f, bounds.height);
             node.AbsoluteBounds = bounds;
+
+            if (node.HasAbsoluteRenderBounds)
+            {
+                Rect renderBounds = node.AbsoluteRenderBounds;
+                renderBounds.width = Mathf.Max(1f, renderBounds.width);
+                renderBounds.height = Mathf.Max(1f, renderBounds.height);
+                node.AbsoluteRenderBounds = renderBounds;
+            }
         }
 
         private static bool HasVisiblePaints(Dictionary<string, object> data, string key)
