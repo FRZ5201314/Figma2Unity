@@ -11,6 +11,7 @@ namespace FigmaUiImporter.Editor
         private const int MinAlpha = 48;
         private const int StrongAlpha = 128;
         private const float MaxAcceptedMeanDifference = 48f;
+        private const float CenteredXScoreTolerance = 4f;
 
         private readonly Rect _rootBounds;
         private readonly TextureData _reference;
@@ -137,6 +138,8 @@ namespace FigmaUiImporter.Editor
                 return false;
             }
 
+            bestX = ResolveHorizontalPosition(layer, layerTexture, samples, bestX, bestY, bestScore, minX, maxX);
+
             Rect imageBounds = new Rect(
                 _rootBounds.x + bestX / _pixelScale.x,
                 _rootBounds.y + bestY / _pixelScale.y,
@@ -144,6 +147,32 @@ namespace FigmaUiImporter.Editor
                 imageSize.y);
             anchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(_rootBounds, imageBounds);
             return true;
+        }
+
+        private int ResolveHorizontalPosition(
+            ImportedLayerInfo layer,
+            TextureData layerTexture,
+            IList<SamplePoint> samples,
+            int matchedX,
+            int matchedY,
+            float matchedScore,
+            int minX,
+            int maxX)
+        {
+            float layerCenterX = layer.FigmaBounds.x + layer.FigmaBounds.width * 0.5f;
+            int centeredX = Mathf.RoundToInt((layerCenterX - _rootBounds.x) * _pixelScale.x - layerTexture.Width * 0.5f);
+            if (centeredX < minX || centeredX > maxX || Mathf.Abs(centeredX - matchedX) <= 1)
+            {
+                return matchedX;
+            }
+
+            float centeredScore = ScoreAt(_reference, layerTexture, samples, centeredX, matchedY);
+            if (centeredScore <= matchedScore + CenteredXScoreTolerance)
+            {
+                return centeredX;
+            }
+
+            return matchedX;
         }
 
         private static List<SamplePoint> BuildSamples(TextureData texture, int minAlpha)
