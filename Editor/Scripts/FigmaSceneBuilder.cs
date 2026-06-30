@@ -58,13 +58,16 @@ namespace FigmaUiImporter.Editor
                 rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
                 rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                 rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                rectTransform.sizeDelta = layer.SizeDelta;
                 rectTransform.anchoredPosition = layer.AnchoredPosition;
 
                 Image image = layerObject.AddComponent<Image>();
-                image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(layer.AssetPath);
+                Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(layer.AssetPath);
+                image.sprite = sprite;
                 image.preserveAspect = false;
                 image.raycastTarget = !settings.DisableRaycastTarget;
+
+                layer.SizeDelta = ResolveLayerSize(settings, layer, sprite);
+                rectTransform.sizeDelta = layer.SizeDelta;
 
                 layerObject.transform.SetSiblingIndex(i);
                 layer.UnityObjectPath = GetHierarchyPath(layerObject.transform);
@@ -96,6 +99,31 @@ namespace FigmaUiImporter.Editor
             canvasGroup.alpha = Mathf.Clamp01(settings.ReferenceAlpha);
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
+        }
+
+        private static Vector2 ResolveLayerSize(FigmaImportSettings settings, ImportedLayerInfo layer, Sprite sprite)
+        {
+            Vector2 size = layer.SizeDelta;
+            if (sprite == null)
+            {
+                return size;
+            }
+
+            float imageScale = settings != null ? Mathf.Max(0.01f, settings.ImageScale) : 1f;
+            Vector2 spriteSize = new Vector2(sprite.rect.width / imageScale, sprite.rect.height / imageScale);
+            const float tolerance = 1f;
+
+            if (spriteSize.x > size.x + tolerance)
+            {
+                size.x = spriteSize.x;
+            }
+
+            if (spriteSize.y > size.y + tolerance)
+            {
+                size.y = spriteSize.y;
+            }
+
+            return size;
         }
 
         private static Canvas GetOrCreateCanvas(Canvas targetCanvas)

@@ -16,6 +16,7 @@ namespace FigmaUiImporter.Editor
         {
             ManifestDto manifest = new ManifestDto();
             manifest.fileKey = settings.FileKey;
+            manifest.imageScale = settings.ImageScale;
             manifest.selectedNodeId = selectedRoot.Id;
             manifest.selectedNodeName = selectedRoot.Name;
             manifest.selectedNodeType = selectedRoot.Type;
@@ -75,6 +76,7 @@ namespace FigmaUiImporter.Editor
             string outputFolder = GetAssetDirectory(normalizedManifestPath);
             FigmaManifestRebuildData data = new FigmaManifestRebuildData();
             data.FileKey = manifest.fileKey;
+            data.ImageScale = manifest.imageScale > 0.01f ? manifest.imageScale : 1f;
             data.ManifestPath = normalizedManifestPath;
             data.OutputFolder = outputFolder;
             data.RootNode = CreateRootNode(manifest);
@@ -279,6 +281,7 @@ namespace FigmaUiImporter.Editor
         private sealed class ManifestDto
         {
             public string fileKey;
+            public float imageScale;
             public string selectedNodeId;
             public string selectedNodeName;
             public string selectedNodeType;

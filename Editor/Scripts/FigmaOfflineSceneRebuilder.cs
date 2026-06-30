@@ -28,6 +28,7 @@ namespace FigmaUiImporter.Editor
             }
 
             settings.FileKey = data.FileKey;
+            settings.ImageScale = data.ImageScale;
             settings.OutputFolder = data.OutputFolder;
 
             progress.Report(new FigmaImportProgress("导入 Sprite 资源...", 0.38f));

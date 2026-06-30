@@ -120,6 +120,7 @@ namespace FigmaUiImporter.Editor
     internal sealed class FigmaManifestRebuildData
     {
         public string FileKey;
+        public float ImageScale = 1f;
         public string ManifestPath;
         public string OutputFolder;
         public FigmaNodeInfo RootNode;
