@@ -55,15 +55,24 @@ namespace FigmaUiImporter.Editor
                     layerTexture.Width / _pixelScale.x,
                     layerTexture.Height / _pixelScale.y);
 
-                Vector2 matchedPosition;
-                if (TryMatchReference(layer, layerTexture, imageSize, out matchedPosition))
+                if (!ShouldUseImageSize(layer, imageSize))
                 {
-                    layer.SizeDelta = imageSize;
-                    layer.AnchoredPosition = matchedPosition;
                     return;
                 }
 
+                Vector2 originalPosition = layer.AnchoredPosition;
                 layer.SizeDelta = imageSize;
+
+                Vector2 matchedPosition;
+                if (TryMatchReference(layer, layerTexture, imageSize, out matchedPosition))
+                {
+                    if (ShouldUseMatchedPosition(layer, imageSize, originalPosition, matchedPosition))
+                    {
+                        layer.AnchoredPosition = matchedPosition;
+                    }
+
+                    return;
+                }
             }
         }
 
@@ -173,6 +182,66 @@ namespace FigmaUiImporter.Editor
             }
 
             return matchedX;
+        }
+
+        private static bool ShouldUseImageSize(ImportedLayerInfo layer, Vector2 imageSize)
+        {
+            if (layer == null)
+            {
+                return false;
+            }
+
+            if (IsText(layer))
+            {
+                return true;
+            }
+
+            float widthDifference = Mathf.Abs(imageSize.x - layer.SizeDelta.x);
+            float heightDifference = Mathf.Abs(imageSize.y - layer.SizeDelta.y);
+            if (widthDifference <= 1f && heightDifference <= 1f)
+            {
+                return false;
+            }
+
+            if (IsRectangle(layer))
+            {
+                return imageSize.x > layer.SizeDelta.x + 2f || imageSize.y > layer.SizeDelta.y + 2f;
+            }
+
+            return true;
+        }
+
+        private static bool ShouldUseMatchedPosition(
+            ImportedLayerInfo layer,
+            Vector2 imageSize,
+            Vector2 originalPosition,
+            Vector2 matchedPosition)
+        {
+            if (layer == null || IsRectangle(layer))
+            {
+                return false;
+            }
+
+            float deltaX = Mathf.Abs(matchedPosition.x - originalPosition.x);
+            float deltaY = Mathf.Abs(matchedPosition.y - originalPosition.y);
+            if (IsText(layer))
+            {
+                return deltaX <= 12f && deltaY <= 12f;
+            }
+
+            bool hasMeaningfulExpansion = imageSize.x > layer.FigmaBounds.width + 4f
+                || imageSize.y > layer.FigmaBounds.height + 4f;
+            return hasMeaningfulExpansion && deltaX <= 32f && deltaY <= 32f;
+        }
+
+        private static bool IsText(ImportedLayerInfo layer)
+        {
+            return layer != null && string.Equals(layer.NodeType, "TEXT", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsRectangle(ImportedLayerInfo layer)
+        {
+            return layer != null && string.Equals(layer.NodeType, "RECTANGLE", StringComparison.OrdinalIgnoreCase);
         }
 
         private static List<SamplePoint> BuildSamples(TextureData texture, int minAlpha)

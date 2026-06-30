@@ -39,6 +39,7 @@ namespace FigmaUiImporter.Editor
             rootRect.pivot = new Vector2(0.5f, 0.5f);
             rootRect.anchoredPosition = Vector2.zero;
             rootRect.sizeDelta = new Vector2(selectedRoot.AbsoluteBounds.width, selectedRoot.AbsoluteBounds.height);
+            rootObject.AddComponent<RectMask2D>();
 
             if (!string.IsNullOrEmpty(referenceAssetPath))
             {
