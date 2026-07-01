@@ -92,20 +92,17 @@ async function exportSelectedNode(options) {
     }
 
     postProgress("正在导出切图 " + (i + 1) + "/" + nodes.length + "...", 0.25 + 0.65 * (i + 1) / Math.max(1, nodes.length));
-    var bytes = await exportNodePng(node, scale);
+    var hiddenDescendantPaths = collectNearestSelectedDescendantPaths(node, selectedMap);
+    var bytes = hiddenDescendantPaths.length > 0
+      ? await exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, scale)
+      : await exportNodePng(node, scale);
     var imagePath = "layers/" + safeFileName(node.id) + ".png";
     assets.push({
       path: imagePath,
       mimeType: "image/png",
       dataBase64: bytesToBase64(bytes)
     });
-    layers.push(createLayerDto(
-      rootBounds,
-      node,
-      bounds,
-      imagePath,
-      layers.length,
-      collectNearestSelectedDescendantIds(node, selectedMap)));
+    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length));
   }
 
   postProgress("正在生成离线包...", 0.95);
@@ -144,7 +141,26 @@ async function exportNodePng(node, scale) {
   });
 }
 
-function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, clearChildNodeIds) {
+async function exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, scale) {
+  var clone = node.clone();
+  try {
+    figma.currentPage.appendChild(clone);
+    clone.x = node.x;
+    clone.y = node.y;
+    for (var i = 0; i < hiddenDescendantPaths.length; i++) {
+      var target = findNodeByChildPath(clone, hiddenDescendantPaths[i]);
+      if (target) {
+        setNodeInvisibleForExport(target);
+      }
+    }
+
+    return await exportNodePng(clone, scale);
+  } finally {
+    clone.remove();
+  }
+}
+
+function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex) {
   var anchoredPosition = toUnityAnchoredPosition(rootBounds, bounds);
   return {
     nodeId: node.id,
@@ -160,8 +176,7 @@ function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, clear
       }
     },
     siblingIndex: siblingIndex,
-    unityObjectPath: "",
-    clearChildNodeIds: clearChildNodeIds || []
+    unityObjectPath: ""
   };
 }
 
@@ -302,22 +317,51 @@ function hasMappedDescendant(node, map) {
   return false;
 }
 
-function collectNearestSelectedDescendantIds(node, selectedMap) {
+function collectNearestSelectedDescendantPaths(node, selectedMap) {
   var results = [];
-  appendNearestSelectedDescendantIds(node, selectedMap, results);
+  appendNearestSelectedDescendantPaths(node, selectedMap, [], results);
   return results;
 }
 
-function appendNearestSelectedDescendantIds(node, selectedMap, results) {
+function appendNearestSelectedDescendantPaths(node, selectedMap, path, results) {
   var children = getChildren(node);
   for (var i = 0; i < children.length; i++) {
     var child = children[i];
+    var childPath = path.concat([i]);
     if (child && child.id && selectedMap[child.id]) {
-      results.push(child.id);
+      results.push(childPath);
       continue;
     }
 
-    appendNearestSelectedDescendantIds(child, selectedMap, results);
+    appendNearestSelectedDescendantPaths(child, selectedMap, childPath, results);
+  }
+}
+
+function findNodeByChildPath(node, path) {
+  var current = node;
+  for (var i = 0; i < path.length; i++) {
+    var children = getChildren(current);
+    current = children[path[i]];
+    if (!current) {
+      return null;
+    }
+  }
+
+  return current;
+}
+
+function setNodeInvisibleForExport(node) {
+  if (!node) {
+    return;
+  }
+
+  if (typeof node.opacity === "number") {
+    node.opacity = 0;
+    return;
+  }
+
+  if (typeof node.visible === "boolean") {
+    node.visible = false;
   }
 }
 

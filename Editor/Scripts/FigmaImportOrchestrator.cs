@@ -13,7 +13,6 @@ namespace FigmaUiImporter.Editor
         private readonly FigmaSceneBuilder _sceneBuilder;
         private readonly FigmaImportManifestService _manifestService;
         private readonly FigmaImportDiagnosticService _diagnosticService;
-        private readonly FigmaLayerImagePostprocessor _imagePostprocessor;
         private readonly FigmaPrefabSaver _prefabSaver;
 
         public FigmaImportOrchestrator(FigmaApiClient client)
@@ -24,7 +23,6 @@ namespace FigmaUiImporter.Editor
             _sceneBuilder = new FigmaSceneBuilder();
             _manifestService = new FigmaImportManifestService();
             _diagnosticService = new FigmaImportDiagnosticService();
-            _imagePostprocessor = new FigmaLayerImagePostprocessor();
             _prefabSaver = new FigmaPrefabSaver();
         }
 
@@ -84,21 +82,11 @@ namespace FigmaUiImporter.Editor
                     importableNodes,
                     layersFolder,
                     progress,
-                    cancellationToken,
-                    false);
+                    cancellationToken);
             }
 
             progress.Report(new FigmaImportProgress("计算 Unity 布局...", 0.88f));
             List<ImportedLayerInfo> layers = BuildLayerInfos(selectedRoot, importableNodes, layerAssetPaths);
-
-            if (layers.Count > 0)
-            {
-                progress.Report(new FigmaImportProgress("处理容器底图...", 0.89f));
-                _imagePostprocessor.RemoveClearChildPixels(layers);
-
-                progress.Report(new FigmaImportProgress("导入 Sprite 资源...", 0.9f));
-                _imageExporter.ImportSprites(CollectAssetPaths(layers), settings.CompressionMode);
-            }
 
             progress.Report(new FigmaImportProgress("生成场景对象...", 0.92f));
             GameObject rootObject = _sceneBuilder.BuildSceneObjects(settings, selectedRoot, referenceAssetPath, layers);
@@ -135,7 +123,6 @@ namespace FigmaUiImporter.Editor
         {
             List<ImportedLayerInfo> layers = new List<ImportedLayerInfo>();
             Rect rootBounds = selectedRoot.AbsoluteBounds;
-            Dictionary<string, FigmaNodeInfo> selectedMap = FigmaLayerMaskUtility.ToNodeMap(nodes);
 
             for (int i = 0; i < nodes.Count; i++)
             {
@@ -156,32 +143,10 @@ namespace FigmaUiImporter.Editor
                 layer.AnchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(rootBounds, sliceBounds);
                 layer.SizeDelta = new Vector2(sliceBounds.width, sliceBounds.height);
                 layer.SiblingIndex = layers.Count;
-                layer.ClearChildNodeIds.AddRange(
-                    FigmaLayerMaskUtility.CollectNearestSelectedDescendantIds(node, selectedMap));
                 layers.Add(layer);
             }
 
             return layers;
-        }
-
-        private static List<string> CollectAssetPaths(IList<ImportedLayerInfo> layers)
-        {
-            List<string> assetPaths = new List<string>();
-            if (layers == null)
-            {
-                return assetPaths;
-            }
-
-            for (int i = 0; i < layers.Count; i++)
-            {
-                ImportedLayerInfo layer = layers[i];
-                if (layer != null && !string.IsNullOrEmpty(layer.AssetPath))
-                {
-                    assetPaths.Add(layer.AssetPath);
-                }
-            }
-
-            return assetPaths;
         }
 
         private static Rect GetSliceLayoutBounds(FigmaNodeInfo node)

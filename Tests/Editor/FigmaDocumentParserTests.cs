@@ -54,33 +54,6 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
-        public void LayerMaskUtilityFindsNearestExportedDescendants()
-        {
-            FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));
-            FigmaNodeInfo autoLayout = CreateNode("1:1", "Auto Layout", "FRAME", new Rect(10f, 10f, 200f, 120f));
-            autoLayout.LayoutMode = "VERTICAL";
-            autoLayout.HasExportSettings = true;
-            autoLayout.HasVisibleFills = true;
-
-            FigmaNodeInfo group = CreateNode("1:2", "Group", "GROUP", new Rect(15f, 15f, 180f, 80f));
-            FigmaNodeInfo instance = CreateNode("2:1", "Button Instance", "INSTANCE", new Rect(20f, 20f, 160f, 40f));
-            AddChild(root, autoLayout);
-            AddChild(autoLayout, group);
-            AddChild(group, instance);
-
-            List<FigmaNodeInfo> nodes = FigmaDocumentParser.CollectImportableNodes(
-                root,
-                FigmaSliceMode.ExportSettingsThenAutoSlice);
-            Dictionary<string, FigmaNodeInfo> selectedMap = FigmaLayerMaskUtility.ToNodeMap(nodes);
-
-            List<string> clearChildNodeIds = FigmaLayerMaskUtility.CollectNearestSelectedDescendantIds(
-                autoLayout,
-                selectedMap);
-
-            CollectionAssert.AreEqual(new[] { instance.Id }, clearChildNodeIds);
-        }
-
-        [Test]
         public void DefaultSliceModeSkipsMarkedAutoLayoutShellWithoutVisualSelf()
         {
             FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));

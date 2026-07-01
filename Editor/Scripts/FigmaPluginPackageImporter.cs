@@ -53,9 +53,6 @@ namespace FigmaUiImporter.Editor
             progress.Report(new FigmaImportProgress("写入插件包图片资源...", 0.22f));
             WriteAssets(package.assets, outputFolder);
 
-            progress.Report(new FigmaImportProgress("处理容器底图...", 0.28f));
-            ApplyLayerImagePostprocess(package.manifest, outputFolder);
-
             progress.Report(new FigmaImportProgress("写入 manifest...", 0.32f));
             string manifestPath = FigmaPathUtility.CombineAssetPath(outputFolder, "manifest.json");
             string manifestFullPath = FigmaPathUtility.ToFullPath(manifestPath);
@@ -245,53 +242,6 @@ namespace FigmaUiImporter.Editor
             }
         }
 
-        private static void ApplyLayerImagePostprocess(ManifestDto manifest, string outputFolder)
-        {
-            List<ImportedLayerInfo> layers = CreateLayerInfosForPostprocess(manifest, outputFolder);
-            if (layers.Count == 0)
-            {
-                return;
-            }
-
-            new FigmaLayerImagePostprocessor().RemoveClearChildPixels(layers);
-        }
-
-        private static List<ImportedLayerInfo> CreateLayerInfosForPostprocess(ManifestDto manifest, string outputFolder)
-        {
-            List<ImportedLayerInfo> layers = new List<ImportedLayerInfo>();
-            if (manifest == null || manifest.layers == null)
-            {
-                return layers;
-            }
-
-            for (int i = 0; i < manifest.layers.Count; i++)
-            {
-                LayerDto dto = manifest.layers[i];
-                if (dto == null || string.IsNullOrWhiteSpace(dto.image))
-                {
-                    continue;
-                }
-
-                ImportedLayerInfo layer = new ImportedLayerInfo();
-                layer.NodeId = dto.nodeId;
-                layer.NodeName = dto.nodeName;
-                layer.NodeType = dto.type;
-                layer.AssetPath = FigmaPathUtility.CombineAssetPath(
-                    outputFolder,
-                    NormalizePackageRelativePath(dto.image));
-                layer.FigmaBounds = ToRect(dto.bounds);
-                layer.SiblingIndex = dto.siblingIndex >= 0 ? dto.siblingIndex : i;
-                if (dto.clearChildNodeIds != null)
-                {
-                    layer.ClearChildNodeIds.AddRange(dto.clearChildNodeIds);
-                }
-
-                layers.Add(layer);
-            }
-
-            return layers;
-        }
-
         private static string StripDataUrlPrefix(string base64)
         {
             string trimmed = base64.Trim();
@@ -305,16 +255,6 @@ namespace FigmaUiImporter.Editor
             }
 
             return trimmed;
-        }
-
-        private static Rect ToRect(BoundsDto dto)
-        {
-            if (dto == null)
-            {
-                return new Rect();
-            }
-
-            return new Rect(dto.x, dto.y, dto.width, dto.height);
         }
 
         private static FigmaPluginPackageInfo BuildPackageInfo(string packagePath, FigmaPluginPackageDto package)
@@ -444,7 +384,6 @@ namespace FigmaUiImporter.Editor
             public UnityRectDto unity;
             public int siblingIndex;
             public string unityObjectPath;
-            public List<string> clearChildNodeIds;
         }
 
         [Serializable]

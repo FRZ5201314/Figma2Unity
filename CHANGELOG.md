@@ -2,8 +2,7 @@
 
 ## 0.4.1
 
-- Fixed expanded container background slices so separately exported child layers are removed from the parent PNG before Sprite import.
-- Added `clearChildNodeIds` manifest metadata for container background cleanup in REST and offline package imports.
+- Fixed Figma plugin exports for expanded container background slices by rendering a temporary copy with separately exported child slices hidden, preserving the full parent background without transparent holes.
 
 ## 0.4.0
 

@@ -42,11 +42,6 @@ namespace FigmaUiImporter.Editor
                 dto.unity.sizeDelta = ToVectorDto(layer.SizeDelta);
                 dto.siblingIndex = layer.SiblingIndex;
                 dto.unityObjectPath = layer.UnityObjectPath;
-                if (layer.ClearChildNodeIds.Count > 0)
-                {
-                    dto.clearChildNodeIds = new List<string>(layer.ClearChildNodeIds);
-                }
-
                 manifest.layers.Add(dto);
             }
 
@@ -196,11 +191,6 @@ namespace FigmaUiImporter.Editor
             }
 
             layer.UnityObjectPath = dto.unityObjectPath;
-            if (dto.clearChildNodeIds != null)
-            {
-                layer.ClearChildNodeIds.AddRange(dto.clearChildNodeIds);
-            }
-
             return layer;
         }
 
@@ -315,7 +305,6 @@ namespace FigmaUiImporter.Editor
             public UnityRectDto unity;
             public int siblingIndex;
             public string unityObjectPath;
-            public List<string> clearChildNodeIds;
         }
 
         [Serializable]
