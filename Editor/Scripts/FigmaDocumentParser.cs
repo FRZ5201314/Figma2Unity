@@ -257,7 +257,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            if (node != root && node.HasExportSettings && IsNodeInsideRoot(root, node) && node.HasUsableBounds)
+            if (node.HasExportSettings && IsNodeInsideRoot(root, node) && node.HasUsableBounds)
             {
                 results.Add(node);
             }
@@ -319,6 +319,12 @@ namespace FigmaUiImporter.Editor
             Dictionary<string, FigmaNodeInfo> markedMap = ToNodeMap(markedNodes);
             Dictionary<string, FigmaNodeInfo> autoSliceMap = ToNodeMap(autoSliceNodes);
             List<FigmaNodeInfo> merged = new List<FigmaNodeInfo>();
+            FigmaNodeInfo markedRoot;
+            if (root != null && !string.IsNullOrEmpty(root.Id) && markedMap.TryGetValue(root.Id, out markedRoot))
+            {
+                merged.Add(markedRoot);
+            }
+
             CollectMergedNodesInDrawOrder(root, markedMap, autoSliceMap, containerSliceStrategy, merged);
             return merged;
         }

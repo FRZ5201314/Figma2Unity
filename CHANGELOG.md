@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- Fixed marked root frames being skipped as exported background layers in Figma plugin packages and REST import plans.
+
 ## 0.4.1
 
 - Fixed Figma plugin exports for expanded container background slices by rendering a temporary copy with separately exported child slices hidden, preserving the full parent background without transparent holes.

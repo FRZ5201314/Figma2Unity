@@ -205,7 +205,7 @@ function collectMarkedNodes(root, node, results) {
     return;
   }
 
-  if (node !== root && hasExportSettings(node) && isNodeInsideRoot(root, node) && hasUsableBounds(node)) {
+  if (hasExportSettings(node) && isNodeInsideRoot(root, node) && hasUsableBounds(node)) {
     results.push(node);
   }
 
@@ -254,6 +254,10 @@ function mergeMarkedAndAutoNodes(root, markedNodes, autoNodes, containerStrategy
   var markedMap = toNodeMap(markedNodes);
   var autoMap = toNodeMap(autoNodes);
   var merged = [];
+  if (root && root.id && markedMap[root.id]) {
+    merged.push(markedMap[root.id]);
+  }
+
   collectMergedNodesInDrawOrder(root, markedMap, autoMap, containerStrategy, merged);
   return merged;
 }

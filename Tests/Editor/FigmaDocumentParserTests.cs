@@ -94,6 +94,45 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void MarkedOnlySliceModeKeepsMarkedRootFrameAsFirstLayer()
+        {
+            FigmaNodeInfo root = CreateNode("0:0", "Root Background", "FRAME", new Rect(0f, 0f, 300f, 200f));
+            root.HasExportSettings = true;
+            root.HasVisibleFills = true;
+
+            FigmaNodeInfo button = CreateNode("1:1", "Button", "FRAME", new Rect(20f, 20f, 100f, 40f));
+            button.HasExportSettings = true;
+            AddChild(root, button);
+
+            List<FigmaNodeInfo> nodes = FigmaDocumentParser.CollectImportableNodes(
+                root,
+                FigmaSliceMode.ExportMarkedNodesOnly);
+
+            Assert.AreEqual(2, nodes.Count);
+            Assert.AreEqual(root.Id, nodes[0].Id);
+            Assert.AreEqual(button.Id, nodes[1].Id);
+        }
+
+        [Test]
+        public void DefaultSliceModeKeepsMarkedRootFrameBeforeAutoChildren()
+        {
+            FigmaNodeInfo root = CreateNode("0:0", "Root Background", "FRAME", new Rect(0f, 0f, 300f, 200f));
+            root.HasExportSettings = true;
+            root.HasVisibleFills = true;
+
+            FigmaNodeInfo instance = CreateNode("1:1", "Button Instance", "INSTANCE", new Rect(20f, 20f, 100f, 40f));
+            AddChild(root, instance);
+
+            List<FigmaNodeInfo> nodes = FigmaDocumentParser.CollectImportableNodes(
+                root,
+                FigmaSliceMode.ExportSettingsThenAutoSlice);
+
+            Assert.AreEqual(2, nodes.Count);
+            Assert.AreEqual(root.Id, nodes[0].Id);
+            Assert.AreEqual(instance.Id, nodes[1].Id);
+        }
+
+        [Test]
         public void StrictContainerStrategyKeepsMarkedContainerInMixedMode()
         {
             FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));
