@@ -194,6 +194,10 @@ namespace FigmaUiImporter.Editor
         public string ManifestPath;
         public string DiagnosticReportPath;
         public string PrefabPath;
+        public string FontMappingPath;
+        public int FontMappingTextStyleCount;
+        public int FontMappingAddedEntries;
+        public int FontMappingUpdatedEntries;
         public GameObject RootObject;
         public int LayerCount;
     }

@@ -70,6 +70,9 @@ namespace FigmaUiImporter.Editor
             public string FigmaFontPostScriptName;
             public int MinWeight;
             public int MaxWeight;
+            public int UsageCount;
+            public string SampleText;
+            public string LastSeenAt;
             public TMP_FontAsset FontAsset;
             public FontStyles FontStyle = FontStyles.Normal;
 

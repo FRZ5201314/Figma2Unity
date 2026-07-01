@@ -142,13 +142,9 @@ namespace FigmaUiImporter.Editor
             if (mappedFont != null)
             {
                 text.font = mappedFont;
-                text.fontStyle |= mappedStyle;
             }
 
-            if (style.FontWeight >= 600)
-            {
-                text.fontStyle |= FontStyles.Bold;
-            }
+            text.fontStyle = FigmaFontMappingService.ResolveEffectiveFontStyle(style, mappedStyle);
 
             if (style.LineHeightPx > style.FontSize + 0.01f)
             {
@@ -156,6 +152,14 @@ namespace FigmaUiImporter.Editor
             }
 
             text.characterSpacing = style.LetterSpacing;
+
+            FigmaTextBinding binding = layerObject.AddComponent<FigmaTextBinding>();
+            binding.SetTextInfo(
+                style.Characters,
+                style.FontFamily,
+                style.FontStyleName,
+                style.FontPostScriptName,
+                style.FontWeight);
         }
 
         private static TextAlignmentOptions ResolveTextAlignment(string horizontal, string vertical)

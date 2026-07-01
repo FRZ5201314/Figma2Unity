@@ -105,6 +105,10 @@ namespace FigmaUiImporter.Editor
             _containerSliceStrategy = (FigmaContainerSliceStrategy)EditorPrefs.GetInt(PrefContainerSliceStrategy, (int)FigmaContainerSliceStrategy.Auto);
             _textImportMode = (FigmaTextImportMode)EditorPrefs.GetInt(PrefTextImportMode, (int)FigmaTextImportMode.Smart);
             _fontMapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>(EditorPrefs.GetString(PrefFontMappingPath, string.Empty));
+            if (_fontMapping == null)
+            {
+                _fontMapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>(FigmaFontMappingService.GlobalMappingAssetPath);
+            }
             _imageScale = EditorPrefs.GetFloat(PrefImageScale, 1f);
             _referenceAlpha = EditorPrefs.GetFloat(PrefReferenceAlpha, 0.5f);
             _createReference = EditorPrefs.GetBool(PrefCreateReference, true);
@@ -173,7 +177,11 @@ namespace FigmaUiImporter.Editor
                 }
 
                 _textImportMode = (FigmaTextImportMode)EditorGUILayout.Popup("文本导入模式", (int)_textImportMode, TextImportModeLabels);
-                _fontMapping = (FigmaFontMappingAsset)EditorGUILayout.ObjectField("字体映射", _fontMapping, typeof(FigmaFontMappingAsset), false);
+                _fontMapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>(FigmaFontMappingService.GlobalMappingAssetPath);
+                using (new EditorGUI.DisabledScope(true))
+                {
+                    EditorGUILayout.ObjectField("全局字体映射", _fontMapping, typeof(FigmaFontMappingAsset), false);
+                }
                 _imageScale = Mathf.Clamp(EditorGUILayout.FloatField("图片倍率", _imageScale), 0.01f, 4f);
                 _createReference = EditorGUILayout.Toggle("创建参考图", _createReference);
                 using (new EditorGUI.DisabledScope(!_createReference))
@@ -252,6 +260,38 @@ namespace FigmaUiImporter.Editor
                 if (GUILayout.Button("从 Figma 插件包导入", GUILayout.Height(26f)))
                 {
                     ImportFromPluginPackage();
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                if (GUILayout.Button("打开/创建字体映射", GUILayout.Height(26f)))
+                {
+                    OpenGlobalFontMapping();
+                }
+
+                if (GUILayout.Button("从 JSON 更新字体映射", GUILayout.Height(26f)))
+                {
+                    UpdateFontMappingFromJson();
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                if (GUILayout.Button("应用映射到选中项", GUILayout.Height(26f)))
+                {
+                    ApplyFontMappingToSelection();
+                }
+
+                if (GUILayout.Button("应用映射到场景文字", GUILayout.Height(26f)))
+                {
+                    ApplyFontMappingToScene();
                 }
             }
 
@@ -547,6 +587,7 @@ namespace FigmaUiImporter.Editor
                 _progress = 1f;
                 AddLog("输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                AddFontMappingLog(result);
                 if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
                 {
                     AddLog("诊断报告：" + result.DiagnosticReportPath);
@@ -600,6 +641,7 @@ namespace FigmaUiImporter.Editor
                 _progress = 1f;
                 AddLog("离线重建输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                AddFontMappingLog(result);
                 if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
                 {
                     AddLog("诊断报告：" + result.DiagnosticReportPath);
@@ -680,6 +722,7 @@ namespace FigmaUiImporter.Editor
                 AddLog("插件包资源：" + packageInfo.AssetCount + " 个图片资源，" + packageInfo.LayerCount + " 个切图图层，大小 " + FormatFileSize(packageInfo.PackageSizeBytes));
                 AddLog("导入输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                AddFontMappingLog(result);
                 if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
                 {
                     AddLog("诊断报告：" + result.DiagnosticReportPath);
@@ -707,6 +750,121 @@ namespace FigmaUiImporter.Editor
             }
         }
 
+        private void OpenGlobalFontMapping()
+        {
+            try
+            {
+                _fontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
+                SavePrefs();
+                Selection.activeObject = _fontMapping;
+                EditorGUIUtility.PingObject(_fontMapping);
+                _status = "已打开全局字体映射。";
+                AddLog("全局字体映射：" + AssetDatabase.GetAssetPath(_fontMapping));
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "打开全局字体映射失败。";
+                AddLog("打开全局字体映射失败：" + exception.Message);
+            }
+
+            Repaint();
+        }
+
+        private void UpdateFontMappingFromJson()
+        {
+            string pickedJson = EditorUtility.OpenFilePanel("选择 Figma manifest 或导出 JSON", Application.dataPath, "json");
+            if (string.IsNullOrEmpty(pickedJson))
+            {
+                return;
+            }
+
+            try
+            {
+                FontMappingUpdateResult result = FigmaFontMappingService.UpdateFromJson(pickedJson);
+                _fontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
+                SavePrefs();
+                _status = "字体映射更新完成。";
+                AddLog("字体映射来源 JSON：" + pickedJson);
+                AddFontMappingLog(result);
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "字体映射更新失败。";
+                AddLog("字体映射更新失败：" + exception.Message);
+            }
+
+            Repaint();
+        }
+
+        private void ApplyFontMappingToSelection()
+        {
+            try
+            {
+                _fontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
+                SavePrefs();
+                int count = FigmaFontMappingService.ApplyGlobalMappingToSelection();
+                _status = "已更新选中项文字字体：" + count + " 个。";
+                AddLog("已应用全局字体映射到选中项：" + count + " 个 TMP 文字。");
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "应用字体映射失败。";
+                AddLog("应用字体映射失败：" + exception.Message);
+            }
+
+            Repaint();
+        }
+
+        private void ApplyFontMappingToScene()
+        {
+            try
+            {
+                _fontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
+                SavePrefs();
+                int count = FigmaFontMappingService.ApplyGlobalMappingToOpenScenes();
+                _status = "已更新场景文字字体：" + count + " 个。";
+                AddLog("已应用全局字体映射到场景文字：" + count + " 个 TMP 文字。");
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "应用字体映射失败。";
+                AddLog("应用字体映射失败：" + exception.Message);
+            }
+
+            Repaint();
+        }
+
+        private void AddFontMappingLog(FigmaImportResult result)
+        {
+            if (result == null)
+            {
+                return;
+            }
+
+            AddLog("字体映射：" + result.FontMappingPath
+                + "，文本样式 " + result.FontMappingTextStyleCount
+                + " 个，新增 " + result.FontMappingAddedEntries
+                + " 个，更新 " + result.FontMappingUpdatedEntries + " 个。");
+        }
+
+        private void AddFontMappingLog(FontMappingUpdateResult result)
+        {
+            if (result == null)
+            {
+                return;
+            }
+
+            AddLog("字体映射：" + result.MappingAssetPath
+                + "，文本样式 " + result.TextStyleCount
+                + " 个，新增 " + result.AddedEntries
+                + " 个，更新 " + result.UpdatedEntries
+                + " 个。");
+        }
+
         private bool ConfirmPluginPackageImport(FigmaPluginPackageInfo packageInfo, FigmaImportSettings settings)
         {
             bool largePackage = IsLargePluginPackage(packageInfo);
@@ -725,7 +883,7 @@ namespace FigmaUiImporter.Editor
                 + "容器策略：" + FormatPluginContainerStrategy(packageInfo.ContainerSliceStrategy) + "\n"
                 + "包文本数据：" + FormatPluginTextMode(packageInfo.TextImportMode) + "\n"
                 + "Unity 文本模式：" + FormatSettingsTextMode(settings.TextImportMode) + "\n"
-                + "字体映射：" + (_fontMapping == null ? "未设置" : AssetDatabase.GetAssetPath(_fontMapping)) + "\n"
+                + "字体映射：" + (settings.FontMapping == null ? FigmaFontMappingService.GlobalMappingAssetPath : AssetDatabase.GetAssetPath(settings.FontMapping)) + "\n"
                 + "图片资源：" + packageInfo.AssetCount + " 个"
                 + (packageInfo.HasReferenceImage ? "（包含参考图）" : "（不包含参考图）") + "\n"
                 + "切图图层：" + packageInfo.LayerCount + " 个\n"
@@ -877,7 +1035,8 @@ namespace FigmaUiImporter.Editor
             settings.SliceMode = _sliceMode;
             settings.ContainerSliceStrategy = _containerSliceStrategy;
             settings.TextImportMode = _textImportMode;
-            settings.FontMapping = _fontMapping;
+            settings.FontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
+            _fontMapping = settings.FontMapping;
             settings.ImageScale = _imageScale;
             settings.CreateReference = _createReference;
             settings.ReferenceAlpha = _referenceAlpha;

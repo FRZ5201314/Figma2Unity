@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+
+- Added one project-wide global font mapping asset at `Assets/FigmaImports/FigmaFontMapping.asset`.
+- Updated REST imports, manifest rebuilds, and plugin package imports to auto-discover Figma fonts and append missing mapping entries.
+- Added local JSON font scanning, scene text binding metadata, and window actions for applying font mappings to selected or open-scene TMP text.
+- Added EditMode coverage for font mapping discovery and de-duplication.
+
 ## 0.6.0
 
 - Added Unity-side Figma font mapping assets for resolving Figma text family/style/weight to TMP font assets.

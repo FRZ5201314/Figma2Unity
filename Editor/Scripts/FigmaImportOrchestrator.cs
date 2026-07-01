@@ -88,6 +88,10 @@ namespace FigmaUiImporter.Editor
             progress.Report(new FigmaImportProgress("计算 Unity 布局...", 0.88f));
             List<ImportedLayerInfo> layers = BuildLayerInfos(settings, selectedRoot, importableNodes, layerAssetPaths);
 
+            progress.Report(new FigmaImportProgress("更新全局字体映射...", 0.9f));
+            FigmaFontMappingAsset fontMapping = FigmaFontMappingService.EnsureSettingsUseGlobalMapping(settings);
+            FontMappingUpdateResult fontMappingResult = FigmaFontMappingService.UpdateFromLayers(fontMapping, layers);
+
             progress.Report(new FigmaImportProgress("生成场景对象...", 0.92f));
             GameObject rootObject = _sceneBuilder.BuildSceneObjects(settings, selectedRoot, referenceAssetPath, layers);
 
@@ -111,6 +115,10 @@ namespace FigmaUiImporter.Editor
                 ManifestPath = manifestPath,
                 DiagnosticReportPath = diagnosticReportPath,
                 PrefabPath = prefabPath,
+                FontMappingPath = fontMappingResult.MappingAssetPath,
+                FontMappingTextStyleCount = fontMappingResult.TextStyleCount,
+                FontMappingAddedEntries = fontMappingResult.AddedEntries,
+                FontMappingUpdatedEntries = fontMappingResult.UpdatedEntries,
                 RootObject = rootObject,
                 LayerCount = layers.Count
             };

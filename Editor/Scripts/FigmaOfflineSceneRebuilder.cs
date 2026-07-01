@@ -33,6 +33,10 @@ namespace FigmaUiImporter.Editor
             settings.ImageScale = data.ImageScale;
             settings.OutputFolder = data.OutputFolder;
 
+            progress.Report(new FigmaImportProgress("更新全局字体映射...", 0.24f));
+            FigmaFontMappingAsset fontMapping = FigmaFontMappingService.EnsureSettingsUseGlobalMapping(settings);
+            FontMappingUpdateResult fontMappingResult = FigmaFontMappingService.UpdateFromLayers(fontMapping, data.Layers);
+
             progress.Report(new FigmaImportProgress("导入 Sprite 资源...", 0.38f));
             string referenceAssetPath = settings.CreateReference ? data.ReferenceAssetPath : string.Empty;
             List<string> spritePaths = new List<string>();
@@ -75,6 +79,10 @@ namespace FigmaUiImporter.Editor
                 ManifestPath = data.ManifestPath,
                 DiagnosticReportPath = diagnosticReportPath,
                 PrefabPath = prefabPath,
+                FontMappingPath = fontMappingResult.MappingAssetPath,
+                FontMappingTextStyleCount = fontMappingResult.TextStyleCount,
+                FontMappingAddedEntries = fontMappingResult.AddedEntries,
+                FontMappingUpdatedEntries = fontMappingResult.UpdatedEntries,
                 RootObject = rootObject,
                 LayerCount = data.Layers.Count
             };
