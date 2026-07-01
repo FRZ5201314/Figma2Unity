@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Fixed default slicing so marked Auto Layout containers with component instance descendants can keep their own visual background while still exporting those instances as separate layers.
+
 ## 0.3.1
 
 - Added a confirmation preview before importing `.figma2unity.json` packages, including selected node, dimensions, image scale, package size, asset count, layer count, and output folder.

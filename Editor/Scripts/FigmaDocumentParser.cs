@@ -298,6 +298,17 @@ namespace FigmaUiImporter.Editor
                 FigmaNodeInfo markedNode;
                 if (markedMap.TryGetValue(child.Id, out markedNode))
                 {
+                    if (ShouldExpandMarkedContainer(child, autoSliceMap))
+                    {
+                        if (HasVisualSelf(child))
+                        {
+                            results.Add(markedNode);
+                        }
+
+                        CollectMergedNodesInDrawOrder(child, markedMap, autoSliceMap, results);
+                        continue;
+                    }
+
                     results.Add(markedNode);
                     continue;
                 }
@@ -331,6 +342,42 @@ namespace FigmaUiImporter.Editor
             }
 
             return false;
+        }
+
+        private static bool ShouldExpandMarkedContainer(FigmaNodeInfo node, IDictionary<string, FigmaNodeInfo> autoSliceMap)
+        {
+            return node != null
+                && node.IsAutoLayout
+                && HasAtomicDescendant(node)
+                && HasMappedDescendant(node, autoSliceMap);
+        }
+
+        private static bool HasAtomicDescendant(FigmaNodeInfo node)
+        {
+            if (node == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                FigmaNodeInfo child = node.Children[i];
+                if (IsAtomicContainerNode(child) || HasAtomicDescendant(child))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasVisualSelf(FigmaNodeInfo node)
+        {
+            return node != null
+                && (node.HasVisibleFills
+                    || node.HasVisibleStrokes
+                    || node.HasEffects
+                    || node.HasTextCharacters);
         }
 
         private static Dictionary<string, FigmaNodeInfo> ToNodeMap(IList<FigmaNodeInfo> nodes)
@@ -406,6 +453,7 @@ namespace FigmaUiImporter.Editor
             node.Id = GetString(data, "id");
             node.Name = GetString(data, "name");
             node.Type = GetString(data, "type");
+            node.LayoutMode = GetString(data, "layoutMode");
             node.Visible = !data.ContainsKey("visible") || GetBool(data, "visible", true);
             node.HasAbsoluteBounds = TryGetBounds(data, "absoluteBoundingBox", out node.AbsoluteBounds);
             node.HasAbsoluteRenderBounds = TryGetBounds(data, "absoluteRenderBounds", out node.AbsoluteRenderBounds);

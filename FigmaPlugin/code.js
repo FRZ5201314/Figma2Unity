@@ -242,6 +242,15 @@ function collectMergedNodesInDrawOrder(node, markedMap, autoMap, results) {
   for (var i = 0; i < children.length; i++) {
     var child = children[i];
     if (markedMap[child.id]) {
+      if (shouldExpandMarkedContainer(child, autoMap)) {
+        if (hasVisualSelf(child)) {
+          results.push(markedMap[child.id]);
+        }
+
+        collectMergedNodesInDrawOrder(child, markedMap, autoMap, results);
+        continue;
+      }
+
       results.push(markedMap[child.id]);
       continue;
     }
@@ -255,6 +264,12 @@ function collectMergedNodesInDrawOrder(node, markedMap, autoMap, results) {
   }
 }
 
+function shouldExpandMarkedContainer(node, autoMap) {
+  return isAutoLayoutNode(node)
+    && hasAtomicDescendant(node)
+    && hasMappedDescendant(node, autoMap);
+}
+
 function hasMappedDescendant(node, map) {
   var children = getChildren(node);
   for (var i = 0; i < children.length; i++) {
@@ -265,6 +280,25 @@ function hasMappedDescendant(node, map) {
   }
 
   return false;
+}
+
+function hasAtomicDescendant(node) {
+  var children = getChildren(node);
+  for (var i = 0; i < children.length; i++) {
+    var child = children[i];
+    if (isAtomicContainerNode(child) || hasAtomicDescendant(child)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasVisualSelf(node) {
+  return hasVisiblePaints(node && node.fills)
+    || hasVisiblePaints(node && node.strokes)
+    || hasEffects(node)
+    || hasTextCharacters(node);
 }
 
 function toNodeMap(nodes) {
@@ -308,6 +342,10 @@ function isContainerNode(node) {
 
 function isAtomicContainerNode(node) {
   return node && node.type === "INSTANCE";
+}
+
+function isAutoLayoutNode(node) {
+  return node && (node.layoutMode === "HORIZONTAL" || node.layoutMode === "VERTICAL");
 }
 
 function hasRenderableSelf(node) {

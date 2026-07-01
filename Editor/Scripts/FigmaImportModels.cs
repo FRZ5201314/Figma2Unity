@@ -43,6 +43,7 @@ namespace FigmaUiImporter.Editor
         public string Id;
         public string Name;
         public string Type;
+        public string LayoutMode;
         public bool Visible = true;
         public Rect AbsoluteBounds;
         public bool HasAbsoluteBounds;
@@ -83,6 +84,15 @@ namespace FigmaUiImporter.Editor
                 return string.Equals(Type, "FRAME", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(Type, "COMPONENT", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(Type, "INSTANCE", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        public bool IsAutoLayout
+        {
+            get
+            {
+                return string.Equals(LayoutMode, "HORIZONTAL", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(LayoutMode, "VERTICAL", StringComparison.OrdinalIgnoreCase);
             }
         }
 
