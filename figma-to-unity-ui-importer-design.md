@@ -679,11 +679,10 @@ Token 无效、网络失败、Figma API 限流。
 
 ### 15.1 文本转 TextMeshPro
 
-已支持读取 Figma Text 节点的 characters、style、fills，将单一样式文本转换为 TMP_Text，并为复杂文本保留 PNG fallback。
+已支持读取 Figma Text 节点的 characters、style、fills，将单一样式文本转换为 TMP_Text，并为复杂文本保留 PNG fallback。Unity 侧可通过字体映射表把 Figma 字体匹配到 TMP_FontAsset。
 
 后续难点：
 
-- 字体映射。
 - 行高、字间距、段落样式。
 - 多样式文本片段。
 

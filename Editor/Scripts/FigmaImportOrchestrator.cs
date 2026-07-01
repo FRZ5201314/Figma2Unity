@@ -141,7 +141,7 @@ namespace FigmaUiImporter.Editor
                 layer.AssetPath = assetPath;
                 bool useTextLayer = ShouldCreateTextLayer(settings, node);
                 layer.Kind = useTextLayer ? ImportedLayerKind.Text : ImportedLayerKind.Image;
-                layer.TextStyle = useTextLayer ? CopyTextStyle(node.TextStyle) : null;
+                layer.TextStyle = IsTextNode(node) ? CopyTextStyle(node.TextStyle) : null;
 
                 Rect sliceBounds = useTextLayer && node.HasUsableBounds
                     ? node.AbsoluteBounds
@@ -186,6 +186,7 @@ namespace FigmaUiImporter.Editor
             {
                 Characters = source.Characters,
                 FontFamily = source.FontFamily,
+                FontStyleName = source.FontStyleName,
                 FontPostScriptName = source.FontPostScriptName,
                 FontWeight = source.FontWeight,
                 FontSize = source.FontSize,
@@ -208,6 +209,11 @@ namespace FigmaUiImporter.Editor
             }
 
             return node.HasAbsoluteRenderBounds ? node.AbsoluteRenderBounds : node.AbsoluteBounds;
+        }
+
+        private static bool IsTextNode(FigmaNodeInfo node)
+        {
+            return node != null && string.Equals(node.Type, "TEXT", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

@@ -45,7 +45,7 @@ namespace FigmaUiImporter.Editor.Tests
                 + "\"type\":\"TEXT\","
                 + "\"characters\":\"Hello\","
                 + "\"absoluteBoundingBox\":{\"x\":0,\"y\":0,\"width\":120,\"height\":40},"
-                + "\"style\":{\"fontFamily\":\"Inter\",\"fontPostScriptName\":\"Inter-Bold\",\"fontWeight\":700,\"fontSize\":24,\"lineHeightPx\":30,\"letterSpacing\":1.5,\"textAlignHorizontal\":\"CENTER\",\"textAlignVertical\":\"TOP\"},"
+                + "\"style\":{\"fontFamily\":\"Inter\",\"fontStyle\":\"Bold\",\"fontPostScriptName\":\"Inter-Bold\",\"fontWeight\":700,\"fontSize\":24,\"lineHeightPx\":30,\"letterSpacing\":1.5,\"textAlignHorizontal\":\"CENTER\",\"textAlignVertical\":\"TOP\"},"
                 + "\"fills\":[{\"type\":\"SOLID\",\"color\":{\"r\":0.1,\"g\":0.2,\"b\":0.3},\"opacity\":0.8}],"
                 + "\"characterStyleOverrides\":[0,0,0,0,0],"
                 + "\"styleOverrideTable\":{}"
@@ -59,6 +59,7 @@ namespace FigmaUiImporter.Editor.Tests
             Assert.AreEqual("Hello", textNode.TextCharacters);
             Assert.IsNotNull(textNode.TextStyle);
             Assert.AreEqual("Inter", textNode.TextStyle.FontFamily);
+            Assert.AreEqual("Bold", textNode.TextStyle.FontStyleName);
             Assert.AreEqual("Inter-Bold", textNode.TextStyle.FontPostScriptName);
             Assert.AreEqual(700, textNode.TextStyle.FontWeight);
             Assert.AreEqual(24f, textNode.TextStyle.FontSize);

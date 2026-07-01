@@ -52,6 +52,7 @@ namespace FigmaUiImporter.Editor
         public bool IgnoreSslCertificateErrors;
         public bool UseLoadedNodeTree = true;
         public TextureImporterCompressionMode CompressionMode = TextureImporterCompressionMode.None;
+        public FigmaFontMappingAsset FontMapping;
     }
 
     public enum TextureImporterCompressionMode
@@ -148,9 +149,14 @@ namespace FigmaUiImporter.Editor
         public string UnityObjectPath;
         public FigmaTextStyleInfo TextStyle;
 
+        public bool HasTextStyle
+        {
+            get { return TextStyle != null && string.Equals(NodeType, "TEXT", StringComparison.OrdinalIgnoreCase); }
+        }
+
         public bool IsTextLayer
         {
-            get { return Kind == ImportedLayerKind.Text && TextStyle != null; }
+            get { return Kind == ImportedLayerKind.Text && HasTextStyle; }
         }
     }
 
@@ -158,6 +164,7 @@ namespace FigmaUiImporter.Editor
     {
         public string Characters;
         public string FontFamily;
+        public string FontStyleName;
         public string FontPostScriptName;
         public int FontWeight;
         public float FontSize;

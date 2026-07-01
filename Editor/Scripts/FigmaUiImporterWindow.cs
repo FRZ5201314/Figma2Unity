@@ -16,6 +16,7 @@ namespace FigmaUiImporter.Editor
         private const string PrefSliceMode = "FigmaUiImporter.SliceMode";
         private const string PrefContainerSliceStrategy = "FigmaUiImporter.ContainerSliceStrategy";
         private const string PrefTextImportMode = "FigmaUiImporter.TextImportMode";
+        private const string PrefFontMappingPath = "FigmaUiImporter.FontMappingPath";
         private const string PrefImageScale = "FigmaUiImporter.ImageScale";
         private const string PrefReferenceAlpha = "FigmaUiImporter.ReferenceAlpha";
         private const string PrefCreateReference = "FigmaUiImporter.CreateReference";
@@ -59,6 +60,7 @@ namespace FigmaUiImporter.Editor
         private FigmaSliceMode _sliceMode;
         private FigmaContainerSliceStrategy _containerSliceStrategy;
         private FigmaTextImportMode _textImportMode;
+        private FigmaFontMappingAsset _fontMapping;
         private float _imageScale;
         private bool _createReference;
         private float _referenceAlpha;
@@ -102,6 +104,7 @@ namespace FigmaUiImporter.Editor
             _sliceMode = (FigmaSliceMode)EditorPrefs.GetInt(PrefSliceMode, (int)FigmaSliceMode.ExportSettingsThenAutoSlice);
             _containerSliceStrategy = (FigmaContainerSliceStrategy)EditorPrefs.GetInt(PrefContainerSliceStrategy, (int)FigmaContainerSliceStrategy.Auto);
             _textImportMode = (FigmaTextImportMode)EditorPrefs.GetInt(PrefTextImportMode, (int)FigmaTextImportMode.Smart);
+            _fontMapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>(EditorPrefs.GetString(PrefFontMappingPath, string.Empty));
             _imageScale = EditorPrefs.GetFloat(PrefImageScale, 1f);
             _referenceAlpha = EditorPrefs.GetFloat(PrefReferenceAlpha, 0.5f);
             _createReference = EditorPrefs.GetBool(PrefCreateReference, true);
@@ -170,6 +173,7 @@ namespace FigmaUiImporter.Editor
                 }
 
                 _textImportMode = (FigmaTextImportMode)EditorGUILayout.Popup("文本导入模式", (int)_textImportMode, TextImportModeLabels);
+                _fontMapping = (FigmaFontMappingAsset)EditorGUILayout.ObjectField("字体映射", _fontMapping, typeof(FigmaFontMappingAsset), false);
                 _imageScale = Mathf.Clamp(EditorGUILayout.FloatField("图片倍率", _imageScale), 0.01f, 4f);
                 _createReference = EditorGUILayout.Toggle("创建参考图", _createReference);
                 using (new EditorGUI.DisabledScope(!_createReference))
@@ -719,8 +723,9 @@ namespace FigmaUiImporter.Editor
                 + "根尺寸：" + FormatNumber(packageInfo.RootWidth) + " x " + FormatNumber(packageInfo.RootHeight) + "\n"
                 + "图片倍率：" + FormatNumber(packageInfo.ImageScale) + "\n"
                 + "容器策略：" + FormatPluginContainerStrategy(packageInfo.ContainerSliceStrategy) + "\n"
-                + "包文本模式：" + FormatPluginTextMode(packageInfo.TextImportMode) + "\n"
+                + "包文本数据：" + FormatPluginTextMode(packageInfo.TextImportMode) + "\n"
                 + "Unity 文本模式：" + FormatSettingsTextMode(settings.TextImportMode) + "\n"
+                + "字体映射：" + (_fontMapping == null ? "未设置" : AssetDatabase.GetAssetPath(_fontMapping)) + "\n"
                 + "图片资源：" + packageInfo.AssetCount + " 个"
                 + (packageInfo.HasReferenceImage ? "（包含参考图）" : "（不包含参考图）") + "\n"
                 + "切图图层：" + packageInfo.LayerCount + " 个\n"
@@ -797,6 +802,11 @@ namespace FigmaUiImporter.Editor
 
         private static string FormatPluginTextMode(string value)
         {
+            if (string.Equals(value, "metadata", StringComparison.OrdinalIgnoreCase))
+            {
+                return "仅导出文本元数据";
+            }
+
             if (string.Equals(value, "tmp", StringComparison.OrdinalIgnoreCase))
             {
                 return "TextMeshPro";
@@ -867,6 +877,7 @@ namespace FigmaUiImporter.Editor
             settings.SliceMode = _sliceMode;
             settings.ContainerSliceStrategy = _containerSliceStrategy;
             settings.TextImportMode = _textImportMode;
+            settings.FontMapping = _fontMapping;
             settings.ImageScale = _imageScale;
             settings.CreateReference = _createReference;
             settings.ReferenceAlpha = _referenceAlpha;
@@ -968,6 +979,7 @@ namespace FigmaUiImporter.Editor
             EditorPrefs.SetInt(PrefSliceMode, (int)_sliceMode);
             EditorPrefs.SetInt(PrefContainerSliceStrategy, (int)_containerSliceStrategy);
             EditorPrefs.SetInt(PrefTextImportMode, (int)_textImportMode);
+            EditorPrefs.SetString(PrefFontMappingPath, _fontMapping == null ? string.Empty : AssetDatabase.GetAssetPath(_fontMapping));
             EditorPrefs.SetFloat(PrefImageScale, _imageScale);
             EditorPrefs.SetFloat(PrefReferenceAlpha, _referenceAlpha);
             EditorPrefs.SetBool(PrefCreateReference, _createReference);

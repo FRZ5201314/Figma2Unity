@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- Added Unity-side Figma font mapping assets for resolving Figma text family/style/weight to TMP font assets.
+- Changed Figma plugin package exports to always include TEXT metadata when available, leaving TMP-vs-PNG decisions to the Unity importer.
+- Preserved text metadata from manifests even when the exported layer kind is image, enabling Unity import settings to choose the final representation.
+
 ## 0.5.1
 
 - Fixed Figma plugin text metadata export by reading TextNode fields from the Plugin API instead of REST-style `style` fields.

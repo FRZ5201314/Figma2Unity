@@ -61,6 +61,7 @@ namespace FigmaUiImporter.Editor.Tests
             textLayer.TextStyle = new FigmaTextStyleInfo();
             textLayer.TextStyle.Characters = "Hello";
             textLayer.TextStyle.FontFamily = "Inter";
+            textLayer.TextStyle.FontStyleName = "Regular";
             textLayer.TextStyle.FontPostScriptName = "Inter-Regular";
             textLayer.TextStyle.FontWeight = 400;
             textLayer.TextStyle.FontSize = 18f;
@@ -98,6 +99,7 @@ namespace FigmaUiImporter.Editor.Tests
             Assert.AreEqual(ImportedLayerKind.Text, data.Layers[1].Kind);
             Assert.AreEqual("Hello", data.Layers[1].TextStyle.Characters);
             Assert.AreEqual("Inter", data.Layers[1].TextStyle.FontFamily);
+            Assert.AreEqual("Regular", data.Layers[1].TextStyle.FontStyleName);
             Assert.AreEqual(18f, data.Layers[1].TextStyle.FontSize);
             Assert.AreEqual(0.1f, data.Layers[1].TextStyle.Color.r, 0.001f);
         }

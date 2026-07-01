@@ -38,7 +38,7 @@ namespace FigmaUiImporter.Editor
                 dto.type = layer.NodeType;
                 dto.kind = layer.IsTextLayer ? "text" : "image";
                 dto.image = MakeRelativeAssetPath(outputFolder, layer.AssetPath);
-                dto.text = layer.IsTextLayer ? ToTextDto(layer.TextStyle) : null;
+                dto.text = layer.HasTextStyle ? ToTextDto(layer.TextStyle) : null;
                 dto.bounds = ToBoundsDto(layer.FigmaBounds);
                 dto.unity = new UnityRectDto();
                 dto.unity.anchoredPosition = ToVectorDto(layer.AnchoredPosition);
@@ -168,7 +168,7 @@ namespace FigmaUiImporter.Editor
                 ? ImportedLayerKind.Text
                 : ImportedLayerKind.Image;
             layer.AssetPath = ResolveAssetPath(outputFolder, dto.image);
-            layer.TextStyle = layer.Kind == ImportedLayerKind.Text ? ToTextStyle(dto.text) : null;
+            layer.TextStyle = dto.text != null ? ToTextStyle(dto.text) : null;
             layer.FigmaBounds = ToRect(dto.bounds);
             layer.SiblingIndex = dto.siblingIndex;
 
@@ -212,6 +212,7 @@ namespace FigmaUiImporter.Editor
             TextDto dto = new TextDto();
             dto.characters = text.Characters;
             dto.fontFamily = text.FontFamily;
+            dto.fontStyleName = text.FontStyleName;
             dto.fontPostScriptName = text.FontPostScriptName;
             dto.fontWeight = text.FontWeight;
             dto.fontSize = text.FontSize;
@@ -236,6 +237,7 @@ namespace FigmaUiImporter.Editor
             FigmaTextStyleInfo text = new FigmaTextStyleInfo();
             text.Characters = dto.characters;
             text.FontFamily = dto.fontFamily;
+            text.FontStyleName = dto.fontStyleName;
             text.FontPostScriptName = dto.fontPostScriptName;
             text.FontWeight = dto.fontWeight;
             text.FontSize = dto.fontSize;
@@ -400,6 +402,7 @@ namespace FigmaUiImporter.Editor
         {
             public string characters;
             public string fontFamily;
+            public string fontStyleName;
             public string fontPostScriptName;
             public int fontWeight;
             public float fontSize;

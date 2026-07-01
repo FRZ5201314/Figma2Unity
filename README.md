@@ -111,6 +111,12 @@ Canvas
 
 Text 图层会在 manifest 中保留 fallback PNG。切换回 `图片` 模式或遇到不支持的复杂文本时，Unity 会继续使用这张 PNG。
 
+### 字体映射
+
+Figma 字体不会自动变成 Unity 字体资源。可以在 Unity 中通过 `Assets/Create/Figma UI Importer/Font Mapping` 创建字体映射表，然后在导入窗口的 `字体映射` 字段中选择它。
+
+映射表支持按 Figma PostScript 名称、字体族 + 样式、字体族 + 字重范围匹配到 `TMP_FontAsset`。没有匹配时会使用映射表里的默认字体；如果默认字体也没设置，Unity 会使用 TextMeshPro 组件自己的默认字体。
+
 ## 导入诊断报告
 
 每次 REST API 导入、Manifest 重建、Figma 插件包导入都会在输出目录生成 `diagnostics.json`。

@@ -395,6 +395,7 @@ namespace FigmaUiImporter.Editor
         {
             public string characters;
             public string fontFamily;
+            public string fontStyleName;
             public string fontPostScriptName;
             public int fontWeight;
             public float fontSize;

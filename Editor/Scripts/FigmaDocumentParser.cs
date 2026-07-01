@@ -786,6 +786,7 @@ namespace FigmaUiImporter.Editor
             FigmaTextStyleInfo text = new FigmaTextStyleInfo();
             text.Characters = node.TextCharacters;
             text.FontFamily = GetString(style, "fontFamily");
+            text.FontStyleName = GetString(style, "fontStyle");
             text.FontPostScriptName = GetString(style, "fontPostScriptName");
             text.FontWeight = Mathf.RoundToInt(GetFloat(style, "fontWeight"));
             text.FontSize = GetFloat(style, "fontSize");

@@ -4,7 +4,7 @@ var MAX_SCALE = 4;
 
 figma.showUI(__html__, {
   width: 380,
-  height: 420,
+  height: 360,
   themeColors: true
 });
 
@@ -64,7 +64,6 @@ async function exportSelectedNode(options) {
   var scale = clampNumber(options.scale, DEFAULT_SCALE, 0.01, MAX_SCALE);
   var mode = options.mode || "markedThenAuto";
   var containerStrategy = options.containerStrategy || "auto";
-  var textMode = options.textMode || "smart";
   var now = new Date().toISOString();
   var fileKey = getFileKey();
   var assets = [];
@@ -103,7 +102,7 @@ async function exportSelectedNode(options) {
       mimeType: "image/png",
       dataBase64: bytesToBase64(bytes)
     });
-    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length, textMode));
+    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length));
   }
 
   postProgress("正在生成离线包...", 0.95);
@@ -119,7 +118,7 @@ async function exportSelectedNode(options) {
       selectedNodeName: root.name || "Selection",
       selectedNodeType: root.type || "FRAME",
       containerSliceStrategy: containerStrategy,
-      textImportMode: textMode,
+      textImportMode: "metadata",
       importedAt: now,
       rootBounds: rootBounds,
       referenceImage: mode === "noReference" ? "" : "reference.png",
@@ -162,8 +161,8 @@ async function exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, s
   }
 }
 
-function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, textMode) {
-  var text = createTextDto(node, textMode);
+function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex) {
+  var text = createTextDto(node);
   var layoutBounds = text ? getTextLayoutBounds(node, bounds) : bounds;
   var anchoredPosition = toUnityAnchoredPosition(rootBounds, layoutBounds);
   return {
@@ -186,16 +185,12 @@ function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, textM
   };
 }
 
-function createTextDto(node, textMode) {
-  if (textMode === "image" || !node || node.type !== "TEXT" || typeof node.characters !== "string" || node.characters.length === 0) {
+function createTextDto(node) {
+  if (!node || node.type !== "TEXT" || typeof node.characters !== "string" || node.characters.length === 0) {
     return null;
   }
 
   var fontSize = readNumberValue(node.fontSize);
-  if (fontSize <= 0) {
-    return null;
-  }
-
   var fontName = readFontName(node.fontName);
   var mixedStyles = hasMixedTextStyles(node);
   var colorResult = getSolidTextColor(node);
@@ -203,13 +198,10 @@ function createTextDto(node, textMode) {
     || hasVisiblePaints(node.strokes)
     || hasEffects(node);
 
-  if (textMode === "smart" && (mixedStyles || unsupportedVisuals)) {
-    return null;
-  }
-
   return {
     characters: node.characters,
     fontFamily: fontName.family,
+    fontStyleName: fontName.style,
     fontPostScriptName: "",
     fontWeight: inferFontWeight(fontName.style),
     fontSize: fontSize,

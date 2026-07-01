@@ -67,9 +67,10 @@ namespace FigmaUiImporter.Editor.Tests
 
                 FigmaManifestRebuildData data = new FigmaImportManifestService().LoadForRebuild(manifestPath);
                 Assert.AreEqual(1, data.Layers.Count);
-                Assert.AreEqual(ImportedLayerKind.Text, data.Layers[0].Kind);
+                Assert.AreEqual(ImportedLayerKind.Image, data.Layers[0].Kind);
                 Assert.AreEqual("Hello", data.Layers[0].TextStyle.Characters);
                 Assert.AreEqual("Inter", data.Layers[0].TextStyle.FontFamily);
+                Assert.AreEqual("Regular", data.Layers[0].TextStyle.FontStyleName);
                 Assert.AreEqual(20f, data.Layers[0].TextStyle.FontSize);
                 Assert.AreEqual(0.25f, data.Layers[0].TextStyle.Color.r, 0.001f);
             }
@@ -221,7 +222,7 @@ namespace FigmaUiImporter.Editor.Tests
                 + "\"selectedNodeId\":\"1:2\","
                 + "\"selectedNodeName\":\"Root\","
                 + "\"selectedNodeType\":\"FRAME\","
-                + "\"textImportMode\":\"smart\","
+                + "\"textImportMode\":\"metadata\","
                 + "\"importedAt\":\"2026-07-01T00:00:00Z\","
                 + "\"rootBounds\":{\"x\":0,\"y\":0,\"width\":100,\"height\":80},"
                 + "\"referenceImage\":\"reference.png\","
@@ -229,9 +230,9 @@ namespace FigmaUiImporter.Editor.Tests
                 + "\"nodeId\":\"3:4\","
                 + "\"nodeName\":\"Title\","
                 + "\"type\":\"TEXT\","
-                + "\"kind\":\"text\","
+                + "\"kind\":\"image\","
                 + "\"image\":\"layers/3_4.png\","
-                + "\"text\":{\"characters\":\"Hello\",\"fontFamily\":\"Inter\",\"fontPostScriptName\":\"Inter-Regular\",\"fontWeight\":400,\"fontSize\":20,\"lineHeightPx\":24,\"letterSpacing\":0,\"color\":{\"r\":0.25,\"g\":0.5,\"b\":0.75,\"a\":1},\"horizontalAlign\":\"LEFT\",\"verticalAlign\":\"TOP\",\"autoResize\":\"NONE\",\"hasMixedStyles\":false,\"hasUnsupportedVisuals\":false},"
+                + "\"text\":{\"characters\":\"Hello\",\"fontFamily\":\"Inter\",\"fontStyleName\":\"Regular\",\"fontPostScriptName\":\"Inter-Regular\",\"fontWeight\":400,\"fontSize\":20,\"lineHeightPx\":24,\"letterSpacing\":0,\"color\":{\"r\":0.25,\"g\":0.5,\"b\":0.75,\"a\":1},\"horizontalAlign\":\"LEFT\",\"verticalAlign\":\"TOP\",\"autoResize\":\"NONE\",\"hasMixedStyles\":false,\"hasUnsupportedVisuals\":false},"
                 + "\"bounds\":{\"x\":10,\"y\":12,\"width\":60,\"height\":24},"
                 + "\"unity\":{\"anchoredPosition\":{\"x\":-20,\"y\":16},\"sizeDelta\":{\"x\":60,\"y\":24}},"
                 + "\"siblingIndex\":0,"

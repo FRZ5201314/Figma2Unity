@@ -57,6 +57,7 @@ namespace FigmaUiImporter.Editor
                 {
                     ImportedLayerInfo layer = layers[i];
                     bool createTextLayer = ShouldCreateTextLayer(settings, layer);
+                    layer.Kind = createTextLayer ? ImportedLayerKind.Text : ImportedLayerKind.Image;
                     if (!createTextLayer)
                     {
                         geometryResolver.Resolve(layer);
@@ -98,7 +99,7 @@ namespace FigmaUiImporter.Editor
         {
             if (settings == null
                 || layer == null
-                || !layer.IsTextLayer
+                || !layer.HasTextStyle
                 || settings.TextImportMode == FigmaTextImportMode.Image)
             {
                 return false;
@@ -133,6 +134,16 @@ namespace FigmaUiImporter.Editor
             text.overflowMode = TextOverflowModes.Overflow;
             text.raycastTarget = !settings.DisableRaycastTarget;
             text.margin = Vector4.zero;
+
+            FontStyles mappedStyle = FontStyles.Normal;
+            TMP_FontAsset mappedFont = settings.FontMapping == null
+                ? null
+                : settings.FontMapping.ResolveFont(style, out mappedStyle);
+            if (mappedFont != null)
+            {
+                text.font = mappedFont;
+                text.fontStyle |= mappedStyle;
+            }
 
             if (style.FontWeight >= 600)
             {
