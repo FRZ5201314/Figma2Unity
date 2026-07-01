@@ -191,12 +191,12 @@ function createTextDto(node, textMode) {
     return null;
   }
 
-  var style = node.style || {};
-  var fontSize = Number(style.fontSize);
-  if (!isFinite(fontSize) || fontSize <= 0) {
+  var fontSize = readNumberValue(node.fontSize);
+  if (fontSize <= 0) {
     return null;
   }
 
+  var fontName = readFontName(node.fontName);
   var mixedStyles = hasMixedTextStyles(node);
   var colorResult = getSolidTextColor(node);
   var unsupportedVisuals = colorResult.unsupported
@@ -209,15 +209,15 @@ function createTextDto(node, textMode) {
 
   return {
     characters: node.characters,
-    fontFamily: style.fontFamily || "",
-    fontPostScriptName: style.fontPostScriptName || "",
-    fontWeight: Math.round(Number(style.fontWeight) || 0),
+    fontFamily: fontName.family,
+    fontPostScriptName: "",
+    fontWeight: inferFontWeight(fontName.style),
     fontSize: fontSize,
-    lineHeightPx: Number(style.lineHeightPx) || 0,
-    letterSpacing: Number(style.letterSpacing) || 0,
+    lineHeightPx: readLineHeightPx(node.lineHeight, fontSize),
+    letterSpacing: readLetterSpacing(node.letterSpacing, fontSize),
     color: colorResult.color,
-    horizontalAlign: style.textAlignHorizontal || "",
-    verticalAlign: style.textAlignVertical || "",
+    horizontalAlign: readStringValue(node.textAlignHorizontal),
+    verticalAlign: readStringValue(node.textAlignVertical),
     autoResize: node.textAutoResize || "",
     hasMixedStyles: mixedStyles,
     hasUnsupportedVisuals: unsupportedVisuals
@@ -229,6 +229,17 @@ function getTextLayoutBounds(node, fallbackBounds) {
 }
 
 function hasMixedTextStyles(node) {
+  if (isMixedValue(node.fontName)
+    || isMixedValue(node.fontSize)
+    || isMixedValue(node.lineHeight)
+    || isMixedValue(node.letterSpacing)
+    || isMixedValue(node.textAlignHorizontal)
+    || isMixedValue(node.textAlignVertical)
+    || isMixedValue(node.fills)
+    || isMixedValue(node.strokes)) {
+    return true;
+  }
+
   var overrides = node && Array.isArray(node.characterStyleOverrides)
     ? node.characterStyleOverrides
     : [];
@@ -240,6 +251,117 @@ function hasMixedTextStyles(node) {
 
   var table = node && node.styleOverrideTable;
   return !!table && Object.keys(table).length > 0;
+}
+
+function readFontName(value) {
+  if (isMixedValue(value) || !value || typeof value !== "object") {
+    return { family: "", style: "" };
+  }
+
+  return {
+    family: value.family || "",
+    style: value.style || ""
+  };
+}
+
+function readNumberValue(value) {
+  if (isMixedValue(value)) {
+    return 0;
+  }
+
+  var number = Number(value);
+  return isFinite(number) ? number : 0;
+}
+
+function readStringValue(value) {
+  if (isMixedValue(value) || value == null) {
+    return "";
+  }
+
+  return String(value);
+}
+
+function readLineHeightPx(value, fontSize) {
+  if (isMixedValue(value) || !value || typeof value !== "object") {
+    return 0;
+  }
+
+  var amount = Number(value.value);
+  if (!isFinite(amount)) {
+    return 0;
+  }
+
+  if (value.unit === "PIXELS") {
+    return amount;
+  }
+
+  if (value.unit === "PERCENT") {
+    return fontSize * amount / 100;
+  }
+
+  return 0;
+}
+
+function readLetterSpacing(value, fontSize) {
+  if (isMixedValue(value) || !value || typeof value !== "object") {
+    return 0;
+  }
+
+  var amount = Number(value.value);
+  if (!isFinite(amount)) {
+    return 0;
+  }
+
+  if (value.unit === "PIXELS") {
+    return amount;
+  }
+
+  if (value.unit === "PERCENT") {
+    return fontSize * amount / 100;
+  }
+
+  return 0;
+}
+
+function inferFontWeight(style) {
+  var normalized = String(style || "").toLowerCase().replace(/[\s_-]+/g, "");
+  if (normalized.indexOf("thin") >= 0 || normalized.indexOf("hairline") >= 0) {
+    return 100;
+  }
+
+  if (normalized.indexOf("extralight") >= 0 || normalized.indexOf("ultralight") >= 0) {
+    return 200;
+  }
+
+  if (normalized.indexOf("light") >= 0) {
+    return 300;
+  }
+
+  if (normalized.indexOf("medium") >= 0) {
+    return 500;
+  }
+
+  if (normalized.indexOf("semibold") >= 0 || normalized.indexOf("demibold") >= 0) {
+    return 600;
+  }
+
+  if (normalized.indexOf("extrabold") >= 0 || normalized.indexOf("ultrabold") >= 0) {
+    return 800;
+  }
+
+  if (normalized.indexOf("black") >= 0 || normalized.indexOf("heavy") >= 0) {
+    return 900;
+  }
+
+  if (normalized.indexOf("bold") >= 0) {
+    return 700;
+  }
+
+  return 400;
+}
+
+function isMixedValue(value) {
+  return typeof figma !== "undefined" && value === figma.mixed;
 }
 
 function getSolidTextColor(node) {

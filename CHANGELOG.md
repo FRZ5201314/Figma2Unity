@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Fixed Figma plugin text metadata export by reading TextNode fields from the Plugin API instead of REST-style `style` fields.
+
 ## 0.5.0
 
 - Added Text import modes with Smart TextMeshPro conversion for simple single-style Figma text and PNG fallback for complex text.
