@@ -18,6 +18,11 @@ namespace FigmaUiImporter.Editor
             _spriteImporter = spriteImporter;
         }
 
+        public void ImportSprites(IEnumerable<string> assetPaths, TextureImporterCompressionMode compressionMode)
+        {
+            _spriteImporter.ImportSprites(assetPaths, compressionMode);
+        }
+
         public async Task<string> ExportSingleImageAsync(
             FigmaImportSettings settings,
             string nodeId,
@@ -51,7 +56,8 @@ namespace FigmaUiImporter.Editor
             IList<FigmaNodeInfo> nodes,
             string layersFolder,
             IProgress<FigmaImportProgress> progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool importSprites = true)
         {
             Dictionary<string, string> exported = new Dictionary<string, string>();
             if (nodes == null || nodes.Count == 0)
@@ -106,8 +112,12 @@ namespace FigmaUiImporter.Editor
                 }
             }
 
-            progress.Report(new FigmaImportProgress("导入 Sprite 资源...", 0.84f));
-            _spriteImporter.ImportSprites(importedAssetPaths, settings.CompressionMode);
+            if (importSprites)
+            {
+                progress.Report(new FigmaImportProgress("导入 Sprite 资源...", 0.84f));
+                _spriteImporter.ImportSprites(importedAssetPaths, settings.CompressionMode);
+            }
+
             return exported;
         }
 

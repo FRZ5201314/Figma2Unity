@@ -47,6 +47,7 @@ namespace FigmaUiImporter.Editor.Tests
             layer.SizeDelta = new Vector2(50f, 60f);
             layer.SiblingIndex = 0;
             layer.UnityObjectPath = "Canvas/FigmaImport/Layer";
+            layer.ClearChildNodeIds.Add("5:6");
 
             FigmaImportSettings settings = new FigmaImportSettings();
             settings.FileKey = "fileKey";
@@ -72,6 +73,7 @@ namespace FigmaUiImporter.Editor.Tests
             Assert.AreEqual(layer.AssetPath, data.Layers[0].AssetPath);
             Assert.AreEqual(layer.AnchoredPosition, data.Layers[0].AnchoredPosition);
             Assert.AreEqual(layer.SizeDelta, data.Layers[0].SizeDelta);
+            CollectionAssert.AreEqual(layer.ClearChildNodeIds, data.Layers[0].ClearChildNodeIds);
         }
 
         private static void WriteEmptyAsset(string assetPath)

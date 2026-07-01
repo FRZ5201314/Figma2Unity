@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- Fixed expanded container background slices so separately exported child layers are removed from the parent PNG before Sprite import.
+- Added `clearChildNodeIds` manifest metadata for container background cleanup in REST and offline package imports.
+
 ## 0.4.0
 
 - Added configurable container slicing strategies for mixed ExportSettings and auto-slice imports.

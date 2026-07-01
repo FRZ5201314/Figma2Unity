@@ -82,6 +82,7 @@ async function exportSelectedNode(options) {
   var nodes = mode === "referenceOnly" || mode === "noReference"
     ? []
     : collectImportableNodes(root, mode, containerStrategy);
+  var selectedMap = toNodeMap(nodes);
 
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i];
@@ -98,7 +99,13 @@ async function exportSelectedNode(options) {
       mimeType: "image/png",
       dataBase64: bytesToBase64(bytes)
     });
-    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length));
+    layers.push(createLayerDto(
+      rootBounds,
+      node,
+      bounds,
+      imagePath,
+      layers.length,
+      collectNearestSelectedDescendantIds(node, selectedMap)));
   }
 
   postProgress("正在生成离线包...", 0.95);
@@ -137,7 +144,7 @@ async function exportNodePng(node, scale) {
   });
 }
 
-function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex) {
+function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, clearChildNodeIds) {
   var anchoredPosition = toUnityAnchoredPosition(rootBounds, bounds);
   return {
     nodeId: node.id,
@@ -153,7 +160,8 @@ function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex) {
       }
     },
     siblingIndex: siblingIndex,
-    unityObjectPath: ""
+    unityObjectPath: "",
+    clearChildNodeIds: clearChildNodeIds || []
   };
 }
 
@@ -292,6 +300,25 @@ function hasMappedDescendant(node, map) {
   }
 
   return false;
+}
+
+function collectNearestSelectedDescendantIds(node, selectedMap) {
+  var results = [];
+  appendNearestSelectedDescendantIds(node, selectedMap, results);
+  return results;
+}
+
+function appendNearestSelectedDescendantIds(node, selectedMap, results) {
+  var children = getChildren(node);
+  for (var i = 0; i < children.length; i++) {
+    var child = children[i];
+    if (child && child.id && selectedMap[child.id]) {
+      results.push(child.id);
+      continue;
+    }
+
+    appendNearestSelectedDescendantIds(child, selectedMap, results);
+  }
 }
 
 function hasAtomicDescendant(node) {

@@ -127,6 +127,7 @@ namespace FigmaUiImporter.Editor
         public Vector2 SizeDelta;
         public int SiblingIndex;
         public string UnityObjectPath;
+        public readonly List<string> ClearChildNodeIds = new List<string>();
     }
 
     internal sealed class FigmaImportResult
