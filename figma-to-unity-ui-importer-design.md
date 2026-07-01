@@ -34,7 +34,7 @@ MVP 不算很复杂，因为它可以把问题限定为“图片导入 + 坐标�
 MVP 明确不做以下能力：
 
 - 不根据节点名称识别 Button、Toggle、ScrollView 等业务组件。
-- 不把 Figma Text 节点转换为 TextMeshPro。
+- 不完整转换复杂 Figma Text；单一样式文本可通过智能文本模式转换为 TextMeshPro。
 - 不把 Auto Layout 完整转换为 Unity LayoutGroup。
 - 不自动推断锚点、适配策略和交互逻辑。
 - 不保证导入结果是可直接上线的最终 UI Prefab。
@@ -679,9 +679,9 @@ Token 无效、网络失败、Figma API 限流。
 
 ### 15.1 文本转 TextMeshPro
 
-读取 Figma Text 节点的 characters、style、fills，将其转换为 TMP_Text。
+已支持读取 Figma Text 节点的 characters、style、fills，将单一样式文本转换为 TMP_Text，并为复杂文本保留 PNG fallback。
 
-难点：
+后续难点：
 
 - 字体映射。
 - 行高、字间距、段落样式。

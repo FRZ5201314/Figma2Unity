@@ -14,6 +14,8 @@
 
 插件不会请求 Figma REST API，也不需要 Personal Access Token。它只读取当前打开文件中的当前选择，并使用 Figma Plugin API 的 `exportAsync` 导出 PNG。
 
+文本导入模式支持 `智能`、`TextMeshPro` 和 `图片`。插件会为可转文本写入 text 元数据，同时仍导出 PNG 作为 Unity 侧回退资源。
+
 容器处理策略主要影响 `ExportSettings 优先，并补齐可见图层`：
 
 - `自动`：保留 Auto Layout 容器自身可见底图，并展开组件实例。

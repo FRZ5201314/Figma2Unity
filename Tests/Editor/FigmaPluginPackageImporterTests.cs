@@ -53,6 +53,33 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void ImportPackagePreservesTextLayerManifestData()
+        {
+            string packagePath = WritePackage(CreateTextPackageJson());
+
+            try
+            {
+                FigmaPluginPackageImporter importer = new FigmaPluginPackageImporter();
+                string manifestPath = importer.ImportPackage(
+                    packagePath,
+                    new FigmaImportSettings { OutputFolder = TestFolder },
+                    new NullProgress());
+
+                FigmaManifestRebuildData data = new FigmaImportManifestService().LoadForRebuild(manifestPath);
+                Assert.AreEqual(1, data.Layers.Count);
+                Assert.AreEqual(ImportedLayerKind.Text, data.Layers[0].Kind);
+                Assert.AreEqual("Hello", data.Layers[0].TextStyle.Characters);
+                Assert.AreEqual("Inter", data.Layers[0].TextStyle.FontFamily);
+                Assert.AreEqual(20f, data.Layers[0].TextStyle.FontSize);
+                Assert.AreEqual(0.25f, data.Layers[0].TextStyle.Color.r, 0.001f);
+            }
+            finally
+            {
+                File.Delete(packagePath);
+            }
+        }
+
+        [Test]
         public void ReadPackageInfoReturnsImportSummary()
         {
             string packagePath = WritePackage(CreatePackageJson());
@@ -177,6 +204,43 @@ namespace FigmaUiImporter.Editor.Tests
                 + "\"assets\":["
                 + "{\"path\":\"" + referenceAssetPath + "\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + referenceBase64 + "\"},"
                 + "{\"path\":\"" + layerAssetPath + "\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + layerBase64 + "\"}"
+                + "]"
+                + "}";
+        }
+
+        private static string CreateTextPackageJson()
+        {
+            return "{"
+                + "\"schemaVersion\":1,"
+                + "\"exportedAt\":\"2026-07-01T00:00:00Z\","
+                + "\"fileKey\":\"localFile\","
+                + "\"imageScale\":1,"
+                + "\"manifest\":{"
+                + "\"fileKey\":\"\","
+                + "\"imageScale\":1,"
+                + "\"selectedNodeId\":\"1:2\","
+                + "\"selectedNodeName\":\"Root\","
+                + "\"selectedNodeType\":\"FRAME\","
+                + "\"textImportMode\":\"smart\","
+                + "\"importedAt\":\"2026-07-01T00:00:00Z\","
+                + "\"rootBounds\":{\"x\":0,\"y\":0,\"width\":100,\"height\":80},"
+                + "\"referenceImage\":\"reference.png\","
+                + "\"layers\":[{"
+                + "\"nodeId\":\"3:4\","
+                + "\"nodeName\":\"Title\","
+                + "\"type\":\"TEXT\","
+                + "\"kind\":\"text\","
+                + "\"image\":\"layers/3_4.png\","
+                + "\"text\":{\"characters\":\"Hello\",\"fontFamily\":\"Inter\",\"fontPostScriptName\":\"Inter-Regular\",\"fontWeight\":400,\"fontSize\":20,\"lineHeightPx\":24,\"letterSpacing\":0,\"color\":{\"r\":0.25,\"g\":0.5,\"b\":0.75,\"a\":1},\"horizontalAlign\":\"LEFT\",\"verticalAlign\":\"TOP\",\"autoResize\":\"NONE\",\"hasMixedStyles\":false,\"hasUnsupportedVisuals\":false},"
+                + "\"bounds\":{\"x\":10,\"y\":12,\"width\":60,\"height\":24},"
+                + "\"unity\":{\"anchoredPosition\":{\"x\":-20,\"y\":16},\"sizeDelta\":{\"x\":60,\"y\":24}},"
+                + "\"siblingIndex\":0,"
+                + "\"unityObjectPath\":\"\""
+                + "}]"
+                + "},"
+                + "\"assets\":["
+                + "{\"path\":\"reference.png\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + PngBase64 + "\"},"
+                + "{\"path\":\"layers/3_4.png\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + PngBase64 + "\"}"
                 + "]"
                 + "}";
         }

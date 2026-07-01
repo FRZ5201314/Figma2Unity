@@ -4,7 +4,7 @@ var MAX_SCALE = 4;
 
 figma.showUI(__html__, {
   width: 380,
-  height: 360,
+  height: 420,
   themeColors: true
 });
 
@@ -64,6 +64,7 @@ async function exportSelectedNode(options) {
   var scale = clampNumber(options.scale, DEFAULT_SCALE, 0.01, MAX_SCALE);
   var mode = options.mode || "markedThenAuto";
   var containerStrategy = options.containerStrategy || "auto";
+  var textMode = options.textMode || "smart";
   var now = new Date().toISOString();
   var fileKey = getFileKey();
   var assets = [];
@@ -102,7 +103,7 @@ async function exportSelectedNode(options) {
       mimeType: "image/png",
       dataBase64: bytesToBase64(bytes)
     });
-    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length));
+    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length, textMode));
   }
 
   postProgress("正在生成离线包...", 0.95);
@@ -118,6 +119,7 @@ async function exportSelectedNode(options) {
       selectedNodeName: root.name || "Selection",
       selectedNodeType: root.type || "FRAME",
       containerSliceStrategy: containerStrategy,
+      textImportMode: textMode,
       importedAt: now,
       rootBounds: rootBounds,
       referenceImage: mode === "noReference" ? "" : "reference.png",
@@ -160,24 +162,122 @@ async function exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, s
   }
 }
 
-function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex) {
-  var anchoredPosition = toUnityAnchoredPosition(rootBounds, bounds);
+function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, textMode) {
+  var text = createTextDto(node, textMode);
+  var layoutBounds = text ? getTextLayoutBounds(node, bounds) : bounds;
+  var anchoredPosition = toUnityAnchoredPosition(rootBounds, layoutBounds);
   return {
     nodeId: node.id,
     nodeName: node.name || "Layer",
     type: node.type || "UNKNOWN",
+    kind: text ? "text" : "image",
     image: imagePath,
-    bounds: bounds,
+    text: text,
+    bounds: layoutBounds,
     unity: {
       anchoredPosition: anchoredPosition,
       sizeDelta: {
-        x: bounds.width,
-        y: bounds.height
+        x: layoutBounds.width,
+        y: layoutBounds.height
       }
     },
     siblingIndex: siblingIndex,
     unityObjectPath: ""
   };
+}
+
+function createTextDto(node, textMode) {
+  if (textMode === "image" || !node || node.type !== "TEXT" || typeof node.characters !== "string" || node.characters.length === 0) {
+    return null;
+  }
+
+  var style = node.style || {};
+  var fontSize = Number(style.fontSize);
+  if (!isFinite(fontSize) || fontSize <= 0) {
+    return null;
+  }
+
+  var mixedStyles = hasMixedTextStyles(node);
+  var colorResult = getSolidTextColor(node);
+  var unsupportedVisuals = colorResult.unsupported
+    || hasVisiblePaints(node.strokes)
+    || hasEffects(node);
+
+  if (textMode === "smart" && (mixedStyles || unsupportedVisuals)) {
+    return null;
+  }
+
+  return {
+    characters: node.characters,
+    fontFamily: style.fontFamily || "",
+    fontPostScriptName: style.fontPostScriptName || "",
+    fontWeight: Math.round(Number(style.fontWeight) || 0),
+    fontSize: fontSize,
+    lineHeightPx: Number(style.lineHeightPx) || 0,
+    letterSpacing: Number(style.letterSpacing) || 0,
+    color: colorResult.color,
+    horizontalAlign: style.textAlignHorizontal || "",
+    verticalAlign: style.textAlignVertical || "",
+    autoResize: node.textAutoResize || "",
+    hasMixedStyles: mixedStyles,
+    hasUnsupportedVisuals: unsupportedVisuals
+  };
+}
+
+function getTextLayoutBounds(node, fallbackBounds) {
+  return normalizeBounds(node && (node.absoluteBoundingBox || node.absoluteRenderBounds)) || fallbackBounds;
+}
+
+function hasMixedTextStyles(node) {
+  var overrides = node && Array.isArray(node.characterStyleOverrides)
+    ? node.characterStyleOverrides
+    : [];
+  for (var i = 0; i < overrides.length; i++) {
+    if (Number(overrides[i]) !== 0) {
+      return true;
+    }
+  }
+
+  var table = node && node.styleOverrideTable;
+  return !!table && Object.keys(table).length > 0;
+}
+
+function getSolidTextColor(node) {
+  var result = {
+    color: { r: 1, g: 1, b: 1, a: 1 },
+    unsupported: false
+  };
+
+  var fills = node && Array.isArray(node.fills) ? node.fills : [];
+  var visibleCount = 0;
+  var foundColor = false;
+  for (var i = 0; i < fills.length; i++) {
+    var fill = fills[i];
+    if (!fill || fill.visible === false) {
+      continue;
+    }
+
+    visibleCount++;
+    if (fill.type !== "SOLID" || !fill.color) {
+      result.unsupported = true;
+      continue;
+    }
+
+    if (!foundColor) {
+      var fillOpacity = typeof fill.opacity === "number" ? fill.opacity : 1;
+      var nodeOpacity = typeof node.opacity === "number" ? node.opacity : 1;
+      result.color = {
+        r: clampNumber(fill.color.r, 1, 0, 1),
+        g: clampNumber(fill.color.g, 1, 0, 1),
+        b: clampNumber(fill.color.b, 1, 0, 1),
+        a: clampNumber(fillOpacity * nodeOpacity, 1, 0, 1)
+      };
+      foundColor = true;
+    }
+  }
+
+  result.unsupported = result.unsupported || !foundColor || visibleCount > 1;
+  return result;
 }
 
 function collectImportableNodes(root, mode, containerStrategy) {

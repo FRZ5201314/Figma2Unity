@@ -15,6 +15,7 @@ namespace FigmaUiImporter.Editor
         private const string PrefOutputFolder = "FigmaUiImporter.OutputFolder";
         private const string PrefSliceMode = "FigmaUiImporter.SliceMode";
         private const string PrefContainerSliceStrategy = "FigmaUiImporter.ContainerSliceStrategy";
+        private const string PrefTextImportMode = "FigmaUiImporter.TextImportMode";
         private const string PrefImageScale = "FigmaUiImporter.ImageScale";
         private const string PrefReferenceAlpha = "FigmaUiImporter.ReferenceAlpha";
         private const string PrefCreateReference = "FigmaUiImporter.CreateReference";
@@ -43,6 +44,13 @@ namespace FigmaUiImporter.Editor
             "强制展开容器：尽量拆到子级"
         };
 
+        private static readonly string[] TextImportModeLabels =
+        {
+            "图片：文字也按 PNG 导入",
+            "TextMeshPro：尽量转为可编辑文本",
+            "智能：普通文本转 TMP，复杂文本用图片"
+        };
+
         private string _accessToken;
         private string _fileInput;
         private string _loadedFileKey;
@@ -50,6 +58,7 @@ namespace FigmaUiImporter.Editor
         private Canvas _targetCanvas;
         private FigmaSliceMode _sliceMode;
         private FigmaContainerSliceStrategy _containerSliceStrategy;
+        private FigmaTextImportMode _textImportMode;
         private float _imageScale;
         private bool _createReference;
         private float _referenceAlpha;
@@ -92,6 +101,7 @@ namespace FigmaUiImporter.Editor
             _outputFolder = EditorPrefs.GetString(PrefOutputFolder, "Assets/FigmaImports");
             _sliceMode = (FigmaSliceMode)EditorPrefs.GetInt(PrefSliceMode, (int)FigmaSliceMode.ExportSettingsThenAutoSlice);
             _containerSliceStrategy = (FigmaContainerSliceStrategy)EditorPrefs.GetInt(PrefContainerSliceStrategy, (int)FigmaContainerSliceStrategy.Auto);
+            _textImportMode = (FigmaTextImportMode)EditorPrefs.GetInt(PrefTextImportMode, (int)FigmaTextImportMode.Smart);
             _imageScale = EditorPrefs.GetFloat(PrefImageScale, 1f);
             _referenceAlpha = EditorPrefs.GetFloat(PrefReferenceAlpha, 0.5f);
             _createReference = EditorPrefs.GetBool(PrefCreateReference, true);
@@ -159,6 +169,7 @@ namespace FigmaUiImporter.Editor
                     _containerSliceStrategy = (FigmaContainerSliceStrategy)EditorGUILayout.Popup("容器处理策略", (int)_containerSliceStrategy, ContainerSliceStrategyLabels);
                 }
 
+                _textImportMode = (FigmaTextImportMode)EditorGUILayout.Popup("文本导入模式", (int)_textImportMode, TextImportModeLabels);
                 _imageScale = Mathf.Clamp(EditorGUILayout.FloatField("图片倍率", _imageScale), 0.01f, 4f);
                 _createReference = EditorGUILayout.Toggle("创建参考图", _createReference);
                 using (new EditorGUI.DisabledScope(!_createReference))
@@ -708,6 +719,8 @@ namespace FigmaUiImporter.Editor
                 + "根尺寸：" + FormatNumber(packageInfo.RootWidth) + " x " + FormatNumber(packageInfo.RootHeight) + "\n"
                 + "图片倍率：" + FormatNumber(packageInfo.ImageScale) + "\n"
                 + "容器策略：" + FormatPluginContainerStrategy(packageInfo.ContainerSliceStrategy) + "\n"
+                + "包文本模式：" + FormatPluginTextMode(packageInfo.TextImportMode) + "\n"
+                + "Unity 文本模式：" + FormatSettingsTextMode(settings.TextImportMode) + "\n"
                 + "图片资源：" + packageInfo.AssetCount + " 个"
                 + (packageInfo.HasReferenceImage ? "（包含参考图）" : "（不包含参考图）") + "\n"
                 + "切图图层：" + packageInfo.LayerCount + " 个\n"
@@ -782,6 +795,40 @@ namespace FigmaUiImporter.Editor
             return value;
         }
 
+        private static string FormatPluginTextMode(string value)
+        {
+            if (string.Equals(value, "tmp", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TextMeshPro";
+            }
+
+            if (string.Equals(value, "image", StringComparison.OrdinalIgnoreCase))
+            {
+                return "图片";
+            }
+
+            if (string.Equals(value, "smart", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(value))
+            {
+                return "智能";
+            }
+
+            return value;
+        }
+
+        private static string FormatSettingsTextMode(FigmaTextImportMode mode)
+        {
+            switch (mode)
+            {
+                case FigmaTextImportMode.Image:
+                    return "图片";
+                case FigmaTextImportMode.TextMeshPro:
+                    return "TextMeshPro";
+                default:
+                    return "智能";
+            }
+        }
+
         private static string FormatNumber(float value)
         {
             return value.ToString("0.##");
@@ -819,6 +866,7 @@ namespace FigmaUiImporter.Editor
             settings.TargetCanvas = _targetCanvas;
             settings.SliceMode = _sliceMode;
             settings.ContainerSliceStrategy = _containerSliceStrategy;
+            settings.TextImportMode = _textImportMode;
             settings.ImageScale = _imageScale;
             settings.CreateReference = _createReference;
             settings.ReferenceAlpha = _referenceAlpha;
@@ -919,6 +967,7 @@ namespace FigmaUiImporter.Editor
             EditorPrefs.SetString(PrefOutputFolder, _outputFolder ?? "Assets/FigmaImports");
             EditorPrefs.SetInt(PrefSliceMode, (int)_sliceMode);
             EditorPrefs.SetInt(PrefContainerSliceStrategy, (int)_containerSliceStrategy);
+            EditorPrefs.SetInt(PrefTextImportMode, (int)_textImportMode);
             EditorPrefs.SetFloat(PrefImageScale, _imageScale);
             EditorPrefs.SetFloat(PrefReferenceAlpha, _referenceAlpha);
             EditorPrefs.SetBool(PrefCreateReference, _createReference);

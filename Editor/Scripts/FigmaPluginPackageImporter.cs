@@ -274,6 +274,7 @@ namespace FigmaUiImporter.Editor
                 ? "FRAME"
                 : package.manifest.selectedNodeType;
             info.ContainerSliceStrategy = package.manifest.containerSliceStrategy;
+            info.TextImportMode = package.manifest.textImportMode;
             info.RootWidth = package.manifest.rootBounds.width;
             info.RootHeight = package.manifest.rootBounds.height;
             info.LayerCount = package.manifest.layers == null ? 0 : package.manifest.layers.Count;
@@ -367,6 +368,7 @@ namespace FigmaUiImporter.Editor
             public string selectedNodeName;
             public string selectedNodeType;
             public string containerSliceStrategy;
+            public string textImportMode;
             public string importedAt;
             public BoundsDto rootBounds;
             public string referenceImage;
@@ -379,11 +381,40 @@ namespace FigmaUiImporter.Editor
             public string nodeId;
             public string nodeName;
             public string type;
+            public string kind;
             public string image;
+            public TextDto text;
             public BoundsDto bounds;
             public UnityRectDto unity;
             public int siblingIndex;
             public string unityObjectPath;
+        }
+
+        [Serializable]
+        private sealed class TextDto
+        {
+            public string characters;
+            public string fontFamily;
+            public string fontPostScriptName;
+            public int fontWeight;
+            public float fontSize;
+            public float lineHeightPx;
+            public float letterSpacing;
+            public ColorDto color;
+            public string horizontalAlign;
+            public string verticalAlign;
+            public string autoResize;
+            public bool hasMixedStyles;
+            public bool hasUnsupportedVisuals;
+        }
+
+        [Serializable]
+        private sealed class ColorDto
+        {
+            public float r;
+            public float g;
+            public float b;
+            public float a;
         }
 
         [Serializable]

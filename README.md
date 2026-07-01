@@ -103,6 +103,14 @@ Canvas
 - `严格 ExportSettings`：设计师标记了哪个节点就优先导出哪个节点，适合需要完全尊重 Figma ExportSettings 的设计稿。
 - `强制展开容器`：带子切片的容器会尽量展开到子级，适合排查或避免大容器压成一张图。
 
+## 文本导入模式
+
+- `智能`：默认模式。单一样式、纯色、无复杂效果的 Figma Text 会导入为 `TextMeshProUGUI`，复杂文本保留 PNG 切图。
+- `TextMeshPro`：尽量把 Figma Text 转成可编辑 TMP 文本，即使混合样式或视觉效果可能无法完全还原。
+- `图片`：所有 Text 都按 PNG 切图导入，适合需要完全视觉一致的场景。
+
+Text 图层会在 manifest 中保留 fallback PNG。切换回 `图片` 模式或遇到不支持的复杂文本时，Unity 会继续使用这张 PNG。
+
 ## 导入诊断报告
 
 每次 REST API 导入、Manifest 重建、Figma 插件包导入都会在输出目录生成 `diagnostics.json`。
@@ -121,7 +129,7 @@ Canvas
 - `从 Manifest 重建场景` 只能使用当前 Unity 项目 `Assets` 目录内的 manifest 和图片资源；如果移动了 `reference.png` 或 `layers` 目录，需要保持 manifest 中记录的相对路径仍然可用。
 - `.figma2unity.json` 使用 base64 内嵌 PNG，文件会比原始图片总量更大。导入器会校验 manifest 引用、图片路径和 base64 数据，错误信息会指出缺失或损坏的资源。很大的 Frame 建议先用 Figma 插件的“仅导出整张参考图”或“只导出已设置 Export 的节点”。
 - 为了让切图大小和位置更贴近参考图，建议保留 `创建参考图`。没有参考图时，插件仍会使用 PNG 实际尺寸，但无法进行像素位置校准。
-- 插件按视觉还原导入，不会把 Figma Text 转成 TMP，也不会自动生成 Button、Toggle、ScrollView 等语义组件。
+- 插件优先按视觉还原导入；普通 Figma Text 可按文本导入模式转成 TMP，但不会自动生成 Button、Toggle、ScrollView 等语义组件。
 - Page 可能很大，建议优先选择具体 Frame。
 - Figma 图片 URL 有时效，插件会立即下载到 Unity 项目资源目录。
 

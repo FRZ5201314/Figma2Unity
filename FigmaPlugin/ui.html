@@ -105,6 +105,13 @@
     <option value="expand">强制展开容器：尽量拆到子级</option>
   </select>
 
+  <label for="textMode">文本导入模式</label>
+  <select id="textMode">
+    <option value="smart">智能：普通文本转 TMP，复杂文本用图片</option>
+    <option value="tmp">TextMeshPro：尽量转为可编辑文本</option>
+    <option value="image">图片：文字也按 PNG 导入</option>
+  </select>
+
   <label for="scale">图片倍率</label>
   <input id="scale" type="number" min="0.01" max="4" step="0.25" value="1">
 
@@ -120,6 +127,7 @@
     const progress = document.getElementById("progress");
     const modeInput = document.getElementById("mode");
     const containerStrategyInput = document.getElementById("containerStrategy");
+    const textModeInput = document.getElementById("textMode");
     const scaleInput = document.getElementById("scale");
     let selectionOk = false;
 
@@ -133,6 +141,7 @@
           type: "export-package",
           mode: modeInput.value,
           containerStrategy: containerStrategyInput.value,
+          textMode: textModeInput.value,
           scale: Number(scaleInput.value)
         }
       }, "*");
@@ -177,6 +186,7 @@
       exportButton.disabled = isBusy || !selectionOk;
       modeInput.disabled = isBusy;
       containerStrategyInput.disabled = isBusy;
+      textModeInput.disabled = isBusy;
       scaleInput.disabled = isBusy;
     }
 

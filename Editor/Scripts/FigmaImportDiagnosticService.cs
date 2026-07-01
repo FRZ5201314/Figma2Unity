@@ -39,6 +39,7 @@ namespace FigmaUiImporter.Editor
                 ImportedLayerInfo layer;
                 if (!string.IsNullOrEmpty(diagnostic.NodeId) && layerMap.TryGetValue(diagnostic.NodeId, out layer))
                 {
+                    node.kind = layer.IsTextLayer ? "text" : "image";
                     node.assetPath = layer.AssetPath;
                     node.unityObjectPath = layer.UnityObjectPath;
                 }
@@ -74,6 +75,7 @@ namespace FigmaUiImporter.Editor
                 node.type = layer.NodeType;
                 node.action = "导出";
                 node.reason = "来自 manifest 的切图记录。";
+                node.kind = layer.IsTextLayer ? "text" : "image";
                 node.assetPath = layer.AssetPath;
                 node.unityObjectPath = layer.UnityObjectPath;
                 report.nodes.Add(node);
@@ -92,6 +94,7 @@ namespace FigmaUiImporter.Editor
             report.selectedNodeType = selectedRoot.Type;
             report.sliceMode = settings.SliceMode.ToString();
             report.containerSliceStrategy = settings.ContainerSliceStrategy.ToString();
+            report.textImportMode = settings.TextImportMode.ToString();
             return report;
         }
 
@@ -141,6 +144,7 @@ namespace FigmaUiImporter.Editor
             public string selectedNodeType;
             public string sliceMode;
             public string containerSliceStrategy;
+            public string textImportMode;
             public int exportedLayerCount;
             public List<NodeDto> nodes = new List<NodeDto>();
         }
@@ -154,6 +158,7 @@ namespace FigmaUiImporter.Editor
             public string layoutMode;
             public string action;
             public string reason;
+            public string kind;
             public string assetPath;
             public string unityObjectPath;
         }

@@ -32,6 +32,45 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void ParseFileReadsSingleStyleTextData()
+        {
+            string json = "{"
+                + "\"document\":{"
+                + "\"id\":\"0:0\","
+                + "\"name\":\"Document\","
+                + "\"type\":\"DOCUMENT\","
+                + "\"children\":[{"
+                + "\"id\":\"1:1\","
+                + "\"name\":\"Title\","
+                + "\"type\":\"TEXT\","
+                + "\"characters\":\"Hello\","
+                + "\"absoluteBoundingBox\":{\"x\":0,\"y\":0,\"width\":120,\"height\":40},"
+                + "\"style\":{\"fontFamily\":\"Inter\",\"fontPostScriptName\":\"Inter-Bold\",\"fontWeight\":700,\"fontSize\":24,\"lineHeightPx\":30,\"letterSpacing\":1.5,\"textAlignHorizontal\":\"CENTER\",\"textAlignVertical\":\"TOP\"},"
+                + "\"fills\":[{\"type\":\"SOLID\",\"color\":{\"r\":0.1,\"g\":0.2,\"b\":0.3},\"opacity\":0.8}],"
+                + "\"characterStyleOverrides\":[0,0,0,0,0],"
+                + "\"styleOverrideTable\":{}"
+                + "}]"
+                + "}"
+                + "}";
+
+            FigmaNodeInfo document = FigmaDocumentParser.ParseFile(json);
+            FigmaNodeInfo textNode = document.Children[0];
+
+            Assert.AreEqual("Hello", textNode.TextCharacters);
+            Assert.IsNotNull(textNode.TextStyle);
+            Assert.AreEqual("Inter", textNode.TextStyle.FontFamily);
+            Assert.AreEqual("Inter-Bold", textNode.TextStyle.FontPostScriptName);
+            Assert.AreEqual(700, textNode.TextStyle.FontWeight);
+            Assert.AreEqual(24f, textNode.TextStyle.FontSize);
+            Assert.AreEqual(30f, textNode.TextStyle.LineHeightPx);
+            Assert.AreEqual(1.5f, textNode.TextStyle.LetterSpacing);
+            Assert.AreEqual("CENTER", textNode.TextStyle.HorizontalAlign);
+            Assert.AreEqual(0.1f, textNode.TextStyle.Color.r, 0.001f);
+            Assert.AreEqual(0.8f, textNode.TextStyle.Color.a, 0.001f);
+            Assert.IsTrue(textNode.TextStyle.IsSmartImportSafe);
+        }
+
+        [Test]
         public void DefaultSliceModeKeepsMarkedAutoLayoutVisualSelfBeforeInstanceChild()
         {
             FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));

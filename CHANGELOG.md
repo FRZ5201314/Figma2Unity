@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- Added Text import modes with Smart TextMeshPro conversion for simple single-style Figma text and PNG fallback for complex text.
+- Preserved text style metadata in REST manifests and Figma plugin package manifests, including content, font family, size, color, alignment, line height, and fallback images.
+- Added TextMeshPro package dependency and diagnostics output for layer kind and text import mode.
+
 ## 0.4.2
 
 - Fixed marked root frames being skipped as exported background layers in Figma plugin packages and REST import plans.

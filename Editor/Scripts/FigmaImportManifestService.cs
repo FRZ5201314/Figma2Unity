@@ -21,6 +21,7 @@ namespace FigmaUiImporter.Editor
             manifest.selectedNodeName = selectedRoot.Name;
             manifest.selectedNodeType = selectedRoot.Type;
             manifest.containerSliceStrategy = settings.ContainerSliceStrategy.ToString();
+            manifest.textImportMode = settings.TextImportMode.ToString();
             manifest.importedAt = DateTime.UtcNow.ToString("o");
             manifest.rootBounds = ToBoundsDto(selectedRoot.AbsoluteBounds);
             manifest.referenceImage = string.IsNullOrEmpty(referenceAssetPath)
@@ -35,7 +36,9 @@ namespace FigmaUiImporter.Editor
                 dto.nodeId = layer.NodeId;
                 dto.nodeName = layer.NodeName;
                 dto.type = layer.NodeType;
+                dto.kind = layer.IsTextLayer ? "text" : "image";
                 dto.image = MakeRelativeAssetPath(outputFolder, layer.AssetPath);
+                dto.text = layer.IsTextLayer ? ToTextDto(layer.TextStyle) : null;
                 dto.bounds = ToBoundsDto(layer.FigmaBounds);
                 dto.unity = new UnityRectDto();
                 dto.unity.anchoredPosition = ToVectorDto(layer.AnchoredPosition);
@@ -79,6 +82,7 @@ namespace FigmaUiImporter.Editor
             data.FileKey = manifest.fileKey;
             data.ImageScale = manifest.imageScale > 0.01f ? manifest.imageScale : 1f;
             data.ContainerSliceStrategy = manifest.containerSliceStrategy;
+            data.TextImportMode = manifest.textImportMode;
             data.ManifestPath = normalizedManifestPath;
             data.OutputFolder = outputFolder;
             data.RootNode = CreateRootNode(manifest);
@@ -160,7 +164,11 @@ namespace FigmaUiImporter.Editor
             layer.NodeId = dto.nodeId;
             layer.NodeName = dto.nodeName;
             layer.NodeType = dto.type;
+            layer.Kind = string.Equals(dto.kind, "text", StringComparison.OrdinalIgnoreCase) && dto.text != null
+                ? ImportedLayerKind.Text
+                : ImportedLayerKind.Image;
             layer.AssetPath = ResolveAssetPath(outputFolder, dto.image);
+            layer.TextStyle = layer.Kind == ImportedLayerKind.Text ? ToTextStyle(dto.text) : null;
             layer.FigmaBounds = ToRect(dto.bounds);
             layer.SiblingIndex = dto.siblingIndex;
 
@@ -192,6 +200,74 @@ namespace FigmaUiImporter.Editor
 
             layer.UnityObjectPath = dto.unityObjectPath;
             return layer;
+        }
+
+        private static TextDto ToTextDto(FigmaTextStyleInfo text)
+        {
+            if (text == null)
+            {
+                return null;
+            }
+
+            TextDto dto = new TextDto();
+            dto.characters = text.Characters;
+            dto.fontFamily = text.FontFamily;
+            dto.fontPostScriptName = text.FontPostScriptName;
+            dto.fontWeight = text.FontWeight;
+            dto.fontSize = text.FontSize;
+            dto.lineHeightPx = text.LineHeightPx;
+            dto.letterSpacing = text.LetterSpacing;
+            dto.color = ToColorDto(text.Color);
+            dto.horizontalAlign = text.HorizontalAlign;
+            dto.verticalAlign = text.VerticalAlign;
+            dto.autoResize = text.AutoResize;
+            dto.hasMixedStyles = text.HasMixedStyles;
+            dto.hasUnsupportedVisuals = text.HasUnsupportedVisuals;
+            return dto;
+        }
+
+        private static FigmaTextStyleInfo ToTextStyle(TextDto dto)
+        {
+            if (dto == null)
+            {
+                return null;
+            }
+
+            FigmaTextStyleInfo text = new FigmaTextStyleInfo();
+            text.Characters = dto.characters;
+            text.FontFamily = dto.fontFamily;
+            text.FontPostScriptName = dto.fontPostScriptName;
+            text.FontWeight = dto.fontWeight;
+            text.FontSize = dto.fontSize;
+            text.LineHeightPx = dto.lineHeightPx;
+            text.LetterSpacing = dto.letterSpacing;
+            text.Color = ToColor(dto.color);
+            text.HorizontalAlign = dto.horizontalAlign;
+            text.VerticalAlign = dto.verticalAlign;
+            text.AutoResize = dto.autoResize;
+            text.HasMixedStyles = dto.hasMixedStyles;
+            text.HasUnsupportedVisuals = dto.hasUnsupportedVisuals;
+            return text;
+        }
+
+        private static ColorDto ToColorDto(Color color)
+        {
+            ColorDto dto = new ColorDto();
+            dto.r = color.r;
+            dto.g = color.g;
+            dto.b = color.b;
+            dto.a = color.a;
+            return dto;
+        }
+
+        private static Color ToColor(ColorDto dto)
+        {
+            if (dto == null)
+            {
+                return Color.white;
+            }
+
+            return new Color(dto.r, dto.g, dto.b, dto.a);
         }
 
         private static Rect ToRect(BoundsDto dto)
@@ -288,6 +364,7 @@ namespace FigmaUiImporter.Editor
             public string selectedNodeName;
             public string selectedNodeType;
             public string containerSliceStrategy;
+            public string textImportMode;
             public string importedAt;
             public BoundsDto rootBounds;
             public string referenceImage;
@@ -300,7 +377,9 @@ namespace FigmaUiImporter.Editor
             public string nodeId;
             public string nodeName;
             public string type;
+            public string kind;
             public string image;
+            public TextDto text;
             public BoundsDto bounds;
             public UnityRectDto unity;
             public int siblingIndex;
@@ -314,6 +393,33 @@ namespace FigmaUiImporter.Editor
             public float y;
             public float width;
             public float height;
+        }
+
+        [Serializable]
+        private sealed class TextDto
+        {
+            public string characters;
+            public string fontFamily;
+            public string fontPostScriptName;
+            public int fontWeight;
+            public float fontSize;
+            public float lineHeightPx;
+            public float letterSpacing;
+            public ColorDto color;
+            public string horizontalAlign;
+            public string verticalAlign;
+            public string autoResize;
+            public bool hasMixedStyles;
+            public bool hasUnsupportedVisuals;
+        }
+
+        [Serializable]
+        private sealed class ColorDto
+        {
+            public float r;
+            public float g;
+            public float b;
+            public float a;
         }
 
         [Serializable]

@@ -750,7 +750,14 @@ namespace FigmaUiImporter.Editor
             node.HasVisibleFills = HasVisiblePaints(data, "fills");
             node.HasVisibleStrokes = HasVisiblePaints(data, "strokes");
             node.HasEffects = HasNonEmptyList(data, "effects");
-            node.HasTextCharacters = !string.IsNullOrEmpty(GetString(data, "characters"));
+            node.TextCharacters = GetString(data, "characters");
+            node.HasTextCharacters = !string.IsNullOrEmpty(node.TextCharacters);
+            if (string.Equals(node.Type, "TEXT", StringComparison.OrdinalIgnoreCase))
+            {
+                node.TextStyle = ParseTextStyle(data, node);
+                node.HasMixedTextStyles = node.TextStyle != null && node.TextStyle.HasMixedStyles;
+                node.HasUnsupportedTextVisuals = node.TextStyle != null && node.TextStyle.HasUnsupportedVisuals;
+            }
 
             List<object> children = GetList(data, "children");
             if (children != null)
@@ -766,6 +773,125 @@ namespace FigmaUiImporter.Editor
             }
 
             return node;
+        }
+
+        private static FigmaTextStyleInfo ParseTextStyle(Dictionary<string, object> data, FigmaNodeInfo node)
+        {
+            Dictionary<string, object> style = GetDictionary(data, "style");
+            if (style == null || node == null || !node.HasTextCharacters)
+            {
+                return null;
+            }
+
+            FigmaTextStyleInfo text = new FigmaTextStyleInfo();
+            text.Characters = node.TextCharacters;
+            text.FontFamily = GetString(style, "fontFamily");
+            text.FontPostScriptName = GetString(style, "fontPostScriptName");
+            text.FontWeight = Mathf.RoundToInt(GetFloat(style, "fontWeight"));
+            text.FontSize = GetFloat(style, "fontSize");
+            text.LineHeightPx = GetFloat(style, "lineHeightPx");
+            text.LetterSpacing = GetFloat(style, "letterSpacing");
+            text.HorizontalAlign = GetString(style, "textAlignHorizontal");
+            text.VerticalAlign = GetString(style, "textAlignVertical");
+            text.AutoResize = GetString(data, "textAutoResize");
+            text.HasMixedStyles = HasMixedTextStyleOverrides(data);
+
+            Color color;
+            bool hasUnsupportedPaints;
+            bool hasSolidPaint = TryGetFirstSolidPaintColor(data, "fills", GetFloat(data, "opacity"), out color, out hasUnsupportedPaints);
+            if (hasSolidPaint)
+            {
+                text.Color = color;
+            }
+
+            text.HasUnsupportedVisuals = !hasSolidPaint
+                || hasUnsupportedPaints
+                || HasVisiblePaints(data, "strokes")
+                || HasNonEmptyList(data, "effects");
+            return text;
+        }
+
+        private static bool HasMixedTextStyleOverrides(Dictionary<string, object> data)
+        {
+            List<object> overrides = GetList(data, "characterStyleOverrides");
+            if (overrides != null)
+            {
+                for (int i = 0; i < overrides.Count; i++)
+                {
+                    if (Convert.ToInt32(overrides[i], System.Globalization.CultureInfo.InvariantCulture) != 0)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            Dictionary<string, object> overrideTable = GetDictionary(data, "styleOverrideTable");
+            return overrideTable != null && overrideTable.Count > 0;
+        }
+
+        private static bool TryGetFirstSolidPaintColor(
+            Dictionary<string, object> data,
+            string key,
+            float nodeOpacity,
+            out Color color,
+            out bool hasUnsupportedPaints)
+        {
+            color = Color.white;
+            hasUnsupportedPaints = false;
+            List<object> paints = GetList(data, key);
+            if (paints == null)
+            {
+                return false;
+            }
+
+            bool foundColor = false;
+            int visiblePaintCount = 0;
+            for (int i = 0; i < paints.Count; i++)
+            {
+                Dictionary<string, object> paint = paints[i] as Dictionary<string, object>;
+                if (paint == null || !GetBool(paint, "visible", true))
+                {
+                    continue;
+                }
+
+                visiblePaintCount++;
+                if (!string.Equals(GetString(paint, "type"), "SOLID", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasUnsupportedPaints = true;
+                    continue;
+                }
+
+                Dictionary<string, object> paintColor = GetDictionary(paint, "color");
+                if (paintColor == null)
+                {
+                    hasUnsupportedPaints = true;
+                    continue;
+                }
+
+                if (!foundColor)
+                {
+                    float paintOpacity = GetFloat(paint, "opacity");
+                    if (paintOpacity <= 0f)
+                    {
+                        paintOpacity = 1f;
+                    }
+
+                    float alpha = Mathf.Clamp01(paintOpacity * (nodeOpacity > 0f ? nodeOpacity : 1f));
+                    color = new Color(
+                        Mathf.Clamp01(GetFloat(paintColor, "r")),
+                        Mathf.Clamp01(GetFloat(paintColor, "g")),
+                        Mathf.Clamp01(GetFloat(paintColor, "b")),
+                        alpha);
+                    foundColor = true;
+                }
+            }
+
+            if (visiblePaintCount > 1)
+            {
+                hasUnsupportedPaints = true;
+            }
+
+            return foundColor;
         }
 
         private static bool TryGetBounds(Dictionary<string, object> data, string key, out Rect rect)

@@ -86,7 +86,7 @@ namespace FigmaUiImporter.Editor
             }
 
             progress.Report(new FigmaImportProgress("计算 Unity 布局...", 0.88f));
-            List<ImportedLayerInfo> layers = BuildLayerInfos(selectedRoot, importableNodes, layerAssetPaths);
+            List<ImportedLayerInfo> layers = BuildLayerInfos(settings, selectedRoot, importableNodes, layerAssetPaths);
 
             progress.Report(new FigmaImportProgress("生成场景对象...", 0.92f));
             GameObject rootObject = _sceneBuilder.BuildSceneObjects(settings, selectedRoot, referenceAssetPath, layers);
@@ -117,6 +117,7 @@ namespace FigmaUiImporter.Editor
         }
 
         private static List<ImportedLayerInfo> BuildLayerInfos(
+            FigmaImportSettings settings,
             FigmaNodeInfo selectedRoot,
             IList<FigmaNodeInfo> nodes,
             IDictionary<string, string> assetPaths)
@@ -138,7 +139,13 @@ namespace FigmaUiImporter.Editor
                 layer.NodeName = node.Name;
                 layer.NodeType = node.Type;
                 layer.AssetPath = assetPath;
-                Rect sliceBounds = GetSliceLayoutBounds(node);
+                bool useTextLayer = ShouldCreateTextLayer(settings, node);
+                layer.Kind = useTextLayer ? ImportedLayerKind.Text : ImportedLayerKind.Image;
+                layer.TextStyle = useTextLayer ? CopyTextStyle(node.TextStyle) : null;
+
+                Rect sliceBounds = useTextLayer && node.HasUsableBounds
+                    ? node.AbsoluteBounds
+                    : GetSliceLayoutBounds(node);
                 layer.FigmaBounds = sliceBounds;
                 layer.AnchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(rootBounds, sliceBounds);
                 layer.SizeDelta = new Vector2(sliceBounds.width, sliceBounds.height);
@@ -147,6 +154,50 @@ namespace FigmaUiImporter.Editor
             }
 
             return layers;
+        }
+
+        private static bool ShouldCreateTextLayer(FigmaImportSettings settings, FigmaNodeInfo node)
+        {
+            if (settings == null
+                || node == null
+                || !string.Equals(node.Type, "TEXT", StringComparison.OrdinalIgnoreCase)
+                || node.TextStyle == null
+                || settings.TextImportMode == FigmaTextImportMode.Image)
+            {
+                return false;
+            }
+
+            if (settings.TextImportMode == FigmaTextImportMode.TextMeshPro)
+            {
+                return node.TextStyle.HasUsableStyle;
+            }
+
+            return node.TextStyle.IsSmartImportSafe;
+        }
+
+        private static FigmaTextStyleInfo CopyTextStyle(FigmaTextStyleInfo source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new FigmaTextStyleInfo
+            {
+                Characters = source.Characters,
+                FontFamily = source.FontFamily,
+                FontPostScriptName = source.FontPostScriptName,
+                FontWeight = source.FontWeight,
+                FontSize = source.FontSize,
+                LineHeightPx = source.LineHeightPx,
+                LetterSpacing = source.LetterSpacing,
+                Color = source.Color,
+                HorizontalAlign = source.HorizontalAlign,
+                VerticalAlign = source.VerticalAlign,
+                AutoResize = source.AutoResize,
+                HasMixedStyles = source.HasMixedStyles,
+                HasUnsupportedVisuals = source.HasUnsupportedVisuals
+            };
         }
 
         private static Rect GetSliceLayoutBounds(FigmaNodeInfo node)

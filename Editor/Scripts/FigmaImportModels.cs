@@ -20,6 +20,19 @@ namespace FigmaUiImporter.Editor
         ExpandContainers
     }
 
+    public enum FigmaTextImportMode
+    {
+        Image,
+        TextMeshPro,
+        Smart
+    }
+
+    public enum ImportedLayerKind
+    {
+        Image,
+        Text
+    }
+
     public sealed class FigmaImportSettings
     {
         public string FileKey;
@@ -28,6 +41,7 @@ namespace FigmaUiImporter.Editor
         public Canvas TargetCanvas;
         public FigmaSliceMode SliceMode = FigmaSliceMode.ExportSettingsThenAutoSlice;
         public FigmaContainerSliceStrategy ContainerSliceStrategy = FigmaContainerSliceStrategy.Auto;
+        public FigmaTextImportMode TextImportMode = FigmaTextImportMode.Smart;
         public float ImageScale = 1f;
         public bool CreateReference = true;
         public float ReferenceAlpha = 0.5f;
@@ -62,6 +76,10 @@ namespace FigmaUiImporter.Editor
         public bool HasVisibleStrokes;
         public bool HasEffects;
         public bool HasTextCharacters;
+        public string TextCharacters;
+        public FigmaTextStyleInfo TextStyle;
+        public bool HasMixedTextStyles;
+        public bool HasUnsupportedTextVisuals;
         public readonly List<FigmaNodeInfo> Children = new List<FigmaNodeInfo>();
         public FigmaNodeInfo Parent;
 
@@ -121,12 +139,46 @@ namespace FigmaUiImporter.Editor
         public string NodeId;
         public string NodeName;
         public string NodeType;
+        public ImportedLayerKind Kind = ImportedLayerKind.Image;
         public string AssetPath;
         public Rect FigmaBounds;
         public Vector2 AnchoredPosition;
         public Vector2 SizeDelta;
         public int SiblingIndex;
         public string UnityObjectPath;
+        public FigmaTextStyleInfo TextStyle;
+
+        public bool IsTextLayer
+        {
+            get { return Kind == ImportedLayerKind.Text && TextStyle != null; }
+        }
+    }
+
+    public sealed class FigmaTextStyleInfo
+    {
+        public string Characters;
+        public string FontFamily;
+        public string FontPostScriptName;
+        public int FontWeight;
+        public float FontSize;
+        public float LineHeightPx;
+        public float LetterSpacing;
+        public Color Color = Color.white;
+        public string HorizontalAlign;
+        public string VerticalAlign;
+        public string AutoResize;
+        public bool HasMixedStyles;
+        public bool HasUnsupportedVisuals;
+
+        public bool HasUsableStyle
+        {
+            get { return !string.IsNullOrEmpty(Characters) && FontSize > 0.01f; }
+        }
+
+        public bool IsSmartImportSafe
+        {
+            get { return HasUsableStyle && !HasMixedStyles && !HasUnsupportedVisuals; }
+        }
     }
 
     internal sealed class FigmaImportResult
@@ -168,6 +220,7 @@ namespace FigmaUiImporter.Editor
         public string SelectedNodeName;
         public string SelectedNodeType;
         public string ContainerSliceStrategy;
+        public string TextImportMode;
         public float RootWidth;
         public float RootHeight;
         public int LayerCount;
@@ -180,6 +233,7 @@ namespace FigmaUiImporter.Editor
         public string FileKey;
         public float ImageScale = 1f;
         public string ContainerSliceStrategy;
+        public string TextImportMode;
         public string ManifestPath;
         public string OutputFolder;
         public FigmaNodeInfo RootNode;
