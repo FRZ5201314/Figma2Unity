@@ -1,7 +1,7 @@
 {
   "name": "com.local.figma-ui-importer",
   "displayName": "Figma UI Importer",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "unity": "2019.4",
   "description": "Unity editor tool for importing Figma frames as reference images, sliced UI layers, offline packages, and prefabs.",
   "keywords": [

@@ -20,6 +20,7 @@ namespace FigmaUiImporter.Editor
             manifest.selectedNodeId = selectedRoot.Id;
             manifest.selectedNodeName = selectedRoot.Name;
             manifest.selectedNodeType = selectedRoot.Type;
+            manifest.containerSliceStrategy = settings.ContainerSliceStrategy.ToString();
             manifest.importedAt = DateTime.UtcNow.ToString("o");
             manifest.rootBounds = ToBoundsDto(selectedRoot.AbsoluteBounds);
             manifest.referenceImage = string.IsNullOrEmpty(referenceAssetPath)
@@ -77,6 +78,7 @@ namespace FigmaUiImporter.Editor
             FigmaManifestRebuildData data = new FigmaManifestRebuildData();
             data.FileKey = manifest.fileKey;
             data.ImageScale = manifest.imageScale > 0.01f ? manifest.imageScale : 1f;
+            data.ContainerSliceStrategy = manifest.containerSliceStrategy;
             data.ManifestPath = normalizedManifestPath;
             data.OutputFolder = outputFolder;
             data.RootNode = CreateRootNode(manifest);
@@ -285,6 +287,7 @@ namespace FigmaUiImporter.Editor
             public string selectedNodeId;
             public string selectedNodeName;
             public string selectedNodeType;
+            public string containerSliceStrategy;
             public string importedAt;
             public BoundsDto rootBounds;
             public string referenceImage;

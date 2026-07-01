@@ -13,6 +13,7 @@
 - 按 Figma `absoluteBoundingBox` 还原 RectTransform 坐标
 - 使用导出 PNG 实际尺寸和参考图局部匹配校准切图位置
 - 生成 `manifest.json`
+- 生成 `diagnostics.json` 导入诊断报告
 - 支持从已有 `manifest.json` 离线重建场景
 - 支持导入 Figma 本地插件导出的 `.figma2unity.json` 离线包
 - 支持覆盖同名场景根节点
@@ -49,7 +50,7 @@
 3. 在 Figma 文件中选中要导入的 Frame / Component / Instance。
 4. 运行 `Figma2Unity Offline Exporter`，导出 `.figma2unity.json`。
 5. 回到 Unity，打开 `Tools/Figma UI Importer`。
-6. 设置输出资源目录、目标 Canvas、参考图透明度、是否保存 Prefab 等 Unity 侧选项。
+6. 设置输出资源目录、目标 Canvas、参考图透明度、容器处理策略、是否保存 Prefab 等 Unity 侧选项。
 7. 点击 `从 Figma 插件包导入`，选择刚下载的 `.figma2unity.json`。
 8. Unity 会先展示离线包信息，包括节点名、节点类型、根尺寸、图片倍率、图片资源数、切图图层数、包大小和输出目录；确认后才会写入资源并重建场景。
 
@@ -62,6 +63,7 @@
 Assets/FigmaImports/{fileKey}/{selectedNodeId}/
 ├── reference.png
 ├── manifest.json
+├── diagnostics.json
 └── layers/
     ├── 1_2.png
     └── 3_4.png
@@ -93,6 +95,22 @@ Canvas
 - `自动切片可见图层`：遍历可见图层并自动导出图片。
 - `仅导入整张参考图`：只生成半透明参考图，不生成 Layers。
 
+## 容器处理策略
+
+该选项主要影响 `ExportSettings 优先，并补齐自动切片`：
+
+- `自动`：默认策略。Auto Layout 容器下有组件实例时，会保留容器自身可见底图，并把组件实例单独导出。
+- `严格 ExportSettings`：设计师标记了哪个节点就优先导出哪个节点，适合需要完全尊重 Figma ExportSettings 的设计稿。
+- `强制展开容器`：带子切片的容器会尽量展开到子级，适合排查或避免大容器压成一张图。
+
+## 导入诊断报告
+
+每次 REST API 导入、Manifest 重建、Figma 插件包导入都会在输出目录生成 `diagnostics.json`。
+
+- REST API 导入会记录节点动作：`导出`、`展开`、`合并`、`跳过`，并写明原因。
+- Manifest 重建和 Figma 插件包导入会记录 manifest 中实际重建的切图层。
+- 如果某个节点没有出现在 Unity 中，可以先查看 `diagnostics.json` 中对应 node id 的原因。
+
 ## 注意
 
 - Token 使用 `EditorPrefs` 保存在本机，不会写入项目资源。
@@ -113,4 +131,6 @@ Canvas
 
 - `FigmaPathUtilityTests`：覆盖 file key 解析、Assets 路径归一化、导入目录和 Prefab 路径生成。
 - `FigmaImportManifestServiceTests`：覆盖 manifest 保存与离线重建数据读取。
+- `FigmaDocumentParserTests`：覆盖 Auto Layout / Instance 切图策略和导入诊断计划。
+- `FigmaImportDiagnosticServiceTests`：覆盖 `diagnostics.json` 报告写入。
 - `FigmaPluginPackageImporterTests`：覆盖 `.figma2unity.json` 信息读取、解包、图片写入、资源引用校验、base64 损坏提示和非法资源路径拦截。

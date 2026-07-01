@@ -63,6 +63,7 @@ async function exportSelectedNode(options) {
 
   var scale = clampNumber(options.scale, DEFAULT_SCALE, 0.01, MAX_SCALE);
   var mode = options.mode || "markedThenAuto";
+  var containerStrategy = options.containerStrategy || "auto";
   var now = new Date().toISOString();
   var fileKey = getFileKey();
   var assets = [];
@@ -80,7 +81,7 @@ async function exportSelectedNode(options) {
 
   var nodes = mode === "referenceOnly" || mode === "noReference"
     ? []
-    : collectImportableNodes(root, mode);
+    : collectImportableNodes(root, mode, containerStrategy);
 
   for (var i = 0; i < nodes.length; i++) {
     var node = nodes[i];
@@ -112,6 +113,7 @@ async function exportSelectedNode(options) {
       selectedNodeId: root.id,
       selectedNodeName: root.name || "Selection",
       selectedNodeType: root.type || "FRAME",
+      containerSliceStrategy: containerStrategy,
       importedAt: now,
       rootBounds: rootBounds,
       referenceImage: mode === "noReference" ? "" : "reference.png",
@@ -155,7 +157,7 @@ function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex) {
   };
 }
 
-function collectImportableNodes(root, mode) {
+function collectImportableNodes(root, mode, containerStrategy) {
   if (mode === "markedOnly") {
     var markedOnly = [];
     collectMarkedNodes(root, root, markedOnly);
@@ -172,7 +174,7 @@ function collectImportableNodes(root, mode) {
   var autoNodes = [];
   collectMarkedNodes(root, root, markedNodes);
   collectAutoSliceNodes(root, root, autoNodes);
-  return mergeMarkedAndAutoNodes(root, markedNodes, autoNodes);
+  return mergeMarkedAndAutoNodes(root, markedNodes, autoNodes, containerStrategy);
 }
 
 function collectMarkedNodes(root, node, results) {
@@ -225,15 +227,15 @@ function collectAutoSliceNodes(root, node, results) {
   return hasCollectedChild;
 }
 
-function mergeMarkedAndAutoNodes(root, markedNodes, autoNodes) {
+function mergeMarkedAndAutoNodes(root, markedNodes, autoNodes, containerStrategy) {
   var markedMap = toNodeMap(markedNodes);
   var autoMap = toNodeMap(autoNodes);
   var merged = [];
-  collectMergedNodesInDrawOrder(root, markedMap, autoMap, merged);
+  collectMergedNodesInDrawOrder(root, markedMap, autoMap, containerStrategy, merged);
   return merged;
 }
 
-function collectMergedNodesInDrawOrder(node, markedMap, autoMap, results) {
+function collectMergedNodesInDrawOrder(node, markedMap, autoMap, containerStrategy, results) {
   if (!node) {
     return;
   }
@@ -242,12 +244,12 @@ function collectMergedNodesInDrawOrder(node, markedMap, autoMap, results) {
   for (var i = 0; i < children.length; i++) {
     var child = children[i];
     if (markedMap[child.id]) {
-      if (shouldExpandMarkedContainer(child, autoMap)) {
+      if (shouldExpandMarkedContainer(child, autoMap, containerStrategy)) {
         if (hasVisualSelf(child)) {
           results.push(markedMap[child.id]);
         }
 
-        collectMergedNodesInDrawOrder(child, markedMap, autoMap, results);
+        collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results);
         continue;
       }
 
@@ -260,14 +262,24 @@ function collectMergedNodesInDrawOrder(node, markedMap, autoMap, results) {
       continue;
     }
 
-    collectMergedNodesInDrawOrder(child, markedMap, autoMap, results);
+    collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results);
   }
 }
 
-function shouldExpandMarkedContainer(node, autoMap) {
-  return isAutoLayoutNode(node)
-    && hasAtomicDescendant(node)
-    && hasMappedDescendant(node, autoMap);
+function shouldExpandMarkedContainer(node, autoMap, containerStrategy) {
+  if (!node || !hasMappedDescendant(node, autoMap)) {
+    return false;
+  }
+
+  if (containerStrategy === "strict") {
+    return false;
+  }
+
+  if (containerStrategy === "expand") {
+    return isContainerNode(node);
+  }
+
+  return isAutoLayoutNode(node) && hasAtomicDescendant(node);
 }
 
 function hasMappedDescendant(node, map) {

@@ -13,6 +13,13 @@ namespace FigmaUiImporter.Editor
         FlattenSelectedFrameAsSingleImage
     }
 
+    public enum FigmaContainerSliceStrategy
+    {
+        Auto,
+        StrictExportSettings,
+        ExpandContainers
+    }
+
     public sealed class FigmaImportSettings
     {
         public string FileKey;
@@ -20,6 +27,7 @@ namespace FigmaUiImporter.Editor
         public string OutputFolder = "Assets/FigmaImports";
         public Canvas TargetCanvas;
         public FigmaSliceMode SliceMode = FigmaSliceMode.ExportSettingsThenAutoSlice;
+        public FigmaContainerSliceStrategy ContainerSliceStrategy = FigmaContainerSliceStrategy.Auto;
         public float ImageScale = 1f;
         public bool CreateReference = true;
         public float ReferenceAlpha = 0.5f;
@@ -125,9 +133,26 @@ namespace FigmaUiImporter.Editor
     {
         public string OutputFolder;
         public string ManifestPath;
+        public string DiagnosticReportPath;
         public string PrefabPath;
         public GameObject RootObject;
         public int LayerCount;
+    }
+
+    internal sealed class FigmaImportPlan
+    {
+        public readonly List<FigmaNodeInfo> Nodes = new List<FigmaNodeInfo>();
+        public readonly List<FigmaImportDiagnosticEntry> Diagnostics = new List<FigmaImportDiagnosticEntry>();
+    }
+
+    internal sealed class FigmaImportDiagnosticEntry
+    {
+        public string NodeId;
+        public string NodeName;
+        public string NodeType;
+        public string LayoutMode;
+        public string Action;
+        public string Reason;
     }
 
     internal sealed class FigmaPluginPackageInfo
@@ -142,6 +167,7 @@ namespace FigmaUiImporter.Editor
         public string SelectedNodeId;
         public string SelectedNodeName;
         public string SelectedNodeType;
+        public string ContainerSliceStrategy;
         public float RootWidth;
         public float RootHeight;
         public int LayerCount;
@@ -153,6 +179,7 @@ namespace FigmaUiImporter.Editor
     {
         public string FileKey;
         public float ImageScale = 1f;
+        public string ContainerSliceStrategy;
         public string ManifestPath;
         public string OutputFolder;
         public FigmaNodeInfo RootNode;

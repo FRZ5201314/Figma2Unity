@@ -14,6 +14,7 @@ namespace FigmaUiImporter.Editor
         private const string PrefFileInput = "FigmaUiImporter.FileInput";
         private const string PrefOutputFolder = "FigmaUiImporter.OutputFolder";
         private const string PrefSliceMode = "FigmaUiImporter.SliceMode";
+        private const string PrefContainerSliceStrategy = "FigmaUiImporter.ContainerSliceStrategy";
         private const string PrefImageScale = "FigmaUiImporter.ImageScale";
         private const string PrefReferenceAlpha = "FigmaUiImporter.ReferenceAlpha";
         private const string PrefCreateReference = "FigmaUiImporter.CreateReference";
@@ -35,12 +36,20 @@ namespace FigmaUiImporter.Editor
             "仅导入整张参考图"
         };
 
+        private static readonly string[] ContainerSliceStrategyLabels =
+        {
+            "自动：保留容器底图并展开组件实例",
+            "严格 ExportSettings：标记容器优先",
+            "强制展开容器：尽量拆到子级"
+        };
+
         private string _accessToken;
         private string _fileInput;
         private string _loadedFileKey;
         private string _outputFolder;
         private Canvas _targetCanvas;
         private FigmaSliceMode _sliceMode;
+        private FigmaContainerSliceStrategy _containerSliceStrategy;
         private float _imageScale;
         private bool _createReference;
         private float _referenceAlpha;
@@ -82,6 +91,7 @@ namespace FigmaUiImporter.Editor
             _fileInput = EditorPrefs.GetString(PrefFileInput, string.Empty);
             _outputFolder = EditorPrefs.GetString(PrefOutputFolder, "Assets/FigmaImports");
             _sliceMode = (FigmaSliceMode)EditorPrefs.GetInt(PrefSliceMode, (int)FigmaSliceMode.ExportSettingsThenAutoSlice);
+            _containerSliceStrategy = (FigmaContainerSliceStrategy)EditorPrefs.GetInt(PrefContainerSliceStrategy, (int)FigmaContainerSliceStrategy.Auto);
             _imageScale = EditorPrefs.GetFloat(PrefImageScale, 1f);
             _referenceAlpha = EditorPrefs.GetFloat(PrefReferenceAlpha, 0.5f);
             _createReference = EditorPrefs.GetBool(PrefCreateReference, true);
@@ -144,6 +154,11 @@ namespace FigmaUiImporter.Editor
 
                 _targetCanvas = (Canvas)EditorGUILayout.ObjectField("目标 Canvas", _targetCanvas, typeof(Canvas), true);
                 _sliceMode = (FigmaSliceMode)EditorGUILayout.Popup("切图模式", (int)_sliceMode, SliceModeLabels);
+                using (new EditorGUI.DisabledScope(_sliceMode != FigmaSliceMode.ExportSettingsThenAutoSlice))
+                {
+                    _containerSliceStrategy = (FigmaContainerSliceStrategy)EditorGUILayout.Popup("容器处理策略", (int)_containerSliceStrategy, ContainerSliceStrategyLabels);
+                }
+
                 _imageScale = Mathf.Clamp(EditorGUILayout.FloatField("图片倍率", _imageScale), 0.01f, 4f);
                 _createReference = EditorGUILayout.Toggle("创建参考图", _createReference);
                 using (new EditorGUI.DisabledScope(!_createReference))
@@ -517,6 +532,11 @@ namespace FigmaUiImporter.Editor
                 _progress = 1f;
                 AddLog("输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
+                {
+                    AddLog("诊断报告：" + result.DiagnosticReportPath);
+                }
+
                 if (!string.IsNullOrEmpty(result.PrefabPath))
                 {
                     AddLog("Prefab：" + result.PrefabPath);
@@ -565,6 +585,11 @@ namespace FigmaUiImporter.Editor
                 _progress = 1f;
                 AddLog("离线重建输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
+                {
+                    AddLog("诊断报告：" + result.DiagnosticReportPath);
+                }
+
                 if (!string.IsNullOrEmpty(result.PrefabPath))
                 {
                     AddLog("Prefab：" + result.PrefabPath);
@@ -640,6 +665,11 @@ namespace FigmaUiImporter.Editor
                 AddLog("插件包资源：" + packageInfo.AssetCount + " 个图片资源，" + packageInfo.LayerCount + " 个切图图层，大小 " + FormatFileSize(packageInfo.PackageSizeBytes));
                 AddLog("导入输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
+                {
+                    AddLog("诊断报告：" + result.DiagnosticReportPath);
+                }
+
                 if (!string.IsNullOrEmpty(result.PrefabPath))
                 {
                     AddLog("Prefab：" + result.PrefabPath);
@@ -677,6 +707,7 @@ namespace FigmaUiImporter.Editor
                 + "File Key：" + packageInfo.FileKey + "\n"
                 + "根尺寸：" + FormatNumber(packageInfo.RootWidth) + " x " + FormatNumber(packageInfo.RootHeight) + "\n"
                 + "图片倍率：" + FormatNumber(packageInfo.ImageScale) + "\n"
+                + "容器策略：" + FormatPluginContainerStrategy(packageInfo.ContainerSliceStrategy) + "\n"
                 + "图片资源：" + packageInfo.AssetCount + " 个"
                 + (packageInfo.HasReferenceImage ? "（包含参考图）" : "（不包含参考图）") + "\n"
                 + "切图图层：" + packageInfo.LayerCount + " 个\n"
@@ -730,6 +761,27 @@ namespace FigmaUiImporter.Editor
             return bytes + " B";
         }
 
+        private static string FormatPluginContainerStrategy(string value)
+        {
+            if (string.Equals(value, "strict", StringComparison.OrdinalIgnoreCase))
+            {
+                return "严格 ExportSettings";
+            }
+
+            if (string.Equals(value, "expand", StringComparison.OrdinalIgnoreCase))
+            {
+                return "强制展开容器";
+            }
+
+            if (string.Equals(value, "auto", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(value))
+            {
+                return "自动";
+            }
+
+            return value;
+        }
+
         private static string FormatNumber(float value)
         {
             return value.ToString("0.##");
@@ -743,7 +795,7 @@ namespace FigmaUiImporter.Editor
             }
 
             FigmaDocumentParser.EnsureBoundsFromChildren(_selectedNode);
-            List<FigmaNodeInfo> importableNodes = FigmaDocumentParser.CollectImportableNodes(_selectedNode, _sliceMode);
+            List<FigmaNodeInfo> importableNodes = FigmaDocumentParser.CollectImportableNodes(_selectedNode, _sliceMode, _containerSliceStrategy);
             int sliceCount = importableNodes.Count;
             AddLog("预计切图数量：" + sliceCount);
 
@@ -766,6 +818,7 @@ namespace FigmaUiImporter.Editor
             settings.OutputFolder = FigmaPathUtility.NormalizeAssetFolder(_outputFolder);
             settings.TargetCanvas = _targetCanvas;
             settings.SliceMode = _sliceMode;
+            settings.ContainerSliceStrategy = _containerSliceStrategy;
             settings.ImageScale = _imageScale;
             settings.CreateReference = _createReference;
             settings.ReferenceAlpha = _referenceAlpha;
@@ -865,6 +918,7 @@ namespace FigmaUiImporter.Editor
             EditorPrefs.SetString(PrefFileInput, _fileInput ?? string.Empty);
             EditorPrefs.SetString(PrefOutputFolder, _outputFolder ?? "Assets/FigmaImports");
             EditorPrefs.SetInt(PrefSliceMode, (int)_sliceMode);
+            EditorPrefs.SetInt(PrefContainerSliceStrategy, (int)_containerSliceStrategy);
             EditorPrefs.SetFloat(PrefImageScale, _imageScale);
             EditorPrefs.SetFloat(PrefReferenceAlpha, _referenceAlpha);
             EditorPrefs.SetBool(PrefCreateReference, _createReference);

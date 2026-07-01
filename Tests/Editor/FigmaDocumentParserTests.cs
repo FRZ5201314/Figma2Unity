@@ -93,6 +93,76 @@ namespace FigmaUiImporter.Editor.Tests
             Assert.AreEqual(autoLayout.Id, nodes[0].Id);
         }
 
+        [Test]
+        public void StrictContainerStrategyKeepsMarkedContainerInMixedMode()
+        {
+            FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));
+            FigmaNodeInfo autoLayout = CreateNode("1:1", "Auto Layout", "FRAME", new Rect(10f, 10f, 200f, 120f));
+            autoLayout.LayoutMode = "VERTICAL";
+            autoLayout.HasExportSettings = true;
+            autoLayout.HasVisibleFills = true;
+
+            FigmaNodeInfo instance = CreateNode("2:1", "Button Instance", "INSTANCE", new Rect(20f, 20f, 160f, 40f));
+            AddChild(root, autoLayout);
+            AddChild(autoLayout, instance);
+
+            List<FigmaNodeInfo> nodes = FigmaDocumentParser.CollectImportableNodes(
+                root,
+                FigmaSliceMode.ExportSettingsThenAutoSlice,
+                FigmaContainerSliceStrategy.StrictExportSettings);
+
+            Assert.AreEqual(1, nodes.Count);
+            Assert.AreEqual(autoLayout.Id, nodes[0].Id);
+        }
+
+        [Test]
+        public void ExpandContainerStrategyExpandsMarkedNonAutoContainer()
+        {
+            FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));
+            FigmaNodeInfo group = CreateNode("1:1", "Marked Group", "GROUP", new Rect(10f, 10f, 200f, 120f));
+            group.HasExportSettings = true;
+            group.HasVisibleFills = true;
+
+            FigmaNodeInfo instance = CreateNode("2:1", "Card Instance", "INSTANCE", new Rect(20f, 20f, 160f, 40f));
+            AddChild(root, group);
+            AddChild(group, instance);
+
+            List<FigmaNodeInfo> nodes = FigmaDocumentParser.CollectImportableNodes(
+                root,
+                FigmaSliceMode.ExportSettingsThenAutoSlice,
+                FigmaContainerSliceStrategy.ExpandContainers);
+
+            Assert.AreEqual(2, nodes.Count);
+            Assert.AreEqual(group.Id, nodes[0].Id);
+            Assert.AreEqual(instance.Id, nodes[1].Id);
+        }
+
+        [Test]
+        public void ImportPlanReportsExportedAndExpandedNodes()
+        {
+            FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));
+            FigmaNodeInfo autoLayout = CreateNode("1:1", "Auto Layout", "FRAME", new Rect(10f, 10f, 200f, 120f));
+            autoLayout.LayoutMode = "VERTICAL";
+            autoLayout.HasExportSettings = true;
+
+            FigmaNodeInfo instance = CreateNode("2:1", "Button Instance", "INSTANCE", new Rect(20f, 20f, 160f, 40f));
+            AddChild(root, autoLayout);
+            AddChild(autoLayout, instance);
+
+            FigmaImportPlan plan = FigmaDocumentParser.CreateImportPlan(
+                root,
+                FigmaSliceMode.ExportSettingsThenAutoSlice,
+                FigmaContainerSliceStrategy.Auto);
+
+            FigmaImportDiagnosticEntry autoLayoutEntry = FindDiagnostic(plan, autoLayout.Id);
+            FigmaImportDiagnosticEntry instanceEntry = FindDiagnostic(plan, instance.Id);
+
+            Assert.AreEqual("展开", autoLayoutEntry.Action);
+            StringAssert.Contains("Auto Layout", autoLayoutEntry.Reason);
+            Assert.AreEqual("导出", instanceEntry.Action);
+            StringAssert.Contains("组件实例", instanceEntry.Reason);
+        }
+
         private static FigmaNodeInfo CreateNode(string id, string name, string type, Rect bounds)
         {
             FigmaNodeInfo node = new FigmaNodeInfo();
@@ -109,6 +179,20 @@ namespace FigmaUiImporter.Editor.Tests
         {
             child.Parent = parent;
             parent.Children.Add(child);
+        }
+
+        private static FigmaImportDiagnosticEntry FindDiagnostic(FigmaImportPlan plan, string nodeId)
+        {
+            for (int i = 0; i < plan.Diagnostics.Count; i++)
+            {
+                if (plan.Diagnostics[i].NodeId == nodeId)
+                {
+                    return plan.Diagnostics[i];
+                }
+            }
+
+            Assert.Fail("未找到诊断项：" + nodeId);
+            return null;
         }
     }
 }

@@ -9,6 +9,7 @@ namespace FigmaUiImporter.Editor
         private readonly FigmaImportManifestService _manifestService = new FigmaImportManifestService();
         private readonly UnitySpriteAssetImporter _spriteImporter = new UnitySpriteAssetImporter();
         private readonly FigmaSceneBuilder _sceneBuilder = new FigmaSceneBuilder();
+        private readonly FigmaImportDiagnosticService _diagnosticService = new FigmaImportDiagnosticService();
         private readonly FigmaPrefabSaver _prefabSaver = new FigmaPrefabSaver();
 
         public FigmaImportResult Rebuild(
@@ -57,6 +58,9 @@ namespace FigmaUiImporter.Editor
                 referenceAssetPath,
                 data.Layers);
 
+            progress.Report(new FigmaImportProgress("保存导入诊断报告...", 0.88f));
+            string diagnosticReportPath = _diagnosticService.SaveOfflineReport(settings, data);
+
             string prefabPath = string.Empty;
             if (settings.SavePrefab)
             {
@@ -69,6 +73,7 @@ namespace FigmaUiImporter.Editor
             {
                 OutputFolder = data.OutputFolder,
                 ManifestPath = data.ManifestPath,
+                DiagnosticReportPath = diagnosticReportPath,
                 PrefabPath = prefabPath,
                 RootObject = rootObject,
                 LayerCount = data.Layers.Count

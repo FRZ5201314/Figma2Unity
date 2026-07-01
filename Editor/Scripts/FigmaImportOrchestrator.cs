@@ -12,6 +12,7 @@ namespace FigmaUiImporter.Editor
         private readonly FigmaImageExporter _imageExporter;
         private readonly FigmaSceneBuilder _sceneBuilder;
         private readonly FigmaImportManifestService _manifestService;
+        private readonly FigmaImportDiagnosticService _diagnosticService;
         private readonly FigmaPrefabSaver _prefabSaver;
 
         public FigmaImportOrchestrator(FigmaApiClient client)
@@ -21,6 +22,7 @@ namespace FigmaUiImporter.Editor
             _imageExporter = new FigmaImageExporter(client, spriteImporter);
             _sceneBuilder = new FigmaSceneBuilder();
             _manifestService = new FigmaImportManifestService();
+            _diagnosticService = new FigmaImportDiagnosticService();
             _prefabSaver = new FigmaPrefabSaver();
         }
 
@@ -65,7 +67,11 @@ namespace FigmaUiImporter.Editor
             }
 
             progress.Report(new FigmaImportProgress("筛选可导入图层...", 0.38f));
-            List<FigmaNodeInfo> importableNodes = FigmaDocumentParser.CollectImportableNodes(selectedRoot, settings.SliceMode);
+            FigmaImportPlan importPlan = FigmaDocumentParser.CreateImportPlan(
+                selectedRoot,
+                settings.SliceMode,
+                settings.ContainerSliceStrategy);
+            List<FigmaNodeInfo> importableNodes = importPlan.Nodes;
 
             Dictionary<string, string> layerAssetPaths = new Dictionary<string, string>();
             if (settings.SliceMode != FigmaSliceMode.FlattenSelectedFrameAsSingleImage && importableNodes.Count > 0)
@@ -88,6 +94,9 @@ namespace FigmaUiImporter.Editor
             progress.Report(new FigmaImportProgress("保存 manifest...", 0.97f));
             string manifestPath = _manifestService.SaveManifest(settings, selectedRoot, outputFolder, referenceAssetPath, layers);
 
+            progress.Report(new FigmaImportProgress("保存导入诊断报告...", 0.98f));
+            string diagnosticReportPath = _diagnosticService.SaveReport(settings, selectedRoot, outputFolder, importPlan, layers);
+
             string prefabPath = string.Empty;
             if (settings.SavePrefab)
             {
@@ -100,6 +109,7 @@ namespace FigmaUiImporter.Editor
             {
                 OutputFolder = outputFolder,
                 ManifestPath = manifestPath,
+                DiagnosticReportPath = diagnosticReportPath,
                 PrefabPath = prefabPath,
                 RootObject = rootObject,
                 LayerCount = layers.Count

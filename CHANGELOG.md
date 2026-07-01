@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Added configurable container slicing strategies for mixed ExportSettings and auto-slice imports.
+- Added `diagnostics.json` import reports for API imports, manifest rebuilds, and Figma plugin package imports.
+- Added Figma plugin UI support for container slicing strategy selection.
+
 ## 0.3.2
 
 - Fixed default slicing so marked Auto Layout containers with component instance descendants can keep their own visual background while still exporting those instances as separate layers.

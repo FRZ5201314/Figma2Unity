@@ -273,6 +273,7 @@ namespace FigmaUiImporter.Editor
             info.SelectedNodeType = string.IsNullOrWhiteSpace(package.manifest.selectedNodeType)
                 ? "FRAME"
                 : package.manifest.selectedNodeType;
+            info.ContainerSliceStrategy = package.manifest.containerSliceStrategy;
             info.RootWidth = package.manifest.rootBounds.width;
             info.RootHeight = package.manifest.rootBounds.height;
             info.LayerCount = package.manifest.layers == null ? 0 : package.manifest.layers.Count;
@@ -365,6 +366,7 @@ namespace FigmaUiImporter.Editor
             public string selectedNodeId;
             public string selectedNodeName;
             public string selectedNodeType;
+            public string containerSliceStrategy;
             public string importedAt;
             public BoundsDto rootBounds;
             public string referenceImage;

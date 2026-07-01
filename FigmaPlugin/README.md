@@ -8,7 +8,14 @@
 2. 选择本目录下的 `manifest.json`。
 3. 在设计稿里选中一个 Frame / Component / Instance。
 4. 运行 `Figma2Unity Offline Exporter`。
-5. 点击 `导出 .figma2unity.json`。
-6. 回到 Unity，打开 `Tools/Figma UI Importer`，点击 `从 Figma 插件包导入`。
+5. 选择导出模式、容器处理策略和图片倍率。
+6. 点击 `导出 .figma2unity.json`。
+7. 回到 Unity，打开 `Tools/Figma UI Importer`，点击 `从 Figma 插件包导入`。
 
 插件不会请求 Figma REST API，也不需要 Personal Access Token。它只读取当前打开文件中的当前选择，并使用 Figma Plugin API 的 `exportAsync` 导出 PNG。
+
+容器处理策略主要影响 `ExportSettings 优先，并补齐可见图层`：
+
+- `自动`：保留 Auto Layout 容器自身可见底图，并展开组件实例。
+- `严格 ExportSettings`：优先按设计稿里的 ExportSettings 导出。
+- `强制展开容器`：尽量把带子切片的容器拆到子级。

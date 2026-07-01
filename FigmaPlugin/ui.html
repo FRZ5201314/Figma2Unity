@@ -98,6 +98,13 @@
     <option value="referenceOnly">仅导出整张参考图</option>
   </select>
 
+  <label for="containerStrategy">容器处理策略</label>
+  <select id="containerStrategy">
+    <option value="auto">自动：保留容器底图并展开组件实例</option>
+    <option value="strict">严格 ExportSettings：标记容器优先</option>
+    <option value="expand">强制展开容器：尽量拆到子级</option>
+  </select>
+
   <label for="scale">图片倍率</label>
   <input id="scale" type="number" min="0.01" max="4" step="0.25" value="1">
 
@@ -112,6 +119,7 @@
     const statusBox = document.getElementById("status");
     const progress = document.getElementById("progress");
     const modeInput = document.getElementById("mode");
+    const containerStrategyInput = document.getElementById("containerStrategy");
     const scaleInput = document.getElementById("scale");
     let selectionOk = false;
 
@@ -124,6 +132,7 @@
         pluginMessage: {
           type: "export-package",
           mode: modeInput.value,
+          containerStrategy: containerStrategyInput.value,
           scale: Number(scaleInput.value)
         }
       }, "*");
@@ -167,6 +176,7 @@
     function setBusy(isBusy) {
       exportButton.disabled = isBusy || !selectionOk;
       modeInput.disabled = isBusy;
+      containerStrategyInput.disabled = isBusy;
       scaleInput.disabled = isBusy;
     }
 

@@ -124,20 +124,54 @@ namespace FigmaUiImporter.Editor
 
         public static List<FigmaNodeInfo> CollectImportableNodes(FigmaNodeInfo selectedRoot, FigmaSliceMode sliceMode)
         {
-            List<FigmaNodeInfo> results = new List<FigmaNodeInfo>();
+            return CollectImportableNodes(selectedRoot, sliceMode, FigmaContainerSliceStrategy.Auto);
+        }
+
+        public static List<FigmaNodeInfo> CollectImportableNodes(
+            FigmaNodeInfo selectedRoot,
+            FigmaSliceMode sliceMode,
+            FigmaContainerSliceStrategy containerSliceStrategy)
+        {
+            return CreateImportPlan(selectedRoot, sliceMode, containerSliceStrategy).Nodes;
+        }
+
+        public static FigmaImportPlan CreateImportPlan(
+            FigmaNodeInfo selectedRoot,
+            FigmaSliceMode sliceMode,
+            FigmaContainerSliceStrategy containerSliceStrategy)
+        {
+            FigmaImportPlan plan = new FigmaImportPlan();
             if (selectedRoot == null || sliceMode == FigmaSliceMode.FlattenSelectedFrameAsSingleImage)
             {
-                return results;
+                BuildDiagnostics(
+                    selectedRoot,
+                    sliceMode,
+                    containerSliceStrategy,
+                    new Dictionary<string, FigmaNodeInfo>(),
+                    new Dictionary<string, FigmaNodeInfo>(),
+                    new Dictionary<string, FigmaNodeInfo>(),
+                    plan.Diagnostics);
+                return plan;
             }
 
+            List<FigmaNodeInfo> markedNodes = new List<FigmaNodeInfo>();
             if (sliceMode == FigmaSliceMode.ExportMarkedNodesOnly || sliceMode == FigmaSliceMode.ExportSettingsThenAutoSlice)
             {
-                CollectMarkedNodes(selectedRoot, selectedRoot, results);
+                CollectMarkedNodes(selectedRoot, selectedRoot, markedNodes);
             }
 
             if (sliceMode == FigmaSliceMode.ExportMarkedNodesOnly)
             {
-                return results;
+                plan.Nodes.AddRange(markedNodes);
+                BuildDiagnostics(
+                    selectedRoot,
+                    sliceMode,
+                    containerSliceStrategy,
+                    ToNodeMap(markedNodes),
+                    new Dictionary<string, FigmaNodeInfo>(),
+                    ToNodeMap(plan.Nodes),
+                    plan.Diagnostics);
+                return plan;
             }
 
             List<FigmaNodeInfo> autoSliceNodes = new List<FigmaNodeInfo>();
@@ -145,15 +179,22 @@ namespace FigmaUiImporter.Editor
 
             if (sliceMode == FigmaSliceMode.ExportSettingsThenAutoSlice)
             {
-                return MergeMarkedAndAutoSliceNodes(selectedRoot, results, autoSliceNodes);
+                plan.Nodes.AddRange(MergeMarkedAndAutoSliceNodes(selectedRoot, markedNodes, autoSliceNodes, containerSliceStrategy));
             }
-
-            if (sliceMode == FigmaSliceMode.AutoSliceVisibleLayers)
+            else if (sliceMode == FigmaSliceMode.AutoSliceVisibleLayers)
             {
-                return autoSliceNodes;
+                plan.Nodes.AddRange(autoSliceNodes);
             }
 
-            return results;
+            BuildDiagnostics(
+                selectedRoot,
+                sliceMode,
+                containerSliceStrategy,
+                ToNodeMap(markedNodes),
+                ToNodeMap(autoSliceNodes),
+                ToNodeMap(plan.Nodes),
+                plan.Diagnostics);
+            return plan;
         }
 
         public static bool EnsureBoundsFromChildren(FigmaNodeInfo node)
@@ -272,12 +313,13 @@ namespace FigmaUiImporter.Editor
         private static List<FigmaNodeInfo> MergeMarkedAndAutoSliceNodes(
             FigmaNodeInfo root,
             IList<FigmaNodeInfo> markedNodes,
-            IList<FigmaNodeInfo> autoSliceNodes)
+            IList<FigmaNodeInfo> autoSliceNodes,
+            FigmaContainerSliceStrategy containerSliceStrategy)
         {
             Dictionary<string, FigmaNodeInfo> markedMap = ToNodeMap(markedNodes);
             Dictionary<string, FigmaNodeInfo> autoSliceMap = ToNodeMap(autoSliceNodes);
             List<FigmaNodeInfo> merged = new List<FigmaNodeInfo>();
-            CollectMergedNodesInDrawOrder(root, markedMap, autoSliceMap, merged);
+            CollectMergedNodesInDrawOrder(root, markedMap, autoSliceMap, containerSliceStrategy, merged);
             return merged;
         }
 
@@ -285,6 +327,7 @@ namespace FigmaUiImporter.Editor
             FigmaNodeInfo node,
             IDictionary<string, FigmaNodeInfo> markedMap,
             IDictionary<string, FigmaNodeInfo> autoSliceMap,
+            FigmaContainerSliceStrategy containerSliceStrategy,
             IList<FigmaNodeInfo> results)
         {
             if (node == null)
@@ -298,14 +341,14 @@ namespace FigmaUiImporter.Editor
                 FigmaNodeInfo markedNode;
                 if (markedMap.TryGetValue(child.Id, out markedNode))
                 {
-                    if (ShouldExpandMarkedContainer(child, autoSliceMap))
+                    if (ShouldExpandMarkedContainer(child, autoSliceMap, containerSliceStrategy))
                     {
                         if (HasVisualSelf(child))
                         {
                             results.Add(markedNode);
                         }
 
-                        CollectMergedNodesInDrawOrder(child, markedMap, autoSliceMap, results);
+                        CollectMergedNodesInDrawOrder(child, markedMap, autoSliceMap, containerSliceStrategy, results);
                         continue;
                     }
 
@@ -321,7 +364,7 @@ namespace FigmaUiImporter.Editor
                     continue;
                 }
 
-                CollectMergedNodesInDrawOrder(child, markedMap, autoSliceMap, results);
+                CollectMergedNodesInDrawOrder(child, markedMap, autoSliceMap, containerSliceStrategy, results);
             }
         }
 
@@ -344,12 +387,27 @@ namespace FigmaUiImporter.Editor
             return false;
         }
 
-        private static bool ShouldExpandMarkedContainer(FigmaNodeInfo node, IDictionary<string, FigmaNodeInfo> autoSliceMap)
+        private static bool ShouldExpandMarkedContainer(
+            FigmaNodeInfo node,
+            IDictionary<string, FigmaNodeInfo> autoSliceMap,
+            FigmaContainerSliceStrategy containerSliceStrategy)
         {
-            return node != null
-                && node.IsAutoLayout
-                && HasAtomicDescendant(node)
-                && HasMappedDescendant(node, autoSliceMap);
+            if (node == null || !HasMappedDescendant(node, autoSliceMap))
+            {
+                return false;
+            }
+
+            if (containerSliceStrategy == FigmaContainerSliceStrategy.StrictExportSettings)
+            {
+                return false;
+            }
+
+            if (containerSliceStrategy == FigmaContainerSliceStrategy.ExpandContainers)
+            {
+                return IsContainerNode(node);
+            }
+
+            return node.IsAutoLayout && HasAtomicDescendant(node);
         }
 
         private static bool HasAtomicDescendant(FigmaNodeInfo node)
@@ -378,6 +436,224 @@ namespace FigmaUiImporter.Editor
                     || node.HasVisibleStrokes
                     || node.HasEffects
                     || node.HasTextCharacters);
+        }
+
+        private static void BuildDiagnostics(
+            FigmaNodeInfo selectedRoot,
+            FigmaSliceMode sliceMode,
+            FigmaContainerSliceStrategy containerSliceStrategy,
+            IDictionary<string, FigmaNodeInfo> markedMap,
+            IDictionary<string, FigmaNodeInfo> autoSliceMap,
+            IDictionary<string, FigmaNodeInfo> selectedMap,
+            IList<FigmaImportDiagnosticEntry> diagnostics)
+        {
+            if (selectedRoot == null || diagnostics == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < selectedRoot.Children.Count; i++)
+            {
+                AppendDiagnostic(
+                    selectedRoot.Children[i],
+                    sliceMode,
+                    containerSliceStrategy,
+                    markedMap,
+                    autoSliceMap,
+                    selectedMap,
+                    diagnostics);
+            }
+        }
+
+        private static void AppendDiagnostic(
+            FigmaNodeInfo node,
+            FigmaSliceMode sliceMode,
+            FigmaContainerSliceStrategy containerSliceStrategy,
+            IDictionary<string, FigmaNodeInfo> markedMap,
+            IDictionary<string, FigmaNodeInfo> autoSliceMap,
+            IDictionary<string, FigmaNodeInfo> selectedMap,
+            IList<FigmaImportDiagnosticEntry> diagnostics)
+        {
+            if (node == null)
+            {
+                return;
+            }
+
+            FigmaImportDiagnosticEntry entry = new FigmaImportDiagnosticEntry();
+            entry.NodeId = node.Id;
+            entry.NodeName = node.Name;
+            entry.NodeType = node.Type;
+            entry.LayoutMode = node.LayoutMode;
+
+            bool selected = !string.IsNullOrEmpty(node.Id) && selectedMap.ContainsKey(node.Id);
+            if (selected)
+            {
+                entry.Action = "导出";
+                entry.Reason = GetExportReason(node, markedMap, autoSliceMap, selectedMap, containerSliceStrategy);
+            }
+            else if (sliceMode == FigmaSliceMode.FlattenSelectedFrameAsSingleImage)
+            {
+                entry.Action = "跳过";
+                entry.Reason = "当前切图模式为仅导入整张参考图。";
+            }
+            else if (!node.Visible)
+            {
+                entry.Action = "跳过";
+                entry.Reason = "节点不可见。";
+            }
+            else if (!node.HasUsableBounds)
+            {
+                entry.Action = "跳过";
+                entry.Reason = "节点没有可用尺寸。";
+            }
+            else if (HasSelectedAncestor(node, selectedMap))
+            {
+                entry.Action = "合并";
+                entry.Reason = "节点已包含在导出的祖先容器中：" + GetSelectedAncestorLabel(node, selectedMap);
+            }
+            else if (HasMappedDescendant(node, selectedMap))
+            {
+                entry.Action = "展开";
+                entry.Reason = GetExpandReason(node, containerSliceStrategy);
+            }
+            else
+            {
+                entry.Action = "跳过";
+                entry.Reason = GetSkipReason(node, markedMap, autoSliceMap);
+            }
+
+            diagnostics.Add(entry);
+
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                AppendDiagnostic(
+                    node.Children[i],
+                    sliceMode,
+                    containerSliceStrategy,
+                    markedMap,
+                    autoSliceMap,
+                    selectedMap,
+                    diagnostics);
+            }
+        }
+
+        private static string GetExportReason(
+            FigmaNodeInfo node,
+            IDictionary<string, FigmaNodeInfo> markedMap,
+            IDictionary<string, FigmaNodeInfo> autoSliceMap,
+            IDictionary<string, FigmaNodeInfo> selectedMap,
+            FigmaContainerSliceStrategy containerSliceStrategy)
+        {
+            bool marked = !string.IsNullOrEmpty(node.Id) && markedMap.ContainsKey(node.Id);
+            bool auto = !string.IsNullOrEmpty(node.Id) && autoSliceMap.ContainsKey(node.Id);
+            bool expandedContainerSelf = marked
+                && IsContainerNode(node)
+                && HasMappedDescendant(node, selectedMap)
+                && containerSliceStrategy != FigmaContainerSliceStrategy.StrictExportSettings;
+
+            if (expandedContainerSelf && HasVisualSelf(node))
+            {
+                return "容器自身有可见内容，作为背景层导出，同时展开子级。";
+            }
+
+            if (marked && auto)
+            {
+                return "节点设置了 ExportSettings，且符合自动切片条件。";
+            }
+
+            if (marked)
+            {
+                return "节点设置了 ExportSettings。";
+            }
+
+            if (IsAtomicContainerNode(node))
+            {
+                return "组件实例按容器策略独立导出。";
+            }
+
+            if (auto)
+            {
+                return "节点符合自动切片条件。";
+            }
+
+            return "节点被选入导出列表。";
+        }
+
+        private static string GetExpandReason(FigmaNodeInfo node, FigmaContainerSliceStrategy containerSliceStrategy)
+        {
+            if (containerSliceStrategy == FigmaContainerSliceStrategy.ExpandContainers)
+            {
+                return "容器处理策略为强制展开，已展开到子级切片。";
+            }
+
+            if (node.IsAutoLayout)
+            {
+                return "Auto Layout 容器包含组件实例，已展开到子级切片。";
+            }
+
+            return "节点本身未导出，但子级包含可导出的切片。";
+        }
+
+        private static string GetSkipReason(
+            FigmaNodeInfo node,
+            IDictionary<string, FigmaNodeInfo> markedMap,
+            IDictionary<string, FigmaNodeInfo> autoSliceMap)
+        {
+            bool marked = !string.IsNullOrEmpty(node.Id) && markedMap.ContainsKey(node.Id);
+            bool auto = !string.IsNullOrEmpty(node.Id) && autoSliceMap.ContainsKey(node.Id);
+            if (marked)
+            {
+                return "节点有 ExportSettings，但被容器策略或合并策略排除。";
+            }
+
+            if (auto)
+            {
+                return "节点符合自动切片条件，但绘制顺序中已有更合适的切片覆盖。";
+            }
+
+            if (IsContainerNode(node))
+            {
+                return "容器没有可单独导出的视觉内容或子级已处理。";
+            }
+
+            if (!IsRenderableNode(node))
+            {
+                return "节点类型不在当前可渲染类型列表中。";
+            }
+
+            return "节点不符合 ExportSettings 或自动切片条件。";
+        }
+
+        private static bool HasSelectedAncestor(FigmaNodeInfo node, IDictionary<string, FigmaNodeInfo> selectedMap)
+        {
+            FigmaNodeInfo current = node == null ? null : node.Parent;
+            while (current != null)
+            {
+                if (!string.IsNullOrEmpty(current.Id) && selectedMap.ContainsKey(current.Id))
+                {
+                    return true;
+                }
+
+                current = current.Parent;
+            }
+
+            return false;
+        }
+
+        private static string GetSelectedAncestorLabel(FigmaNodeInfo node, IDictionary<string, FigmaNodeInfo> selectedMap)
+        {
+            FigmaNodeInfo current = node == null ? null : node.Parent;
+            while (current != null)
+            {
+                if (!string.IsNullOrEmpty(current.Id) && selectedMap.ContainsKey(current.Id))
+                {
+                    return string.IsNullOrEmpty(current.Name) ? current.Id : current.Name + " [" + current.Id + "]";
+                }
+
+                current = current.Parent;
+            }
+
+            return "(未知)";
         }
 
         private static Dictionary<string, FigmaNodeInfo> ToNodeMap(IList<FigmaNodeInfo> nodes)
