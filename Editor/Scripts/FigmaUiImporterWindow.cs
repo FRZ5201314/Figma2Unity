@@ -198,6 +198,11 @@ namespace FigmaUiImporter.Editor
                 {
                     RebuildFromManifest();
                 }
+
+                if (GUILayout.Button("从 Figma 插件包导入", GUILayout.Height(26f)))
+                {
+                    ImportFromPluginPackage();
+                }
             }
 
             EditorGUILayout.EndHorizontal();
@@ -552,6 +557,54 @@ namespace FigmaUiImporter.Editor
             }
         }
 
+        private void ImportFromPluginPackage()
+        {
+            string pickedPackage = EditorUtility.OpenFilePanel("选择 Figma 插件导出包", string.Empty, "json");
+            if (string.IsNullOrEmpty(pickedPackage))
+            {
+                return;
+            }
+
+            BeginBusy("准备导入 Figma 插件包...");
+            SavePrefs();
+
+            try
+            {
+                FigmaImportSettings settings = BuildOfflineSettings();
+                ImmediateProgress progress = new ImmediateProgress(OnProgress);
+                FigmaPluginPackageImporter packageImporter = new FigmaPluginPackageImporter();
+                string manifestPath = packageImporter.ImportPackage(pickedPackage, settings, progress);
+
+                FigmaOfflineSceneRebuilder rebuilder = new FigmaOfflineSceneRebuilder();
+                FigmaImportResult result = rebuilder.Rebuild(settings, manifestPath, progress);
+
+                if (!string.IsNullOrEmpty(settings.FileKey))
+                {
+                    _fileInput = settings.FileKey;
+                }
+
+                _status = "Figma 插件包导入完成：" + result.LayerCount + " 个切图图层。";
+                _progress = 1f;
+                AddLog("插件包：" + pickedPackage);
+                AddLog("导入输出目录：" + result.OutputFolder);
+                AddLog("Manifest：" + result.ManifestPath);
+                if (result.RootObject != null)
+                {
+                    AddLog("场景根节点：" + result.RootObject.name);
+                }
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "Figma 插件包导入失败。";
+                AddLog("Figma 插件包导入失败：" + exception.Message);
+            }
+            finally
+            {
+                EndBusy();
+            }
+        }
+
         private bool ConfirmSliceEstimate()
         {
             if (_selectedNode == null || _sliceMode == FigmaSliceMode.FlattenSelectedFrameAsSingleImage)
@@ -590,6 +643,13 @@ namespace FigmaUiImporter.Editor
             settings.OverwriteExisting = _overwriteExisting;
             settings.IgnoreSslCertificateErrors = _ignoreSslCertificateErrors;
             settings.UseLoadedNodeTree = true;
+            return settings;
+        }
+
+        private FigmaImportSettings BuildOfflineSettings()
+        {
+            FigmaImportSettings settings = BuildSettings(FigmaPathUtility.ExtractFileKey(_fileInput));
+            settings.AccessToken = string.Empty;
             return settings;
         }
 

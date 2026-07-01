@@ -14,6 +14,7 @@
 - 使用导出 PNG 实际尺寸和参考图局部匹配校准切图位置
 - 生成 `manifest.json`
 - 支持从已有 `manifest.json` 离线重建场景
+- 支持导入 Figma 本地插件导出的 `.figma2unity.json` 离线包
 - 支持覆盖同名场景根节点
 
 ## 安装
@@ -26,6 +27,8 @@
 
 ## 使用
 
+### REST API 导入
+
 1. 在 Unity 菜单打开 `Tools/Figma UI Importer`。
 2. 填写 Figma Personal Access Token。
 3. 填写 Figma File Key 或文件 URL。
@@ -35,6 +38,20 @@
 7. 点击 `导入选中项`。
 
 如果 Figma API 正在限流，且项目里已经有一次成功导入生成的 `manifest.json` 和 PNG 资源，可以点击 `从 Manifest 重建场景`，选择对应的 `manifest.json`。该流程不会请求 Figma，只会使用本地 `reference.png` 和 `layers/*.png` 重新生成 Canvas 层级。
+
+### Figma 插件离线包导入
+
+如果 REST API 被限流，可以改用仓库内的 Figma 本地插件：
+
+1. 在 Figma 中打开 `Plugins / Development / Import plugin from manifest...`。
+2. 选择本仓库 `FigmaPlugin/manifest.json`。
+3. 在 Figma 文件中选中要导入的 Frame / Component / Instance。
+4. 运行 `Figma2Unity Offline Exporter`，导出 `.figma2unity.json`。
+5. 回到 Unity，打开 `Tools/Figma UI Importer`。
+6. 设置输出资源目录、目标 Canvas、参考图透明度等 Unity 侧选项。
+7. 点击 `从 Figma 插件包导入`，选择刚下载的 `.figma2unity.json`。
+
+这个流程不需要 Figma Personal Access Token，也不会请求 Figma REST API。Unity 会把包内图片写入 `Assets/FigmaImports/{fileKey}/{selectedNodeId}/`，生成 `manifest.json`，再用现有离线重建流程创建 Canvas 层级。
 
 导入后会生成类似目录：
 
@@ -70,10 +87,11 @@ Canvas
 
 - Token 使用 `EditorPrefs` 保存在本机，不会写入项目资源。
 - 如果 Unity 报 `Unable to complete SSL connection`，可在插件窗口临时勾选 `忽略 SSL 证书错误` 后重试；该选项会跳过 HTTPS 证书校验，仅建议在受信任网络或代理环境中使用。
-- 如果 Figma 返回 `429 Rate limit exceeded`，说明当前 token 或网络出口触发了 Figma 限流。插件会自动退避重试；仍失败时请等待几分钟后再导入，或降低重复加载/导入频率。
+- 如果 Figma 返回 `429 Rate limit exceeded`，说明当前 token、seat、plan 或网络出口触发了 Figma REST API 限流。可以等待额度恢复，也可以改用 `FigmaPlugin` 本地插件导出 `.figma2unity.json` 离线包。
 - 插件会把 Figma 文件结构缓存到 Unity 项目的 `Library/FigmaUiImporterCache`，该目录不会进入版本库。导入时会优先使用已加载的节点树，减少额外 API 请求。
 - 导入前如果预估切图数量较多，插件会弹窗确认，避免自动切片一次性触发过多图片导出请求。
 - `从 Manifest 重建场景` 只能使用当前 Unity 项目 `Assets` 目录内的 manifest 和图片资源；如果移动了 `reference.png` 或 `layers` 目录，需要保持 manifest 中记录的相对路径仍然可用。
+- `.figma2unity.json` 使用 base64 内嵌 PNG，文件会比原始图片总量更大。很大的 Frame 建议先用 Figma 插件的“仅导出整张参考图”或“只导出已设置 Export 的节点”。
 - 为了让切图大小和位置更贴近参考图，建议保留 `创建参考图`。没有参考图时，插件仍会使用 PNG 实际尺寸，但无法进行像素位置校准。
 - 插件按视觉还原导入，不会把 Figma Text 转成 TMP，也不会自动生成 Button、Toggle、ScrollView 等语义组件。
 - Page 可能很大，建议优先选择具体 Frame。
