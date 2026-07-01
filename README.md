@@ -16,6 +16,7 @@
 - 支持从已有 `manifest.json` 离线重建场景
 - 支持导入 Figma 本地插件导出的 `.figma2unity.json` 离线包
 - 支持覆盖同名场景根节点
+- 支持把导入根节点保存为 Prefab
 
 ## 安装
 
@@ -32,7 +33,7 @@
 1. 在 Unity 菜单打开 `Tools/Figma UI Importer`。
 2. 填写 Figma Personal Access Token。
 3. 填写 Figma File Key 或文件 URL。
-4. 设置输出资源目录，默认是 `Assets/FigmaImports`。
+4. 设置输出资源目录，默认是 `Assets/FigmaImports`。如果需要复用导入结果，可勾选 `保存为 Prefab` 并设置 Prefab 输出目录。
 5. 点击 `加载 Figma 文件`。默认会优先读取本地缓存，避免频繁请求 Figma；需要获取最新设计稿时点击 `强制重新加载`。
 6. 在 Page / Frame 树中选择要导入的目标。
 7. 点击 `导入选中项`。
@@ -48,7 +49,7 @@
 3. 在 Figma 文件中选中要导入的 Frame / Component / Instance。
 4. 运行 `Figma2Unity Offline Exporter`，导出 `.figma2unity.json`。
 5. 回到 Unity，打开 `Tools/Figma UI Importer`。
-6. 设置输出资源目录、目标 Canvas、参考图透明度等 Unity 侧选项。
+6. 设置输出资源目录、目标 Canvas、参考图透明度、是否保存 Prefab 等 Unity 侧选项。
 7. 点击 `从 Figma 插件包导入`，选择刚下载的 `.figma2unity.json`。
 
 这个流程不需要 Figma Personal Access Token，也不会请求 Figma REST API。Unity 会把包内图片写入 `Assets/FigmaImports/{fileKey}/{selectedNodeId}/`，生成 `manifest.json`，再用现有离线重建流程创建 Canvas 层级。
@@ -76,6 +77,13 @@ Canvas
         └── ...
 ```
 
+## Prefab 输出
+
+- 勾选 `保存为 Prefab` 后，REST API 导入、Manifest 重建、Figma 插件包导入都会在生成场景根节点后额外保存 Prefab。
+- 默认 Prefab 输出目录是 `Assets/FigmaImports/Prefabs`。
+- Prefab 文件名格式是 `FigmaImport_[Name]_[NodeId].prefab`。
+- 勾选 `覆盖同名场景根节点 / Prefab` 时，同名场景根节点和同名 Prefab 会被覆盖；未勾选时会生成唯一名称，避免覆盖已有内容。
+
 ## 切图模式
 
 - `ExportSettings 优先，并补齐自动切片`：默认模式，优先保留 Figma 中设置过 Export 的节点，同时补齐未被这些节点覆盖的可见图层。
@@ -96,3 +104,11 @@ Canvas
 - 插件按视觉还原导入，不会把 Figma Text 转成 TMP，也不会自动生成 Button、Toggle、ScrollView 等语义组件。
 - Page 可能很大，建议优先选择具体 Frame。
 - Figma 图片 URL 有时效，插件会立即下载到 Unity 项目资源目录。
+
+## 开发验证
+
+仓库包含 Unity EditMode 测试，位于 `Tests/Editor`：
+
+- `FigmaPathUtilityTests`：覆盖 file key 解析、Assets 路径归一化、导入目录和 Prefab 路径生成。
+- `FigmaImportManifestServiceTests`：覆盖 manifest 保存与离线重建数据读取。
+- `FigmaPluginPackageImporterTests`：覆盖 `.figma2unity.json` 解包、图片写入和非法资源路径拦截。

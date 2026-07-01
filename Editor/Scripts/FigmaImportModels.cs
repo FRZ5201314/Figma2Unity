@@ -25,6 +25,8 @@ namespace FigmaUiImporter.Editor
         public float ReferenceAlpha = 0.5f;
         public bool DisableRaycastTarget = true;
         public bool OverwriteExisting;
+        public bool SavePrefab;
+        public string PrefabFolder = "Assets/FigmaImports/Prefabs";
         public bool IgnoreSslCertificateErrors;
         public bool UseLoadedNodeTree = true;
         public TextureImporterCompressionMode CompressionMode = TextureImporterCompressionMode.None;
@@ -113,6 +115,7 @@ namespace FigmaUiImporter.Editor
     {
         public string OutputFolder;
         public string ManifestPath;
+        public string PrefabPath;
         public GameObject RootObject;
         public int LayerCount;
     }

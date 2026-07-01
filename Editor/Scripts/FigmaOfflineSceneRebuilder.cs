@@ -9,6 +9,7 @@ namespace FigmaUiImporter.Editor
         private readonly FigmaImportManifestService _manifestService = new FigmaImportManifestService();
         private readonly UnitySpriteAssetImporter _spriteImporter = new UnitySpriteAssetImporter();
         private readonly FigmaSceneBuilder _sceneBuilder = new FigmaSceneBuilder();
+        private readonly FigmaPrefabSaver _prefabSaver = new FigmaPrefabSaver();
 
         public FigmaImportResult Rebuild(
             FigmaImportSettings settings,
@@ -56,11 +57,19 @@ namespace FigmaUiImporter.Editor
                 referenceAssetPath,
                 data.Layers);
 
+            string prefabPath = string.Empty;
+            if (settings.SavePrefab)
+            {
+                progress.Report(new FigmaImportProgress("保存 Prefab...", 0.92f));
+                prefabPath = _prefabSaver.SavePrefab(settings, data.RootNode, rootObject);
+            }
+
             progress.Report(new FigmaImportProgress("离线重建完成。", 1f));
             return new FigmaImportResult
             {
                 OutputFolder = data.OutputFolder,
                 ManifestPath = data.ManifestPath,
+                PrefabPath = prefabPath,
                 RootObject = rootObject,
                 LayerCount = data.Layers.Count
             };

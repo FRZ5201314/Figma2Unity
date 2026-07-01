@@ -12,6 +12,7 @@ namespace FigmaUiImporter.Editor
         private readonly FigmaImageExporter _imageExporter;
         private readonly FigmaSceneBuilder _sceneBuilder;
         private readonly FigmaImportManifestService _manifestService;
+        private readonly FigmaPrefabSaver _prefabSaver;
 
         public FigmaImportOrchestrator(FigmaApiClient client)
         {
@@ -20,6 +21,7 @@ namespace FigmaUiImporter.Editor
             _imageExporter = new FigmaImageExporter(client, spriteImporter);
             _sceneBuilder = new FigmaSceneBuilder();
             _manifestService = new FigmaImportManifestService();
+            _prefabSaver = new FigmaPrefabSaver();
         }
 
         public async Task<FigmaImportResult> ImportAsync(
@@ -86,11 +88,19 @@ namespace FigmaUiImporter.Editor
             progress.Report(new FigmaImportProgress("保存 manifest...", 0.97f));
             string manifestPath = _manifestService.SaveManifest(settings, selectedRoot, outputFolder, referenceAssetPath, layers);
 
+            string prefabPath = string.Empty;
+            if (settings.SavePrefab)
+            {
+                progress.Report(new FigmaImportProgress("保存 Prefab...", 0.99f));
+                prefabPath = _prefabSaver.SavePrefab(settings, selectedRoot, rootObject);
+            }
+
             progress.Report(new FigmaImportProgress("导入完成。", 1f));
             return new FigmaImportResult
             {
                 OutputFolder = outputFolder,
                 ManifestPath = manifestPath,
+                PrefabPath = prefabPath,
                 RootObject = rootObject,
                 LayerCount = layers.Count
             };

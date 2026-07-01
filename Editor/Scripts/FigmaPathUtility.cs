@@ -7,6 +7,8 @@ namespace FigmaUiImporter.Editor
 {
     internal static class FigmaPathUtility
     {
+        private const string ExtraInvalidFileNameChars = ":/\\?*\"<>|";
+
         private static readonly Regex FigmaFileRegex = new Regex(
             @"figma\.com/(?:file|design|proto)/([A-Za-z0-9]+)",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -49,7 +51,8 @@ namespace FigmaUiImporter.Editor
             }
 
             string normalized = folder.Trim().Replace('\\', '/').TrimEnd('/');
-            if (!normalized.StartsWith("Assets", StringComparison.Ordinal))
+            if (!string.Equals(normalized, "Assets", StringComparison.Ordinal)
+                && !normalized.StartsWith("Assets/", StringComparison.Ordinal))
             {
                 normalized = "Assets/FigmaImports";
             }
@@ -63,6 +66,14 @@ namespace FigmaUiImporter.Editor
                 NormalizeAssetFolder(outputFolder),
                 SafeFileName(fileKey),
                 SafeFileName(nodeId));
+        }
+
+        public static string BuildPrefabAssetPath(string prefabFolder, string nodeName, string nodeId)
+        {
+            string safeName = SafeFileName(SafeObjectName(nodeName));
+            string safeId = SafeFileName(nodeId);
+            string fileName = "FigmaImport_" + safeName + "_" + safeId + ".prefab";
+            return CombineAssetPath(NormalizeAssetFolder(prefabFolder), fileName);
         }
 
         public static string CombineAssetPath(params string[] parts)
@@ -116,7 +127,7 @@ namespace FigmaUiImporter.Editor
             char[] chars = value.ToCharArray();
             for (int i = 0; i < chars.Length; i++)
             {
-                if (Array.IndexOf(invalid, chars[i]) >= 0 || chars[i] == ':' || chars[i] == '/' || chars[i] == '\\')
+                if (Array.IndexOf(invalid, chars[i]) >= 0 || ExtraInvalidFileNameChars.IndexOf(chars[i]) >= 0)
                 {
                     chars[i] = '_';
                 }

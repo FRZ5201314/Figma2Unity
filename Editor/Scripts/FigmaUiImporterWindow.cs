@@ -19,6 +19,8 @@ namespace FigmaUiImporter.Editor
         private const string PrefCreateReference = "FigmaUiImporter.CreateReference";
         private const string PrefDisableRaycast = "FigmaUiImporter.DisableRaycast";
         private const string PrefOverwrite = "FigmaUiImporter.Overwrite";
+        private const string PrefSavePrefab = "FigmaUiImporter.SavePrefab";
+        private const string PrefPrefabFolder = "FigmaUiImporter.PrefabFolder";
         private const string PrefIgnoreSslCertificateErrors = "FigmaUiImporter.IgnoreSslCertificateErrors";
         private const string PrefPreferCachedFile = "FigmaUiImporter.PreferCachedFile";
         private const int SliceWarningThreshold = 80;
@@ -42,6 +44,8 @@ namespace FigmaUiImporter.Editor
         private float _referenceAlpha;
         private bool _disableRaycastTarget;
         private bool _overwriteExisting;
+        private bool _savePrefab;
+        private string _prefabFolder;
         private bool _ignoreSslCertificateErrors;
         private bool _preferCachedFile;
 
@@ -81,6 +85,8 @@ namespace FigmaUiImporter.Editor
             _createReference = EditorPrefs.GetBool(PrefCreateReference, true);
             _disableRaycastTarget = EditorPrefs.GetBool(PrefDisableRaycast, true);
             _overwriteExisting = EditorPrefs.GetBool(PrefOverwrite, false);
+            _savePrefab = EditorPrefs.GetBool(PrefSavePrefab, false);
+            _prefabFolder = EditorPrefs.GetString(PrefPrefabFolder, "Assets/FigmaImports/Prefabs");
             _ignoreSslCertificateErrors = EditorPrefs.GetBool(PrefIgnoreSslCertificateErrors, false);
             _preferCachedFile = EditorPrefs.GetBool(PrefPreferCachedFile, true);
             _status = "等待加载 Figma 文件。";
@@ -144,7 +150,19 @@ namespace FigmaUiImporter.Editor
                 }
 
                 _disableRaycastTarget = EditorGUILayout.Toggle("关闭图片射线检测", _disableRaycastTarget);
-                _overwriteExisting = EditorGUILayout.Toggle("覆盖同名场景根节点", _overwriteExisting);
+                _overwriteExisting = EditorGUILayout.Toggle("覆盖同名场景根节点 / Prefab", _overwriteExisting);
+                _savePrefab = EditorGUILayout.Toggle("保存为 Prefab", _savePrefab);
+                using (new EditorGUI.DisabledScope(!_savePrefab))
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    _prefabFolder = EditorGUILayout.TextField("Prefab 输出目录", _prefabFolder);
+                    if (GUILayout.Button("选择", GUILayout.Width(56f)))
+                    {
+                        PickPrefabFolder();
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
+
                 _preferCachedFile = EditorGUILayout.Toggle("优先使用本地缓存", _preferCachedFile);
                 _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
                 if (_ignoreSslCertificateErrors)
@@ -497,6 +515,11 @@ namespace FigmaUiImporter.Editor
                 _progress = 1f;
                 AddLog("输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                if (!string.IsNullOrEmpty(result.PrefabPath))
+                {
+                    AddLog("Prefab：" + result.PrefabPath);
+                }
+
                 if (result.RootObject != null)
                 {
                     AddLog("场景根节点：" + result.RootObject.name);
@@ -540,6 +563,11 @@ namespace FigmaUiImporter.Editor
                 _progress = 1f;
                 AddLog("离线重建输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                if (!string.IsNullOrEmpty(result.PrefabPath))
+                {
+                    AddLog("Prefab：" + result.PrefabPath);
+                }
+
                 if (result.RootObject != null)
                 {
                     AddLog("场景根节点：" + result.RootObject.name);
@@ -588,6 +616,11 @@ namespace FigmaUiImporter.Editor
                 AddLog("插件包：" + pickedPackage);
                 AddLog("导入输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
+                if (!string.IsNullOrEmpty(result.PrefabPath))
+                {
+                    AddLog("Prefab：" + result.PrefabPath);
+                }
+
                 if (result.RootObject != null)
                 {
                     AddLog("场景根节点：" + result.RootObject.name);
@@ -641,6 +674,8 @@ namespace FigmaUiImporter.Editor
             settings.ReferenceAlpha = _referenceAlpha;
             settings.DisableRaycastTarget = _disableRaycastTarget;
             settings.OverwriteExisting = _overwriteExisting;
+            settings.SavePrefab = _savePrefab;
+            settings.PrefabFolder = NormalizePrefabFolder(_prefabFolder);
             settings.IgnoreSslCertificateErrors = _ignoreSslCertificateErrors;
             settings.UseLoadedNodeTree = true;
             return settings;
@@ -738,6 +773,8 @@ namespace FigmaUiImporter.Editor
             EditorPrefs.SetBool(PrefCreateReference, _createReference);
             EditorPrefs.SetBool(PrefDisableRaycast, _disableRaycastTarget);
             EditorPrefs.SetBool(PrefOverwrite, _overwriteExisting);
+            EditorPrefs.SetBool(PrefSavePrefab, _savePrefab);
+            EditorPrefs.SetString(PrefPrefabFolder, string.IsNullOrWhiteSpace(_prefabFolder) ? "Assets/FigmaImports/Prefabs" : _prefabFolder);
             EditorPrefs.SetBool(PrefIgnoreSslCertificateErrors, _ignoreSslCertificateErrors);
             EditorPrefs.SetBool(PrefPreferCachedFile, _preferCachedFile);
         }
@@ -760,6 +797,36 @@ namespace FigmaUiImporter.Editor
 
             string assetPath = picked.Substring(projectRoot.Length + 1);
             _outputFolder = FigmaPathUtility.NormalizeAssetFolder(assetPath);
+        }
+
+        private void PickPrefabFolder()
+        {
+            string projectRoot = System.IO.Directory.GetParent(Application.dataPath).FullName.Replace('\\', '/');
+            string picked = EditorUtility.OpenFolderPanel("选择 Prefab 输出目录", Application.dataPath, string.Empty);
+            if (string.IsNullOrEmpty(picked))
+            {
+                return;
+            }
+
+            picked = picked.Replace('\\', '/');
+            if (!picked.StartsWith(projectRoot + "/", StringComparison.Ordinal))
+            {
+                _error = "Prefab 输出目录必须位于当前 Unity 项目内。";
+                return;
+            }
+
+            string assetPath = picked.Substring(projectRoot.Length + 1);
+            _prefabFolder = FigmaPathUtility.NormalizeAssetFolder(assetPath);
+        }
+
+        private static string NormalizePrefabFolder(string prefabFolder)
+        {
+            if (string.IsNullOrWhiteSpace(prefabFolder))
+            {
+                return "Assets/FigmaImports/Prefabs";
+            }
+
+            return FigmaPathUtility.NormalizeAssetFolder(prefabFolder);
         }
 
         private bool GetFoldout(FigmaNodeInfo node)
