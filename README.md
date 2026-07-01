@@ -51,8 +51,10 @@
 5. 回到 Unity，打开 `Tools/Figma UI Importer`。
 6. 设置输出资源目录、目标 Canvas、参考图透明度、是否保存 Prefab 等 Unity 侧选项。
 7. 点击 `从 Figma 插件包导入`，选择刚下载的 `.figma2unity.json`。
+8. Unity 会先展示离线包信息，包括节点名、节点类型、根尺寸、图片倍率、图片资源数、切图图层数、包大小和输出目录；确认后才会写入资源并重建场景。
 
 这个流程不需要 Figma Personal Access Token，也不会请求 Figma REST API。Unity 会把包内图片写入 `Assets/FigmaImports/{fileKey}/{selectedNodeId}/`，生成 `manifest.json`，再用现有离线重建流程创建 Canvas 层级。
+如果离线包体积较大或图片资源较多，导入前会在同一个确认窗口里提示，避免误导入大包导致 Unity 短暂卡顿。
 
 导入后会生成类似目录：
 
@@ -99,7 +101,7 @@ Canvas
 - 插件会把 Figma 文件结构缓存到 Unity 项目的 `Library/FigmaUiImporterCache`，该目录不会进入版本库。导入时会优先使用已加载的节点树，减少额外 API 请求。
 - 导入前如果预估切图数量较多，插件会弹窗确认，避免自动切片一次性触发过多图片导出请求。
 - `从 Manifest 重建场景` 只能使用当前 Unity 项目 `Assets` 目录内的 manifest 和图片资源；如果移动了 `reference.png` 或 `layers` 目录，需要保持 manifest 中记录的相对路径仍然可用。
-- `.figma2unity.json` 使用 base64 内嵌 PNG，文件会比原始图片总量更大。很大的 Frame 建议先用 Figma 插件的“仅导出整张参考图”或“只导出已设置 Export 的节点”。
+- `.figma2unity.json` 使用 base64 内嵌 PNG，文件会比原始图片总量更大。导入器会校验 manifest 引用、图片路径和 base64 数据，错误信息会指出缺失或损坏的资源。很大的 Frame 建议先用 Figma 插件的“仅导出整张参考图”或“只导出已设置 Export 的节点”。
 - 为了让切图大小和位置更贴近参考图，建议保留 `创建参考图`。没有参考图时，插件仍会使用 PNG 实际尺寸，但无法进行像素位置校准。
 - 插件按视觉还原导入，不会把 Figma Text 转成 TMP，也不会自动生成 Button、Toggle、ScrollView 等语义组件。
 - Page 可能很大，建议优先选择具体 Frame。
@@ -111,4 +113,4 @@ Canvas
 
 - `FigmaPathUtilityTests`：覆盖 file key 解析、Assets 路径归一化、导入目录和 Prefab 路径生成。
 - `FigmaImportManifestServiceTests`：覆盖 manifest 保存与离线重建数据读取。
-- `FigmaPluginPackageImporterTests`：覆盖 `.figma2unity.json` 解包、图片写入和非法资源路径拦截。
+- `FigmaPluginPackageImporterTests`：覆盖 `.figma2unity.json` 信息读取、解包、图片写入、资源引用校验、base64 损坏提示和非法资源路径拦截。

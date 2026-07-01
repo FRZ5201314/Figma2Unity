@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+- Added a confirmation preview before importing `.figma2unity.json` packages, including selected node, dimensions, image scale, package size, asset count, layer count, and output folder.
+- Added large offline package warnings before writing PNG assets.
+- Improved offline package validation messages for missing manifest references, unsafe paths, and corrupt base64 image data.
+
 ## 0.3.0
 
 - Added optional Prefab export for REST imports, manifest rebuilds, and Figma plugin package imports.

@@ -26,7 +26,7 @@ namespace FigmaUiImporter.Editor.Tests
         [Test]
         public void ImportPackageWritesManifestAndImages()
         {
-            string packagePath = WritePackage(CreatePackageJson("reference.png", "layers/3_4.png"));
+            string packagePath = WritePackage(CreatePackageJson());
 
             try
             {
@@ -53,9 +53,36 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void ReadPackageInfoReturnsImportSummary()
+        {
+            string packagePath = WritePackage(CreatePackageJson());
+
+            try
+            {
+                FigmaPluginPackageInfo info = new FigmaPluginPackageImporter().ReadPackageInfo(packagePath);
+
+                Assert.AreEqual("localFile", info.FileKey);
+                Assert.AreEqual("1:2", info.SelectedNodeId);
+                Assert.AreEqual("Root", info.SelectedNodeName);
+                Assert.AreEqual("FRAME", info.SelectedNodeType);
+                Assert.AreEqual(1f, info.ImageScale);
+                Assert.AreEqual(100f, info.RootWidth);
+                Assert.AreEqual(80f, info.RootHeight);
+                Assert.AreEqual(1, info.LayerCount);
+                Assert.AreEqual(2, info.AssetCount);
+                Assert.IsTrue(info.HasReferenceImage);
+                Assert.Greater(info.PackageSizeBytes, 0);
+            }
+            finally
+            {
+                File.Delete(packagePath);
+            }
+        }
+
+        [Test]
         public void ImportPackageRejectsUnsafeAssetPath()
         {
-            string packagePath = WritePackage(CreatePackageJson("../reference.png", "layers/3_4.png"));
+            string packagePath = WritePackage(CreatePackageJson(referenceAssetPath: "../reference.png"));
 
             try
             {
@@ -72,7 +99,55 @@ namespace FigmaUiImporter.Editor.Tests
             }
         }
 
-        private static string CreatePackageJson(string referencePath, string layerPath)
+        [Test]
+        public void ImportPackageRejectsMissingReferencedAsset()
+        {
+            string packagePath = WritePackage(CreatePackageJson(referenceManifestPath: "missing-reference.png"));
+
+            try
+            {
+                FigmaPluginPackageImporter importer = new FigmaPluginPackageImporter();
+                InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                    () => importer.ImportPackage(
+                        packagePath,
+                        new FigmaImportSettings { OutputFolder = TestFolder },
+                        new NullProgress()));
+                StringAssert.Contains("参考图资源不存在", exception.Message);
+            }
+            finally
+            {
+                File.Delete(packagePath);
+            }
+        }
+
+        [Test]
+        public void ImportPackageReportsCorruptBase64()
+        {
+            string packagePath = WritePackage(CreatePackageJson(referenceBase64: "not-base64"));
+
+            try
+            {
+                FigmaPluginPackageImporter importer = new FigmaPluginPackageImporter();
+                InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                    () => importer.ImportPackage(
+                        packagePath,
+                        new FigmaImportSettings { OutputFolder = TestFolder },
+                        new NullProgress()));
+                StringAssert.Contains("base64 数据损坏", exception.Message);
+            }
+            finally
+            {
+                File.Delete(packagePath);
+            }
+        }
+
+        private static string CreatePackageJson(
+            string referenceManifestPath = "reference.png",
+            string referenceAssetPath = "reference.png",
+            string layerManifestPath = "layers/3_4.png",
+            string layerAssetPath = "layers/3_4.png",
+            string referenceBase64 = PngBase64,
+            string layerBase64 = PngBase64)
         {
             return "{"
                 + "\"schemaVersion\":1,"
@@ -87,12 +162,12 @@ namespace FigmaUiImporter.Editor.Tests
                 + "\"selectedNodeType\":\"FRAME\","
                 + "\"importedAt\":\"2026-07-01T00:00:00Z\","
                 + "\"rootBounds\":{\"x\":0,\"y\":0,\"width\":100,\"height\":80},"
-                + "\"referenceImage\":\"reference.png\","
+                + "\"referenceImage\":\"" + referenceManifestPath + "\","
                 + "\"layers\":[{"
                 + "\"nodeId\":\"3:4\","
                 + "\"nodeName\":\"Icon\","
                 + "\"type\":\"RECTANGLE\","
-                + "\"image\":\"layers/3_4.png\","
+                + "\"image\":\"" + layerManifestPath + "\","
                 + "\"bounds\":{\"x\":10,\"y\":12,\"width\":20,\"height\":24},"
                 + "\"unity\":{\"anchoredPosition\":{\"x\":-30,\"y\":16},\"sizeDelta\":{\"x\":20,\"y\":24}},"
                 + "\"siblingIndex\":0,"
@@ -100,8 +175,8 @@ namespace FigmaUiImporter.Editor.Tests
                 + "}]"
                 + "},"
                 + "\"assets\":["
-                + "{\"path\":\"" + referencePath + "\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + PngBase64 + "\"},"
-                + "{\"path\":\"" + layerPath + "\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + PngBase64 + "\"}"
+                + "{\"path\":\"" + referenceAssetPath + "\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + referenceBase64 + "\"},"
+                + "{\"path\":\"" + layerAssetPath + "\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + layerBase64 + "\"}"
                 + "]"
                 + "}";
         }

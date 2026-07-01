@@ -120,6 +120,25 @@ namespace FigmaUiImporter.Editor
         public int LayerCount;
     }
 
+    internal sealed class FigmaPluginPackageInfo
+    {
+        public string PackagePath;
+        public string PackageFileName;
+        public long PackageSizeBytes;
+        public int SchemaVersion;
+        public string ExportedAt;
+        public string FileKey;
+        public float ImageScale;
+        public string SelectedNodeId;
+        public string SelectedNodeName;
+        public string SelectedNodeType;
+        public float RootWidth;
+        public float RootHeight;
+        public int LayerCount;
+        public int AssetCount;
+        public bool HasReferenceImage;
+    }
+
     internal sealed class FigmaManifestRebuildData
     {
         public string FileKey;

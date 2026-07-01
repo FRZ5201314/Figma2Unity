@@ -24,6 +24,8 @@ namespace FigmaUiImporter.Editor
         private const string PrefIgnoreSslCertificateErrors = "FigmaUiImporter.IgnoreSslCertificateErrors";
         private const string PrefPreferCachedFile = "FigmaUiImporter.PreferCachedFile";
         private const int SliceWarningThreshold = 80;
+        private const int LargePluginPackageAssetThreshold = 120;
+        private const long LargePluginPackageSizeBytes = 80L * 1024L * 1024L;
 
         private static readonly string[] SliceModeLabels =
         {
@@ -593,14 +595,34 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
+            FigmaPluginPackageImporter packageImporter = new FigmaPluginPackageImporter();
+            FigmaPluginPackageInfo packageInfo;
+            try
+            {
+                packageInfo = packageImporter.ReadPackageInfo(pickedPackage);
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "Figma 插件包无效。";
+                AddLog("Figma 插件包无效：" + exception.Message);
+                Repaint();
+                return;
+            }
+
+            FigmaImportSettings previewSettings = BuildOfflineSettings();
+            if (!ConfirmPluginPackageImport(packageInfo, previewSettings))
+            {
+                return;
+            }
+
             BeginBusy("准备导入 Figma 插件包...");
             SavePrefs();
 
             try
             {
-                FigmaImportSettings settings = BuildOfflineSettings();
+                FigmaImportSettings settings = previewSettings;
                 ImmediateProgress progress = new ImmediateProgress(OnProgress);
-                FigmaPluginPackageImporter packageImporter = new FigmaPluginPackageImporter();
                 string manifestPath = packageImporter.ImportPackage(pickedPackage, settings, progress);
 
                 FigmaOfflineSceneRebuilder rebuilder = new FigmaOfflineSceneRebuilder();
@@ -614,6 +636,8 @@ namespace FigmaUiImporter.Editor
                 _status = "Figma 插件包导入完成：" + result.LayerCount + " 个切图图层。";
                 _progress = 1f;
                 AddLog("插件包：" + pickedPackage);
+                AddLog("插件包节点：" + FormatPluginPackageNode(packageInfo));
+                AddLog("插件包资源：" + packageInfo.AssetCount + " 个图片资源，" + packageInfo.LayerCount + " 个切图图层，大小 " + FormatFileSize(packageInfo.PackageSizeBytes));
                 AddLog("导入输出目录：" + result.OutputFolder);
                 AddLog("Manifest：" + result.ManifestPath);
                 if (!string.IsNullOrEmpty(result.PrefabPath))
@@ -636,6 +660,79 @@ namespace FigmaUiImporter.Editor
             {
                 EndBusy();
             }
+        }
+
+        private bool ConfirmPluginPackageImport(FigmaPluginPackageInfo packageInfo, FigmaImportSettings settings)
+        {
+            bool largePackage = IsLargePluginPackage(packageInfo);
+            string outputFolder = FigmaPathUtility.BuildImportFolder(
+                settings.OutputFolder,
+                packageInfo.FileKey,
+                packageInfo.SelectedNodeId);
+            string message =
+                "即将导入 Figma 插件离线包：\n\n"
+                + "包文件：" + packageInfo.PackageFileName + "\n"
+                + "包大小：" + FormatFileSize(packageInfo.PackageSizeBytes) + "\n"
+                + "节点：" + FormatPluginPackageNode(packageInfo) + "\n"
+                + "File Key：" + packageInfo.FileKey + "\n"
+                + "根尺寸：" + FormatNumber(packageInfo.RootWidth) + " x " + FormatNumber(packageInfo.RootHeight) + "\n"
+                + "图片倍率：" + FormatNumber(packageInfo.ImageScale) + "\n"
+                + "图片资源：" + packageInfo.AssetCount + " 个"
+                + (packageInfo.HasReferenceImage ? "（包含参考图）" : "（不包含参考图）") + "\n"
+                + "切图图层：" + packageInfo.LayerCount + " 个\n"
+                + "输出目录：" + outputFolder;
+
+            if (settings.SavePrefab)
+            {
+                message += "\nPrefab 目录：" + settings.PrefabFolder;
+            }
+
+            if (largePackage)
+            {
+                message += "\n\n这个离线包较大，导入会写入较多 PNG，Unity 可能短暂卡顿。建议确认当前场景已保存。";
+            }
+
+            string title = largePackage ? "确认导入大型 Figma 插件包" : "确认导入 Figma 插件包";
+            return EditorUtility.DisplayDialog(title, message, "导入", "取消");
+        }
+
+        private static bool IsLargePluginPackage(FigmaPluginPackageInfo packageInfo)
+        {
+            return packageInfo.AssetCount >= LargePluginPackageAssetThreshold
+                || packageInfo.PackageSizeBytes >= LargePluginPackageSizeBytes;
+        }
+
+        private static string FormatPluginPackageNode(FigmaPluginPackageInfo packageInfo)
+        {
+            string nodeName = string.IsNullOrWhiteSpace(packageInfo.SelectedNodeName)
+                ? "(未命名)"
+                : packageInfo.SelectedNodeName;
+            string nodeType = string.IsNullOrWhiteSpace(packageInfo.SelectedNodeType)
+                ? "UNKNOWN"
+                : packageInfo.SelectedNodeType;
+            return nodeName + " [" + nodeType + "] " + packageInfo.SelectedNodeId;
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            const double OneKb = 1024d;
+            const double OneMb = OneKb * 1024d;
+            if (bytes >= OneMb)
+            {
+                return (bytes / OneMb).ToString("0.##") + " MB";
+            }
+
+            if (bytes >= OneKb)
+            {
+                return (bytes / OneKb).ToString("0.##") + " KB";
+            }
+
+            return bytes + " B";
+        }
+
+        private static string FormatNumber(float value)
+        {
+            return value.ToString("0.##");
         }
 
         private bool ConfirmSliceEstimate()
