@@ -39,7 +39,7 @@
 4. 设置输出资源目录，默认是 `Assets/FigmaImports`。如果需要复用导入结果，可勾选 `保存为 Prefab` 并设置 Prefab 输出目录。
 5. 点击 `加载 Figma 文件`。默认会优先读取本地缓存，避免频繁请求 Figma；需要获取最新设计稿时点击 `强制重新加载`。
 6. 在 Page / Frame 树中选择要导入的目标。
-7. 在“网络导入（Figma REST API）”中点击 `导入选中项`。
+7. 在“页面 / Frame”区块中点击 `导入选中项`。
 
 如果 Figma API 正在限流，且项目里已经有一次成功导入生成的 `manifest.json` 和 PNG 资源，可以在窗口左下角的“已导入项目”列表中点击对应项目按钮重建场景。该流程不会请求 Figma，只会使用本地 `reference.png` 和 `layers/*.png` 重新生成 Canvas 层级。
 

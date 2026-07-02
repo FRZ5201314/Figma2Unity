@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.8
+
+- Tightened the spacing between local package import and local manifest rebuild sections.
+- Moved the REST import selected action into the Page / Frame section so selection and import stay together.
+
 ## 0.7.7
 
 - Reorganized the importer window so the REST network workflow lives in the left column and local package/manifest workflows live in the middle column.

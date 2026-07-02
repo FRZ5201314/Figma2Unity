@@ -229,7 +229,6 @@ namespace FigmaUiImporter.Editor
             DrawSharedSettings();
             EditorGUILayout.Space(8f);
             DrawLocalImportActions();
-            GUILayout.FlexibleSpace();
             EditorGUILayout.Space(8f);
             DrawImportedManifestsPanel();
         }
@@ -338,17 +337,6 @@ namespace FigmaUiImporter.Editor
             }
 
             EditorGUILayout.EndHorizontal();
-            EditorGUILayout.Space(4f);
-            using (new EditorGUI.DisabledScope(_isBusy))
-            {
-                using (new EditorGUI.DisabledScope(_selectedNode == null))
-                {
-                    if (GUILayout.Button("导入选中项", GUILayout.Height(28f)))
-                    {
-                        _ = ImportSelectedAsync();
-                    }
-                }
-            }
             EndSection();
         }
 
@@ -708,6 +696,17 @@ namespace FigmaUiImporter.Editor
 
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
+            EditorGUILayout.Space(4f);
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                using (new EditorGUI.DisabledScope(_selectedNode == null))
+                {
+                    if (GUILayout.Button("导入选中项", GUILayout.Height(28f)))
+                    {
+                        _ = ImportSelectedAsync();
+                    }
+                }
+            }
             EndSection();
         }
 
