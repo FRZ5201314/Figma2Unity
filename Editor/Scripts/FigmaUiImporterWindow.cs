@@ -223,10 +223,7 @@ namespace FigmaUiImporter.Editor
         {
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                BeginSection("连接设置");
-                _accessToken = EditorGUILayout.PasswordField("Figma Token", _accessToken);
-                _fileInput = EditorGUILayout.TextField("File Key 或 URL", _fileInput);
-
+                BeginSection("通用输出");
                 EditorGUILayout.BeginHorizontal();
                 _outputFolder = EditorGUILayout.TextField("输出资源目录", _outputFolder);
                 if (GUILayout.Button("选择", GUILayout.Width(56f)))
@@ -236,6 +233,12 @@ namespace FigmaUiImporter.Editor
                 EditorGUILayout.EndHorizontal();
 
                 _targetCanvas = (Canvas)EditorGUILayout.ObjectField("目标 Canvas", _targetCanvas, typeof(Canvas), true);
+                EndSection();
+
+                EditorGUILayout.Space(6f);
+                BeginSection("REST 连接");
+                _accessToken = EditorGUILayout.PasswordField("Figma Token", _accessToken);
+                _fileInput = EditorGUILayout.TextField("File Key 或 URL", _fileInput);
                 _preferCachedFile = EditorGUILayout.Toggle("优先使用本地缓存", _preferCachedFile);
                 _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
                 if (_ignoreSslCertificateErrors)
@@ -245,7 +248,7 @@ namespace FigmaUiImporter.Editor
                 EndSection();
 
                 EditorGUILayout.Space(6f);
-                BeginSection("导入设置");
+                BeginSection("通用导入设置");
                 _sliceMode = (FigmaSliceMode)EditorGUILayout.Popup("切图模式", (int)_sliceMode, SliceModeLabels);
                 using (new EditorGUI.DisabledScope(_sliceMode != FigmaSliceMode.ExportSettingsThenAutoSlice))
                 {
@@ -288,7 +291,14 @@ namespace FigmaUiImporter.Editor
 
         private void DrawActions()
         {
-            BeginSection("操作");
+            DrawNetworkImportActions();
+            EditorGUILayout.Space(8f);
+            DrawLocalImportActions();
+        }
+
+        private void DrawNetworkImportActions()
+        {
+            BeginSection("网络导入（Figma REST API）");
             EditorGUILayout.BeginHorizontal();
             using (new EditorGUI.DisabledScope(_isBusy))
             {
@@ -300,14 +310,6 @@ namespace FigmaUiImporter.Editor
                 if (GUILayout.Button("强制重新加载", GUILayout.Width(110f), GUILayout.Height(30f)))
                 {
                     _ = LoadFileAsync(true);
-                }
-
-                using (new EditorGUI.DisabledScope(_selectedNode == null))
-                {
-                    if (GUILayout.Button("导入选中项", GUILayout.Height(30f)))
-                    {
-                        _ = ImportSelectedAsync();
-                    }
                 }
             }
 
@@ -323,23 +325,36 @@ namespace FigmaUiImporter.Editor
             }
 
             EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.Space(4f);
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                if (GUILayout.Button("从 Figma 插件包导入", GUILayout.Height(26f)))
+                using (new EditorGUI.DisabledScope(_selectedNode == null))
+                {
+                    if (GUILayout.Button("导入选中项", GUILayout.Height(28f)))
+                    {
+                        _ = ImportSelectedAsync();
+                    }
+                }
+            }
+            EndSection();
+        }
+
+        private void DrawLocalImportActions()
+        {
+            BeginSection("本地导入（Figma 插件包）");
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                if (GUILayout.Button("导入 .figma2unity.json", GUILayout.Height(30f)))
                 {
                     ImportFromPluginPackage();
                 }
             }
-
-            EditorGUILayout.EndHorizontal();
             EndSection();
         }
 
         private void DrawImportedManifestsPanel()
         {
-            BeginSection("已导入项目");
+            BeginSection("本地重建（已导入项目）");
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("点击项目从 manifest 重建场景", EditorStyles.miniLabel);
             using (new EditorGUI.DisabledScope(_isBusy))

@@ -33,13 +33,13 @@
 
 ### REST API 导入
 
-1. 在 Unity 菜单打开 `Tools/Figma UI Importer`。
+1. 在 Unity 菜单打开 `Tools/Figma UI Importer`。窗口中“网络导入（Figma REST API）”会使用 Figma API，“本地导入（Figma 插件包）”和“本地重建（已导入项目）”只读取本地文件。
 2. 填写 Figma Personal Access Token。
 3. 填写 Figma File Key 或文件 URL。
 4. 设置输出资源目录，默认是 `Assets/FigmaImports`。如果需要复用导入结果，可勾选 `保存为 Prefab` 并设置 Prefab 输出目录。
 5. 点击 `加载 Figma 文件`。默认会优先读取本地缓存，避免频繁请求 Figma；需要获取最新设计稿时点击 `强制重新加载`。
 6. 在 Page / Frame 树中选择要导入的目标。
-7. 点击 `导入选中项`。
+7. 在“网络导入（Figma REST API）”中点击 `导入选中项`。
 
 如果 Figma API 正在限流，且项目里已经有一次成功导入生成的 `manifest.json` 和 PNG 资源，可以在窗口左下角的“已导入项目”列表中点击对应项目按钮重建场景。该流程不会请求 Figma，只会使用本地 `reference.png` 和 `layers/*.png` 重新生成 Canvas 层级。
 
@@ -53,7 +53,7 @@
 4. 运行 `Figma2Unity Offline Exporter`，导出 `.figma2unity.json`。
 5. 回到 Unity，打开 `Tools/Figma UI Importer`。
 6. 设置输出资源目录、目标 Canvas、参考图透明度、容器处理策略、是否保存 Prefab 等 Unity 侧选项。
-7. 点击 `从 Figma 插件包导入`，选择刚下载的 `.figma2unity.json`。
+7. 在“本地导入（Figma 插件包）”中点击 `导入 .figma2unity.json`，选择刚下载的 `.figma2unity.json`。
 8. Unity 会先展示离线包信息，包括节点名、节点类型、根尺寸、图片倍率、图片资源数、切图图层数、包大小和输出目录；确认后才会写入资源并重建场景。
 
 这个流程不需要 Figma Personal Access Token，也不会请求 Figma REST API。Unity 会把包内图片写入 `Assets/FigmaImports/{fileKey}/{selectedNodeId}/`，生成 `manifest.json`，再用现有离线重建流程创建 Canvas 层级。

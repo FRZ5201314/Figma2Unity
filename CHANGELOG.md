@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.6
+
+- Split the importer window workflow into REST network import, local Figma plugin package import, and local manifest rebuild sections.
+- Moved shared output fields away from REST connection settings so local and network workflows are clearer.
+
 ## 0.7.5
 
 - Added an imported-project list in the lower-left importer window area that scans existing `manifest.json` files and rebuilds scenes from the selected project button.
