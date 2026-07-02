@@ -29,6 +29,10 @@ namespace FigmaUiImporter.Editor
         private const int SliceWarningThreshold = 80;
         private const int LargePluginPackageAssetThreshold = 120;
         private const long LargePluginPackageSizeBytes = 80L * 1024L * 1024L;
+        private const float WindowMinWidth = 1180f;
+        private const float WindowMinHeight = 720f;
+        private const float LeftColumnWidth = 360f;
+        private const float CenterColumnWidth = 390f;
 
         private static readonly string[] SliceModeLabels =
         {
@@ -78,21 +82,28 @@ namespace FigmaUiImporter.Editor
         private readonly FigmaFileCacheService _fileCache = new FigmaFileCacheService();
         private int _loadedPageCount;
         private int _loadedFrameCount;
-        private Vector2 _mainScroll;
         private Vector2 _treeScroll;
         private Vector2 _logScroll;
+        private Vector2 _fontEntriesScroll;
         private bool _isBusy;
         private string _status;
         private string _error;
         private float _progress = -1f;
         private CancellationTokenSource _cancellation;
+        private SerializedObject _fontMappingSerializedObject;
+        private SerializedProperty _fontDefaultFontProperty;
+        private SerializedProperty _fontEntriesProperty;
 
         [MenuItem("Tools/Figma UI Importer")]
         public static void Open()
         {
             FigmaUiImporterWindow window = GetWindow<FigmaUiImporterWindow>();
             window.titleContent = new GUIContent("Figma UI 导入器");
-            window.minSize = new Vector2(520f, 620f);
+            window.minSize = new Vector2(WindowMinWidth, WindowMinHeight);
+            Rect position = window.position;
+            position.width = Mathf.Max(position.width, WindowMinWidth);
+            position.height = Mathf.Max(position.height, WindowMinHeight);
+            window.position = position;
             window.Show();
         }
 
@@ -119,6 +130,7 @@ namespace FigmaUiImporter.Editor
             _ignoreSslCertificateErrors = EditorPrefs.GetBool(PrefIgnoreSslCertificateErrors, false);
             _preferCachedFile = EditorPrefs.GetBool(PrefPreferCachedFile, true);
             _status = "等待加载 Figma 文件。";
+            BindFontMappingAsset();
         }
 
         private void OnDisable()
@@ -142,15 +154,27 @@ namespace FigmaUiImporter.Editor
 
         private void OnGUI()
         {
-            _mainScroll = EditorGUILayout.BeginScrollView(_mainScroll);
+            BindFontMappingAsset();
+
+            EditorGUILayout.BeginHorizontal(GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(GUILayout.Width(LeftColumnWidth), GUILayout.ExpandHeight(true));
             DrawSettings();
             EditorGUILayout.Space(8f);
             DrawActions();
+            EditorGUILayout.EndVertical();
+
             EditorGUILayout.Space(8f);
+            EditorGUILayout.BeginVertical(GUILayout.Width(CenterColumnWidth), GUILayout.ExpandHeight(true));
             DrawSelectionTree();
             EditorGUILayout.Space(8f);
             DrawStatus();
-            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space(8f);
+            EditorGUILayout.BeginVertical(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+            DrawFontMappingPanel();
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.EndHorizontal();
         }
 
         private static void BeginSection(string title)
@@ -162,6 +186,27 @@ namespace FigmaUiImporter.Editor
         private static void EndSection()
         {
             EditorGUILayout.EndVertical();
+        }
+
+        private void BindFontMappingAsset()
+        {
+            FigmaFontMappingAsset mapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>(FigmaFontMappingService.GlobalMappingAssetPath);
+            if (mapping == null)
+            {
+                mapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
+            }
+
+            if (_fontMapping != mapping)
+            {
+                _fontMapping = mapping;
+            }
+
+            if (_fontMappingSerializedObject == null || _fontMappingSerializedObject.targetObject != _fontMapping)
+            {
+                _fontMappingSerializedObject = _fontMapping == null ? null : new SerializedObject(_fontMapping);
+                _fontDefaultFontProperty = _fontMappingSerializedObject == null ? null : _fontMappingSerializedObject.FindProperty("DefaultFont");
+                _fontEntriesProperty = _fontMappingSerializedObject == null ? null : _fontMappingSerializedObject.FindProperty("Entries");
+            }
         }
 
         private void DrawSettings()
@@ -281,15 +326,197 @@ namespace FigmaUiImporter.Editor
                 {
                     ImportFromPluginPackage();
                 }
-
-                if (GUILayout.Button("打开/创建字体映射", GUILayout.Height(26f)))
-                {
-                    OpenGlobalFontMapping();
-                }
             }
 
             EditorGUILayout.EndHorizontal();
             EndSection();
+        }
+
+        private void DrawFontMappingPanel()
+        {
+            BeginSection("字体映射");
+
+            if (_fontMapping == null || _fontMappingSerializedObject == null)
+            {
+                EditorGUILayout.HelpBox("未找到全局字体映射。", MessageType.Warning);
+                if (GUILayout.Button("创建字体映射", GUILayout.Height(28f)))
+                {
+                    OpenGlobalFontMapping();
+                    BindFontMappingAsset();
+                }
+
+                EndSection();
+                return;
+            }
+
+            _fontMappingSerializedObject.Update();
+
+            EditorGUILayout.BeginHorizontal();
+            using (new EditorGUI.DisabledScope(true))
+            {
+                EditorGUILayout.ObjectField("映射资产", _fontMapping, typeof(FigmaFontMappingAsset), false);
+            }
+
+            if (GUILayout.Button("定位", GUILayout.Width(52f)))
+            {
+                Selection.activeObject = _fontMapping;
+                EditorGUIUtility.PingObject(_fontMapping);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.PropertyField(_fontDefaultFontProperty, new GUIContent("默认 TMP 字体"));
+
+            EditorGUILayout.BeginHorizontal();
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                if (GUILayout.Button("更新已导入页面", GUILayout.Height(28f)))
+                {
+                    UpdateFontMappingFromImportedManifests();
+                }
+
+                if (GUILayout.Button("应用到选中项", GUILayout.Height(28f)))
+                {
+                    ApplyFontMappingToSelection();
+                }
+
+                if (GUILayout.Button("应用到打开场景", GUILayout.Height(28f)))
+                {
+                    ApplyFontMappingToOpenScenes();
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("映射条目 (" + _fontEntriesProperty.arraySize + ")", EditorStyles.boldLabel);
+            DrawFontMappingEntries();
+
+            _fontMappingSerializedObject.ApplyModifiedProperties();
+            EndSection();
+        }
+
+        private void DrawFontMappingEntries()
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.ExpandHeight(true));
+            _fontEntriesScroll = EditorGUILayout.BeginScrollView(_fontEntriesScroll, GUILayout.ExpandHeight(true));
+
+            if (_fontEntriesProperty.arraySize == 0)
+            {
+                EditorGUILayout.HelpBox("暂无字体映射条目。导入 Figma 页面后会自动补充，也可以点击“更新已导入页面”。", MessageType.Info);
+            }
+
+            for (int i = 0; i < _fontEntriesProperty.arraySize; i++)
+            {
+                SerializedProperty entry = _fontEntriesProperty.GetArrayElementAtIndex(i);
+                if (DrawFontMappingEntry(entry, i))
+                {
+                    break;
+                }
+            }
+
+            EditorGUILayout.EndScrollView();
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("新增映射", GUILayout.Width(92f)))
+            {
+                _fontEntriesProperty.InsertArrayElementAtIndex(_fontEntriesProperty.arraySize);
+                SerializedProperty entry = _fontEntriesProperty.GetArrayElementAtIndex(_fontEntriesProperty.arraySize - 1);
+                ResetFontMappingEntry(entry);
+            }
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
+        }
+
+        private bool DrawFontMappingEntry(SerializedProperty entry, int index)
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal();
+            entry.isExpanded = EditorGUILayout.Foldout(entry.isExpanded, BuildFontEntrySummary(entry), true);
+            if (GUILayout.Button("删除", GUILayout.Width(48f)))
+            {
+                _fontEntriesProperty.DeleteArrayElementAtIndex(index);
+                EditorGUILayout.EndHorizontal();
+                EditorGUILayout.EndVertical();
+                return true;
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (entry.isExpanded)
+            {
+                DrawTwoProperties(
+                    entry.FindPropertyRelative("FigmaFontFamily"),
+                    "Figma 字体族",
+                    entry.FindPropertyRelative("FigmaFontStyle"),
+                    "样式");
+                EditorGUILayout.PropertyField(
+                    entry.FindPropertyRelative("FigmaFontPostScriptName"),
+                    new GUIContent("PostScript 名称"));
+                DrawTwoProperties(
+                    entry.FindPropertyRelative("MinWeight"),
+                    "最小字重",
+                    entry.FindPropertyRelative("MaxWeight"),
+                    "最大字重");
+                DrawTwoProperties(
+                    entry.FindPropertyRelative("FontAsset"),
+                    "TMP 字体",
+                    entry.FindPropertyRelative("FontStyle"),
+                    "TMP 样式");
+                DrawTwoProperties(
+                    entry.FindPropertyRelative("UsageCount"),
+                    "使用次数",
+                    entry.FindPropertyRelative("LastSeenAt"),
+                    "最后发现");
+                EditorGUILayout.PropertyField(entry.FindPropertyRelative("SampleText"), new GUIContent("文本样本"));
+            }
+
+            EditorGUILayout.EndVertical();
+            return false;
+        }
+
+        private static void DrawTwoProperties(
+            SerializedProperty leftProperty,
+            string leftLabel,
+            SerializedProperty rightProperty,
+            string rightLabel)
+        {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PropertyField(leftProperty, new GUIContent(leftLabel));
+            EditorGUILayout.PropertyField(rightProperty, new GUIContent(rightLabel));
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private static void ResetFontMappingEntry(SerializedProperty entry)
+        {
+            entry.FindPropertyRelative("FigmaFontFamily").stringValue = string.Empty;
+            entry.FindPropertyRelative("FigmaFontStyle").stringValue = string.Empty;
+            entry.FindPropertyRelative("FigmaFontPostScriptName").stringValue = string.Empty;
+            entry.FindPropertyRelative("MinWeight").intValue = 0;
+            entry.FindPropertyRelative("MaxWeight").intValue = 0;
+            entry.FindPropertyRelative("UsageCount").intValue = 0;
+            entry.FindPropertyRelative("SampleText").stringValue = string.Empty;
+            entry.FindPropertyRelative("LastSeenAt").stringValue = string.Empty;
+            entry.FindPropertyRelative("FontAsset").objectReferenceValue = null;
+            entry.FindPropertyRelative("FontStyle").enumValueIndex = 0;
+        }
+
+        private static string BuildFontEntrySummary(SerializedProperty entry)
+        {
+            string family = entry.FindPropertyRelative("FigmaFontFamily").stringValue;
+            string style = entry.FindPropertyRelative("FigmaFontStyle").stringValue;
+            string postScriptName = entry.FindPropertyRelative("FigmaFontPostScriptName").stringValue;
+            UnityEngine.Object fontAsset = entry.FindPropertyRelative("FontAsset").objectReferenceValue;
+
+            string figmaName = string.IsNullOrEmpty(family) ? "(未命名字体)" : family;
+            if (!string.IsNullOrEmpty(style))
+            {
+                figmaName += " " + style;
+            }
+
+            if (!string.IsNullOrEmpty(postScriptName))
+            {
+                figmaName += " / " + postScriptName;
+            }
+
+            return figmaName + "  ->  " + (fontAsset == null ? "未映射" : fontAsset.name);
         }
 
         private void DrawSelectionTree()
@@ -766,6 +993,85 @@ namespace FigmaUiImporter.Editor
                 _error = exception.Message;
                 _status = "打开全局字体映射失败。";
                 AddLog("打开全局字体映射失败：" + exception.Message);
+            }
+
+            Repaint();
+        }
+
+        private void UpdateFontMappingFromImportedManifests()
+        {
+            try
+            {
+                if (_fontMappingSerializedObject != null)
+                {
+                    _fontMappingSerializedObject.ApplyModifiedProperties();
+                }
+
+                Undo.RecordObject(_fontMapping, "更新 Figma 字体映射");
+                FontMappingUpdateResult result = FigmaFontMappingService.UpdateFromImportedManifests(_fontMapping);
+                if (_fontMappingSerializedObject != null)
+                {
+                    _fontMappingSerializedObject.Update();
+                }
+
+                _status = "字体映射更新完成。";
+                AddLog("字体映射更新：扫描 manifest " + result.SourceFileCount
+                    + " 个，文本样式 " + result.TextStyleCount
+                    + " 个，新增 " + result.AddedEntries
+                    + " 个，更新 " + result.UpdatedEntries
+                    + " 个，总计 " + result.TotalEntries + " 个。");
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "字体映射更新失败。";
+                AddLog("字体映射更新失败：" + exception.Message);
+            }
+
+            Repaint();
+        }
+
+        private void ApplyFontMappingToSelection()
+        {
+            try
+            {
+                if (_fontMappingSerializedObject != null)
+                {
+                    _fontMappingSerializedObject.ApplyModifiedProperties();
+                }
+
+                int count = FigmaFontMappingService.ApplyMappingToSelection(_fontMapping);
+                _status = "已更新选中项文字字体：" + count + " 个。";
+                AddLog("已应用字体映射到选中项：" + count + " 个 TMP 文字。");
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "应用字体映射失败。";
+                AddLog("应用字体映射失败：" + exception.Message);
+            }
+
+            Repaint();
+        }
+
+        private void ApplyFontMappingToOpenScenes()
+        {
+            try
+            {
+                if (_fontMappingSerializedObject != null)
+                {
+                    _fontMappingSerializedObject.ApplyModifiedProperties();
+                }
+
+                int count = FigmaFontMappingService.ApplyMappingToOpenScenes(_fontMapping);
+                _status = "已更新打开场景文字字体：" + count + " 个。";
+                AddLog("已应用字体映射到打开场景：" + count + " 个 TMP 文字。");
+            }
+            catch (Exception exception)
+            {
+                _error = exception.Message;
+                _status = "应用字体映射失败。";
+                AddLog("应用字体映射失败：" + exception.Message);
             }
 
             Repaint();

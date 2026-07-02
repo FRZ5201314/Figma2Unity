@@ -28,40 +28,6 @@ namespace FigmaUiImporter.Editor
             EditorGUILayout.Space(4f);
             _entriesList.DoLayoutList();
             serializedObject.ApplyModifiedProperties();
-
-            DrawActionPanel();
-        }
-
-        private void DrawActionPanel()
-        {
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            EditorGUILayout.LabelField("字体操作", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "更新按钮会扫描 Assets/FigmaImports 下所有已导入页面的 manifest.json。应用按钮会按当前映射表更新场景中的 Figma TMP 文字。",
-                MessageType.Info);
-
-            using (new EditorGUI.DisabledScope(EditorApplication.isCompiling))
-            {
-                if (GUILayout.Button("更新所有已导入 Figma 页面", GUILayout.Height(28f)))
-                {
-                    UpdateFromImportedManifests();
-                }
-
-                EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("应用到选中项", GUILayout.Height(26f)))
-                {
-                    ApplyToSelection();
-                }
-
-                if (GUILayout.Button("应用到打开场景", GUILayout.Height(26f)))
-                {
-                    ApplyToOpenScenes();
-                }
-                EditorGUILayout.EndHorizontal();
-            }
-
-            EditorGUILayout.EndVertical();
         }
 
         private void DrawEntriesHeader(Rect rect)
@@ -171,36 +137,5 @@ namespace FigmaUiImporter.Editor
             return figmaName + "  ->  " + unityName;
         }
 
-        private void UpdateFromImportedManifests()
-        {
-            FigmaFontMappingAsset mapping = (FigmaFontMappingAsset)target;
-            Undo.RecordObject(mapping, "更新 Figma 字体映射");
-
-            FontMappingUpdateResult result = FigmaFontMappingService.UpdateFromImportedManifests(mapping);
-            EditorUtility.SetDirty(mapping);
-            AssetDatabase.SaveAssets();
-
-            EditorUtility.DisplayDialog(
-                "字体映射已更新",
-                "扫描 manifest：" + result.SourceFileCount
-                + " 个\n文本样式：" + result.TextStyleCount
-                + " 个\n新增条目：" + result.AddedEntries
-                + " 个\n更新条目：" + result.UpdatedEntries
-                + " 个\n当前总条目：" + result.TotalEntries
-                + " 个",
-                "确定");
-        }
-
-        private void ApplyToSelection()
-        {
-            int count = FigmaFontMappingService.ApplyMappingToSelection((FigmaFontMappingAsset)target);
-            EditorUtility.DisplayDialog("字体映射已应用", "已更新选中项中的 TMP 文字：" + count + " 个。", "确定");
-        }
-
-        private void ApplyToOpenScenes()
-        {
-            int count = FigmaFontMappingService.ApplyMappingToOpenScenes((FigmaFontMappingAsset)target);
-            EditorUtility.DisplayDialog("字体映射已应用", "已更新打开场景中的 TMP 文字：" + count + " 个。", "确定");
-        }
     }
 }

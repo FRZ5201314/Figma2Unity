@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.3
+
+- Reworked the importer window into a wider three-column layout with settings, page/status panels, and font mapping management visible at once.
+- Moved font mapping update/apply actions back into the importer window and added the mapping entries list there.
+- Kept only page tree, log output, and font mapping entries as independently scrollable areas.
+
 ## 0.7.2
 
 - Improved the `FigmaFontMapping.asset` Inspector with a clearer mapping list and centralized font actions.
