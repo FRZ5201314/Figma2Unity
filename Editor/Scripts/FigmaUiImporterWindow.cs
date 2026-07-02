@@ -30,11 +30,11 @@ namespace FigmaUiImporter.Editor
         private const int SliceWarningThreshold = 80;
         private const int LargePluginPackageAssetThreshold = 120;
         private const long LargePluginPackageSizeBytes = 80L * 1024L * 1024L;
-        private const float WindowWidth = 1260f;
-        private const float WindowHeight = 660f;
+        private const float WindowWidth = 1160f;
+        private const float WindowHeight = 700f;
         private const float LeftColumnWidth = 360f;
         private const float CenterColumnWidth = 410f;
-        private const float FontColumnWidth = 460f;
+        private const float FontColumnWidth = LeftColumnWidth;
         private const float PageTreeHeight = 220f;
         private const float ImportedManifestListHeight = 170f;
 

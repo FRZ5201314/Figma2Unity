@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.11
+
+- Made the font mapping column the same width as the left column and restored enough fixed height so lower controls are visible.
+- Reworked font mapping entry rows for the narrower column with a stacked `FontAsset` field and full-width details.
+
 ## 0.7.10
 
 - Reduced the fixed importer window size and narrowed the font mapping column.

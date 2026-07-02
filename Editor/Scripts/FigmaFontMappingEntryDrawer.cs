@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEditor;
 using UnityEngine;
 
@@ -29,35 +28,32 @@ namespace FigmaUiImporter.Editor
 
             EditorGUI.BeginProperty(position, label, property);
 
-            float fontFieldWidth = Mathf.Clamp(row.width * 0.42f, 180f, 300f);
-            Rect summaryRect = new Rect(row.x, row.y, row.width - fontFieldWidth - Gap, line);
-            Rect fontRect = new Rect(summaryRect.xMax + Gap, row.y, fontFieldWidth, line);
             property.isExpanded = EditorGUI.Foldout(
-                summaryRect,
+                row,
                 property.isExpanded,
                 new GUIContent(BuildSummary(familyProperty, styleProperty, minWeightProperty, maxWeightProperty, fontAssetProperty)),
                 true);
-            EditorGUI.PropertyField(fontRect, fontAssetProperty, GUIContent.none);
+
+            row.y += line + spacing;
+            DrawFullField(row, fontAssetProperty, "TMP 字体");
 
             if (property.isExpanded)
             {
                 row.y += line + spacing;
                 Rect contentRow = new Rect(row.x + DetailIndent, row.y, row.width - DetailIndent, line);
-                EditorGUI.PropertyField(contentRow, fontStyleProperty, new GUIContent("TMP 样式"));
+                DrawFullField(contentRow, fontStyleProperty, "TMP 样式");
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                DrawTwoFields(
-                    contentRow,
-                    familyProperty,
-                    "Figma 字体族",
-                    styleProperty,
-                    "Figma 样式",
-                    0.58f);
+                DrawFullField(contentRow, familyProperty, "Figma 字体族");
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                EditorGUI.PropertyField(contentRow, postScriptProperty, new GUIContent("PostScript 名称"));
+                DrawFullField(contentRow, styleProperty, "Figma 样式");
+
+                row.y += line + spacing;
+                contentRow.y = row.y;
+                DrawFullField(contentRow, postScriptProperty, "PostScript 名称");
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
@@ -71,17 +67,15 @@ namespace FigmaUiImporter.Editor
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                DrawTwoFields(
-                    contentRow,
-                    usageCountProperty,
-                    "使用次数",
-                    lastSeenAtProperty,
-                    "最后发现",
-                    0.34f);
+                DrawFullField(contentRow, usageCountProperty, "使用次数");
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                EditorGUI.PropertyField(contentRow, sampleTextProperty, new GUIContent("文本样本"));
+                DrawFullField(contentRow, lastSeenAtProperty, "最后发现");
+
+                row.y += line + spacing;
+                contentRow.y = row.y;
+                DrawFullField(contentRow, sampleTextProperty, "文本样本");
             }
 
             EditorGUI.EndProperty();
@@ -89,10 +83,18 @@ namespace FigmaUiImporter.Editor
 
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
-            int lineCount = property.isExpanded ? 7 : 1;
+            int lineCount = property.isExpanded ? 10 : 2;
             float line = EditorGUIUtility.singleLineHeight;
             float spacing = EditorGUIUtility.standardVerticalSpacing;
             return 4f + (line * lineCount) + (spacing * (lineCount - 1));
+        }
+
+        private static void DrawFullField(Rect row, SerializedProperty property, string label)
+        {
+            float oldLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = Mathf.Min(100f, row.width * 0.36f);
+            EditorGUI.PropertyField(row, property, new GUIContent(label));
+            EditorGUIUtility.labelWidth = oldLabelWidth;
         }
 
         private static void DrawTwoFields(
@@ -106,8 +108,12 @@ namespace FigmaUiImporter.Editor
             float leftWidth = Mathf.Max(80f, (row.width - Gap) * leftRatio);
             Rect left = new Rect(row.x, row.y, leftWidth, row.height);
             Rect right = new Rect(row.x + leftWidth + Gap, row.y, row.width - leftWidth - Gap, row.height);
+            float oldLabelWidth = EditorGUIUtility.labelWidth;
+            EditorGUIUtility.labelWidth = Mathf.Min(72f, left.width * 0.48f);
             EditorGUI.PropertyField(left, leftProperty, new GUIContent(leftLabel));
+            EditorGUIUtility.labelWidth = Mathf.Min(72f, right.width * 0.48f);
             EditorGUI.PropertyField(right, rightProperty, new GUIContent(rightLabel));
+            EditorGUIUtility.labelWidth = oldLabelWidth;
         }
 
         private static string BuildSummary(
@@ -117,8 +123,7 @@ namespace FigmaUiImporter.Editor
             SerializedProperty maxWeightProperty,
             SerializedProperty fontAssetProperty)
         {
-            TMP_FontAsset fontAsset = fontAssetProperty.objectReferenceValue as TMP_FontAsset;
-            string prefix = fontAsset == null ? "未配置" : "已映射";
+            string prefix = fontAssetProperty.objectReferenceValue == null ? "未配置" : "已映射";
             return prefix + " | " + BuildFigmaName(familyProperty, styleProperty, minWeightProperty, maxWeightProperty);
         }
 
