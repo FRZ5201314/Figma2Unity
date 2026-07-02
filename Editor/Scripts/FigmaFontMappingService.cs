@@ -48,15 +48,20 @@ namespace FigmaUiImporter.Editor
             return UpdateFromLayers(GetOrCreateGlobalMapping(), layers);
         }
 
-        public static FontMappingUpdateResult UpdateFromJson(string jsonPath)
+        public static FontMappingUpdateResult UpdateFromImportedManifests(FigmaFontMappingAsset mapping)
         {
-            if (string.IsNullOrWhiteSpace(jsonPath) || !File.Exists(jsonPath))
+            List<FigmaTextStyleInfo> styles = new List<FigmaTextStyleInfo>();
+            List<string> manifestPaths = FindImportedManifestPaths();
+
+            for (int i = 0; i < manifestPaths.Count; i++)
             {
-                throw new FileNotFoundException("未找到 JSON 文件：" + jsonPath);
+                object root = MiniJson.Deserialize(File.ReadAllText(manifestPaths[i]));
+                CollectTextStyles(root, styles);
             }
 
-            object root = MiniJson.Deserialize(File.ReadAllText(jsonPath));
-            return UpdateFromJsonObject(GetOrCreateGlobalMapping(), root);
+            FontMappingUpdateResult result = UpdateFromTextStyles(mapping, styles);
+            result.SourceFileCount = manifestPaths.Count;
+            return result;
         }
 
         internal static FontMappingUpdateResult UpdateFromJsonText(
@@ -208,8 +213,18 @@ namespace FigmaUiImporter.Editor
             return ApplyMappingToBindings(GetOrCreateGlobalMapping(), FindSceneTextBindings());
         }
 
-        public static FontStyles ResolveEffectiveFontStyle(FigmaTextStyleInfo textStyle, FontStyles mappedStyle)
+        public static FontStyles ResolveEffectiveFontStyle(
+            FigmaTextStyleInfo textStyle,
+            FontStyles mappedStyle,
+            bool matchedMappedFont)
         {
+            if (matchedMappedFont)
+            {
+                return IsMediumOrBold(textStyle)
+                    ? (FontStyles)((int)mappedStyle & ~(int)FontStyles.Bold)
+                    : mappedStyle;
+            }
+
             FontStyles effectiveStyle = mappedStyle;
             if (textStyle != null && textStyle.FontWeight >= 600)
             {
@@ -246,7 +261,8 @@ namespace FigmaUiImporter.Editor
 
                 FigmaTextStyleInfo style = CreateTextStyle(binding);
                 FontStyles mappedStyle = FontStyles.Normal;
-                TMP_FontAsset mappedFont = mapping.ResolveFont(style, out mappedStyle);
+                bool matchedMappedFont;
+                TMP_FontAsset mappedFont = mapping.ResolveFont(style, out mappedStyle, out matchedMappedFont);
                 if (mappedFont == null)
                 {
                     continue;
@@ -254,7 +270,7 @@ namespace FigmaUiImporter.Editor
 
                 Undo.RecordObject(text, "应用 Figma 字体映射");
                 text.font = mappedFont;
-                text.fontStyle = ResolveEffectiveFontStyle(style, mappedStyle);
+                text.fontStyle = ResolveEffectiveFontStyle(style, mappedStyle, matchedMappedFont);
                 EditorUtility.SetDirty(text);
                 count++;
             }
@@ -540,11 +556,6 @@ namespace FigmaUiImporter.Editor
                 return style;
             }
 
-            if (textStyle.FontWeight >= 600)
-            {
-                style |= FontStyles.Bold;
-            }
-
             string styleName = textStyle.FontStyleName ?? string.Empty;
             if (styleName.IndexOf("Italic", StringComparison.OrdinalIgnoreCase) >= 0
                 || styleName.IndexOf("Oblique", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -553,6 +564,25 @@ namespace FigmaUiImporter.Editor
             }
 
             return style;
+        }
+
+        private static bool IsMediumOrBold(FigmaTextStyleInfo textStyle)
+        {
+            if (textStyle == null)
+            {
+                return false;
+            }
+
+            if (textStyle.FontWeight >= 500)
+            {
+                return true;
+            }
+
+            string styleName = textStyle.FontStyleName ?? string.Empty;
+            return styleName.IndexOf("Medium", StringComparison.OrdinalIgnoreCase) >= 0
+                || styleName.IndexOf("Bold", StringComparison.OrdinalIgnoreCase) >= 0
+                || styleName.IndexOf("SemiBold", StringComparison.OrdinalIgnoreCase) >= 0
+                || styleName.IndexOf("DemiBold", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static void EnsureEntryList(FigmaFontMappingAsset mapping)
@@ -613,6 +643,25 @@ namespace FigmaUiImporter.Editor
 
             return normalized.Substring(0, slashIndex);
         }
+
+        private static List<string> FindImportedManifestPaths()
+        {
+            List<string> manifestPaths = new List<string>();
+            string importsRoot = FigmaPathUtility.ToFullPath(GetAssetDirectory(GlobalMappingAssetPath));
+            if (!Directory.Exists(importsRoot))
+            {
+                return manifestPaths;
+            }
+
+            string[] files = Directory.GetFiles(importsRoot, "manifest.json", SearchOption.AllDirectories);
+            Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < files.Length; i++)
+            {
+                manifestPaths.Add(files[i]);
+            }
+
+            return manifestPaths;
+        }
     }
 
     internal sealed class FontMappingUpdateResult
@@ -622,5 +671,6 @@ namespace FigmaUiImporter.Editor
         public int AddedEntries;
         public int UpdatedEntries;
         public int TotalEntries;
+        public int SourceFileCount;
     }
 }

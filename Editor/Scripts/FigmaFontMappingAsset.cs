@@ -13,7 +13,17 @@ namespace FigmaUiImporter.Editor
 
         public TMP_FontAsset ResolveFont(FigmaTextStyleInfo textStyle, out FontStyles mappedStyle)
         {
+            bool matchedEntry;
+            return ResolveFont(textStyle, out mappedStyle, out matchedEntry);
+        }
+
+        public TMP_FontAsset ResolveFont(
+            FigmaTextStyleInfo textStyle,
+            out FontStyles mappedStyle,
+            out bool matchedEntry)
+        {
             mappedStyle = FontStyles.Normal;
+            matchedEntry = false;
             if (textStyle == null)
             {
                 return DefaultFont;
@@ -25,6 +35,7 @@ namespace FigmaUiImporter.Editor
                 if (entry != null && entry.FontAsset != null && entry.MatchesPostScriptName(textStyle))
                 {
                     mappedStyle = entry.FontStyle;
+                    matchedEntry = true;
                     return entry.FontAsset;
                 }
             }
@@ -35,6 +46,7 @@ namespace FigmaUiImporter.Editor
                 if (entry != null && entry.FontAsset != null && entry.MatchesFamilyAndStyle(textStyle))
                 {
                     mappedStyle = entry.FontStyle;
+                    matchedEntry = true;
                     return entry.FontAsset;
                 }
             }
@@ -45,6 +57,7 @@ namespace FigmaUiImporter.Editor
                 if (entry != null && entry.FontAsset != null && entry.MatchesFamilyAndWeight(textStyle))
                 {
                     mappedStyle = entry.FontStyle;
+                    matchedEntry = true;
                     return entry.FontAsset;
                 }
             }
@@ -55,6 +68,7 @@ namespace FigmaUiImporter.Editor
                 if (entry != null && entry.FontAsset != null && entry.MatchesFamily(textStyle))
                 {
                     mappedStyle = entry.FontStyle;
+                    matchedEntry = true;
                     return entry.FontAsset;
                 }
             }

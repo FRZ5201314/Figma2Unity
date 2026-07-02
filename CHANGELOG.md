@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1
+
+- Moved manual imported-page font discovery from the importer window to the `FigmaFontMapping.asset` Inspector.
+- Removed the arbitrary JSON font mapping button from the importer window.
+- Stopped applying extra TMP Bold style when a mapped Medium/Bold TMP font asset is already assigned.
+
 ## 0.7.0
 
 - Added one project-wide global font mapping asset at `Assets/FigmaImports/FigmaFontMapping.asset`.

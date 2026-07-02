@@ -272,11 +272,6 @@ namespace FigmaUiImporter.Editor
                 {
                     OpenGlobalFontMapping();
                 }
-
-                if (GUILayout.Button("从 JSON 更新字体映射", GUILayout.Height(26f)))
-                {
-                    UpdateFontMappingFromJson();
-                }
             }
 
             EditorGUILayout.EndHorizontal();
@@ -771,33 +766,6 @@ namespace FigmaUiImporter.Editor
             Repaint();
         }
 
-        private void UpdateFontMappingFromJson()
-        {
-            string pickedJson = EditorUtility.OpenFilePanel("选择 Figma manifest 或导出 JSON", Application.dataPath, "json");
-            if (string.IsNullOrEmpty(pickedJson))
-            {
-                return;
-            }
-
-            try
-            {
-                FontMappingUpdateResult result = FigmaFontMappingService.UpdateFromJson(pickedJson);
-                _fontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
-                SavePrefs();
-                _status = "字体映射更新完成。";
-                AddLog("字体映射来源 JSON：" + pickedJson);
-                AddFontMappingLog(result);
-            }
-            catch (Exception exception)
-            {
-                _error = exception.Message;
-                _status = "字体映射更新失败。";
-                AddLog("字体映射更新失败：" + exception.Message);
-            }
-
-            Repaint();
-        }
-
         private void ApplyFontMappingToSelection()
         {
             try
@@ -849,20 +817,6 @@ namespace FigmaUiImporter.Editor
                 + "，文本样式 " + result.FontMappingTextStyleCount
                 + " 个，新增 " + result.FontMappingAddedEntries
                 + " 个，更新 " + result.FontMappingUpdatedEntries + " 个。");
-        }
-
-        private void AddFontMappingLog(FontMappingUpdateResult result)
-        {
-            if (result == null)
-            {
-                return;
-            }
-
-            AddLog("字体映射：" + result.MappingAssetPath
-                + "，文本样式 " + result.TextStyleCount
-                + " 个，新增 " + result.AddedEntries
-                + " 个，更新 " + result.UpdatedEntries
-                + " 个。");
         }
 
         private bool ConfirmPluginPackageImport(FigmaPluginPackageInfo packageInfo, FigmaImportSettings settings)

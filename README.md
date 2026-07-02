@@ -17,7 +17,7 @@
 - 支持从已有 `manifest.json` 离线重建场景
 - 支持导入 Figma 本地插件导出的 `.figma2unity.json` 离线包
 - 支持 Figma Text 按图片、TextMeshPro 或智能模式导入
-- 支持项目级全局 TMP 字体映射表，并可从本地 JSON 自动补全 Figma 字体条目
+- 支持项目级全局 TMP 字体映射表，并可从已导入 manifest 自动补全 Figma 字体条目
 - 支持覆盖同名场景根节点
 - 支持把导入根节点保存为 Prefab
 
@@ -121,7 +121,7 @@ Figma 字体不会自动变成 Unity 字体资源。导入器会统一使用项�
 Assets/FigmaImports/FigmaFontMapping.asset
 ```
 
-首次导入、从 Manifest 重建、从 Figma 插件包导入，都会自动创建或更新这一个映射表。导入窗口也提供 `打开/创建字体映射`、`从 JSON 更新字体映射`、`应用映射到选中项` 和 `应用映射到场景文字` 操作。
+首次导入、从 Manifest 重建、从 Figma 插件包导入，都会自动创建或更新这一个映射表。导入窗口提供 `打开/创建字体映射`、`应用映射到选中项` 和 `应用映射到场景文字` 操作。打开映射表后，可以在 `FigmaFontMapping.asset` 的 Inspector 中点击 `更新所有已导入 Figma 页面`，自动扫描 `Assets/FigmaImports` 下所有导入过的页面 manifest 并补齐字体条目。
 
 映射表支持按 Figma PostScript 名称、字体族 + 样式、字体族 + 字重范围匹配到 `TMP_FontAsset`。没有匹配时会使用映射表里的默认字体；如果默认字体也没设置，Unity 会使用 TextMeshPro 组件自己的默认字体。导入时创建的 TMP 文字会记录 Figma 字体信息，设置好映射后可以一键把当前场景里的文字节点更新为新的 TMP 字体。
 
@@ -156,4 +156,4 @@ Assets/FigmaImports/FigmaFontMapping.asset
 - `FigmaDocumentParserTests`：覆盖 Auto Layout / Instance 切图策略和导入诊断计划。
 - `FigmaImportDiagnosticServiceTests`：覆盖 `diagnostics.json` 报告写入。
 - `FigmaPluginPackageImporterTests`：覆盖 `.figma2unity.json` 信息读取、解包、图片写入、资源引用校验、base64 损坏提示和非法资源路径拦截。
-- `FigmaFontMappingServiceTests`：覆盖全局字体映射条目去重、PNG 文本图层元数据收集和本地 JSON 扫描。
+- `FigmaFontMappingServiceTests`：覆盖全局字体映射条目去重、PNG 文本图层元数据收集和 manifest 文本元数据扫描。

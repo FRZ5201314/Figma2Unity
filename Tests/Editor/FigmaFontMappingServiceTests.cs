@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 
 namespace FigmaUiImporter.Editor.Tests
@@ -85,6 +86,38 @@ namespace FigmaUiImporter.Editor.Tests
             {
                 UnityEngine.Object.DestroyImmediate(mapping);
             }
+        }
+
+        [Test]
+        public void ResolveEffectiveFontStyleDoesNotBoldConfiguredMediumOrBoldFont()
+        {
+            FigmaTextStyleInfo style = new FigmaTextStyleInfo();
+            style.FontFamily = "Inter";
+            style.FontStyleName = "Bold";
+            style.FontWeight = 700;
+
+            FontStyles result = FigmaFontMappingService.ResolveEffectiveFontStyle(
+                style,
+                FontStyles.Bold,
+                true);
+
+            Assert.AreEqual(FontStyles.Normal, result);
+        }
+
+        [Test]
+        public void ResolveEffectiveFontStyleKeepsBoldFallbackWhenNoMappedFontMatched()
+        {
+            FigmaTextStyleInfo style = new FigmaTextStyleInfo();
+            style.FontFamily = "Inter";
+            style.FontStyleName = "Bold";
+            style.FontWeight = 700;
+
+            FontStyles result = FigmaFontMappingService.ResolveEffectiveFontStyle(
+                style,
+                FontStyles.Normal,
+                false);
+
+            Assert.AreEqual(FontStyles.Bold, result);
         }
 
         private static ImportedLayerInfo CreateTextLayer(

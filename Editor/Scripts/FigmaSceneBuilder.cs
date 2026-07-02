@@ -136,15 +136,16 @@ namespace FigmaUiImporter.Editor
             text.margin = Vector4.zero;
 
             FontStyles mappedStyle = FontStyles.Normal;
+            bool matchedMappedFont = false;
             TMP_FontAsset mappedFont = settings.FontMapping == null
                 ? null
-                : settings.FontMapping.ResolveFont(style, out mappedStyle);
+                : settings.FontMapping.ResolveFont(style, out mappedStyle, out matchedMappedFont);
             if (mappedFont != null)
             {
                 text.font = mappedFont;
             }
 
-            text.fontStyle = FigmaFontMappingService.ResolveEffectiveFontStyle(style, mappedStyle);
+            text.fontStyle = FigmaFontMappingService.ResolveEffectiveFontStyle(style, mappedStyle, matchedMappedFont);
 
             if (style.LineHeightPx > style.FontSize + 0.01f)
             {
