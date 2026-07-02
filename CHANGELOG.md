@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2
+
+- Improved the `FigmaFontMapping.asset` Inspector with a clearer mapping list and centralized font actions.
+- Moved applying font mappings to selection/open scenes from the importer window into the mapping asset Inspector.
+- Refined the importer window layout and fixed the log panel rendering so log entries are visible.
+
 ## 0.7.1
 
 - Moved manual imported-page font discovery from the importer window to the `FigmaFontMapping.asset` Inspector.

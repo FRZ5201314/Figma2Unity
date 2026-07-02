@@ -153,11 +153,22 @@ namespace FigmaUiImporter.Editor
             EditorGUILayout.EndScrollView();
         }
 
+        private static void BeginSection(string title)
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
+        }
+
+        private static void EndSection()
+        {
+            EditorGUILayout.EndVertical();
+        }
+
         private void DrawSettings()
         {
-            EditorGUILayout.LabelField("连接设置", EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(_isBusy))
             {
+                BeginSection("连接设置");
                 _accessToken = EditorGUILayout.PasswordField("Figma Token", _accessToken);
                 _fileInput = EditorGUILayout.TextField("File Key 或 URL", _fileInput);
 
@@ -170,6 +181,16 @@ namespace FigmaUiImporter.Editor
                 EditorGUILayout.EndHorizontal();
 
                 _targetCanvas = (Canvas)EditorGUILayout.ObjectField("目标 Canvas", _targetCanvas, typeof(Canvas), true);
+                _preferCachedFile = EditorGUILayout.Toggle("优先使用本地缓存", _preferCachedFile);
+                _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
+                if (_ignoreSslCertificateErrors)
+                {
+                    EditorGUILayout.HelpBox("仅在 Unity 报 Unable to complete SSL connection 时使用。该选项会跳过 HTTPS 证书校验。", MessageType.Warning);
+                }
+                EndSection();
+
+                EditorGUILayout.Space(6f);
+                BeginSection("导入设置");
                 _sliceMode = (FigmaSliceMode)EditorGUILayout.Popup("切图模式", (int)_sliceMode, SliceModeLabels);
                 using (new EditorGUI.DisabledScope(_sliceMode != FigmaSliceMode.ExportSettingsThenAutoSlice))
                 {
@@ -190,6 +211,10 @@ namespace FigmaUiImporter.Editor
                 }
 
                 _disableRaycastTarget = EditorGUILayout.Toggle("关闭图片射线检测", _disableRaycastTarget);
+                EndSection();
+
+                EditorGUILayout.Space(6f);
+                BeginSection("输出选项");
                 _overwriteExisting = EditorGUILayout.Toggle("覆盖同名场景根节点 / Prefab", _overwriteExisting);
                 _savePrefab = EditorGUILayout.Toggle("保存为 Prefab", _savePrefab);
                 using (new EditorGUI.DisabledScope(!_savePrefab))
@@ -202,18 +227,13 @@ namespace FigmaUiImporter.Editor
                     }
                     EditorGUILayout.EndHorizontal();
                 }
-
-                _preferCachedFile = EditorGUILayout.Toggle("优先使用本地缓存", _preferCachedFile);
-                _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
-                if (_ignoreSslCertificateErrors)
-                {
-                    EditorGUILayout.HelpBox("仅在 Unity 报 Unable to complete SSL connection 时使用。该选项会跳过 HTTPS 证书校验。", MessageType.Warning);
-                }
+                EndSection();
             }
         }
 
         private void DrawActions()
         {
+            BeginSection("操作");
             EditorGUILayout.BeginHorizontal();
             using (new EditorGUI.DisabledScope(_isBusy))
             {
@@ -261,13 +281,7 @@ namespace FigmaUiImporter.Editor
                 {
                     ImportFromPluginPackage();
                 }
-            }
 
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            using (new EditorGUI.DisabledScope(_isBusy))
-            {
                 if (GUILayout.Button("打开/创建字体映射", GUILayout.Height(26f)))
                 {
                     OpenGlobalFontMapping();
@@ -275,27 +289,12 @@ namespace FigmaUiImporter.Editor
             }
 
             EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            using (new EditorGUI.DisabledScope(_isBusy))
-            {
-                if (GUILayout.Button("应用映射到选中项", GUILayout.Height(26f)))
-                {
-                    ApplyFontMappingToSelection();
-                }
-
-                if (GUILayout.Button("应用映射到场景文字", GUILayout.Height(26f)))
-                {
-                    ApplyFontMappingToScene();
-                }
-            }
-
-            EditorGUILayout.EndHorizontal();
+            EndSection();
         }
 
         private void DrawSelectionTree()
         {
-            EditorGUILayout.LabelField("页面 / Frame", EditorStyles.boldLabel);
+            BeginSection("页面 / Frame");
 
             if (_documentRoot != null)
             {
@@ -334,6 +333,7 @@ namespace FigmaUiImporter.Editor
 
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
+            EndSection();
         }
 
         private void DrawNodeTreeRoot(FigmaNodeInfo node, int indent)
@@ -412,8 +412,7 @@ namespace FigmaUiImporter.Editor
 
         private void DrawStatus()
         {
-            EditorGUILayout.LabelField("状态", EditorStyles.boldLabel);
-
+            BeginSection("状态");
             if (_progress >= 0f)
             {
                 Rect rect = GUILayoutUtility.GetRect(1f, 20f, GUILayout.ExpandWidth(true));
@@ -430,16 +429,22 @@ namespace FigmaUiImporter.Editor
             }
 
             EditorGUILayout.LabelField("日志", EditorStyles.boldLabel);
-            Rect logRect = GUILayoutUtility.GetRect(1f, 120f, GUILayout.ExpandWidth(true));
-            GUI.Box(logRect, GUIContent.none);
-            GUILayout.BeginArea(new Rect(logRect.x + 6f, logRect.y + 4f, logRect.width - 12f, logRect.height - 8f));
-            _logScroll = EditorGUILayout.BeginScrollView(_logScroll);
-            for (int i = 0; i < _logs.Count; i++)
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.MinHeight(124f));
+            if (_logs.Count == 0)
             {
-                EditorGUILayout.LabelField(_logs[i], EditorStyles.wordWrappedLabel);
+                EditorGUILayout.LabelField("暂无日志。执行加载、导入或离线重建后会显示记录。", EditorStyles.miniLabel);
             }
-            EditorGUILayout.EndScrollView();
-            GUILayout.EndArea();
+            else
+            {
+                _logScroll = EditorGUILayout.BeginScrollView(_logScroll, GUILayout.Height(116f));
+                for (int i = 0; i < _logs.Count; i++)
+                {
+                    EditorGUILayout.LabelField(_logs[i], EditorStyles.wordWrappedLabel);
+                }
+                EditorGUILayout.EndScrollView();
+            }
+            EditorGUILayout.EndVertical();
+            EndSection();
         }
 
         private async Task LoadFileAsync(bool forceRemote)
@@ -766,46 +771,6 @@ namespace FigmaUiImporter.Editor
             Repaint();
         }
 
-        private void ApplyFontMappingToSelection()
-        {
-            try
-            {
-                _fontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
-                SavePrefs();
-                int count = FigmaFontMappingService.ApplyGlobalMappingToSelection();
-                _status = "已更新选中项文字字体：" + count + " 个。";
-                AddLog("已应用全局字体映射到选中项：" + count + " 个 TMP 文字。");
-            }
-            catch (Exception exception)
-            {
-                _error = exception.Message;
-                _status = "应用字体映射失败。";
-                AddLog("应用字体映射失败：" + exception.Message);
-            }
-
-            Repaint();
-        }
-
-        private void ApplyFontMappingToScene()
-        {
-            try
-            {
-                _fontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
-                SavePrefs();
-                int count = FigmaFontMappingService.ApplyGlobalMappingToOpenScenes();
-                _status = "已更新场景文字字体：" + count + " 个。";
-                AddLog("已应用全局字体映射到场景文字：" + count + " 个 TMP 文字。");
-            }
-            catch (Exception exception)
-            {
-                _error = exception.Message;
-                _status = "应用字体映射失败。";
-                AddLog("应用字体映射失败：" + exception.Message);
-            }
-
-            Repaint();
-        }
-
         private void AddFontMappingLog(FigmaImportResult result)
         {
             if (result == null)
@@ -1082,6 +1047,9 @@ namespace FigmaUiImporter.Editor
             {
                 _logs.RemoveAt(0);
             }
+
+            _logScroll.y = float.MaxValue;
+            Repaint();
         }
 
         private void SavePrefs()

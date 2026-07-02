@@ -177,7 +177,16 @@ namespace FigmaUiImporter.Editor
 
         public static int ApplyGlobalMappingToSelection()
         {
-            FigmaFontMappingAsset mapping = GetOrCreateGlobalMapping();
+            return ApplyMappingToSelection(GetOrCreateGlobalMapping());
+        }
+
+        public static int ApplyMappingToSelection(FigmaFontMappingAsset mapping)
+        {
+            if (mapping == null)
+            {
+                return 0;
+            }
+
             GameObject[] selectedObjects = Selection.gameObjects;
             if (selectedObjects == null || selectedObjects.Length == 0)
             {
@@ -210,7 +219,12 @@ namespace FigmaUiImporter.Editor
 
         public static int ApplyGlobalMappingToOpenScenes()
         {
-            return ApplyMappingToBindings(GetOrCreateGlobalMapping(), FindSceneTextBindings());
+            return ApplyMappingToOpenScenes(GetOrCreateGlobalMapping());
+        }
+
+        public static int ApplyMappingToOpenScenes(FigmaFontMappingAsset mapping)
+        {
+            return ApplyMappingToBindings(mapping, FindSceneTextBindings());
         }
 
         public static FontStyles ResolveEffectiveFontStyle(
