@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.9
+
+- Added a compact font mapping entry drawer that keeps `FontAsset` prominent and supports row-summary expand/collapse.
+- Added an import completion prompt when new font mapping entries are discovered and still need TMP font assignment.
+- Fixed the importer window size to keep the font mapping list readable.
+
 ## 0.7.8
 
 - Tightened the spacing between local package import and local manifest rebuild sections.

@@ -30,8 +30,8 @@ namespace FigmaUiImporter.Editor
         private const int SliceWarningThreshold = 80;
         private const int LargePluginPackageAssetThreshold = 120;
         private const long LargePluginPackageSizeBytes = 80L * 1024L * 1024L;
-        private const float WindowMinWidth = 1180f;
-        private const float WindowMinHeight = 620f;
+        private const float WindowWidth = 1360f;
+        private const float WindowHeight = 700f;
         private const float LeftColumnWidth = 360f;
         private const float CenterColumnWidth = 410f;
         private const float PageTreeHeight = 220f;
@@ -106,16 +106,13 @@ namespace FigmaUiImporter.Editor
         {
             FigmaUiImporterWindow window = GetWindow<FigmaUiImporterWindow>();
             window.titleContent = new GUIContent("Figma UI 导入器");
-            window.minSize = new Vector2(WindowMinWidth, WindowMinHeight);
-            Rect position = window.position;
-            position.width = Mathf.Max(position.width, WindowMinWidth);
-            position.height = Mathf.Max(position.height, WindowMinHeight);
-            window.position = position;
+            window.ApplyFixedWindowSize();
             window.Show();
         }
 
         private void OnEnable()
         {
+            ApplyFixedWindowSize();
             _accessToken = EditorPrefs.GetString(PrefToken, string.Empty);
             _fileInput = EditorPrefs.GetString(PrefFileInput, string.Empty);
             _outputFolder = EditorPrefs.GetString(PrefOutputFolder, "Assets/FigmaImports");
@@ -139,6 +136,17 @@ namespace FigmaUiImporter.Editor
             _status = "等待加载 Figma 文件。";
             BindFontMappingAsset();
             RefreshImportedManifests(false);
+        }
+
+        private void ApplyFixedWindowSize()
+        {
+            Vector2 fixedSize = new Vector2(WindowWidth, WindowHeight);
+            minSize = fixedSize;
+            maxSize = fixedSize;
+            Rect currentPosition = position;
+            currentPosition.width = WindowWidth;
+            currentPosition.height = WindowHeight;
+            position = currentPosition;
         }
 
         private void OnDisable()
@@ -1240,6 +1248,64 @@ namespace FigmaUiImporter.Editor
                 + "，文本样式 " + result.FontMappingTextStyleCount
                 + " 个，新增 " + result.FontMappingAddedEntries
                 + " 个，更新 " + result.FontMappingUpdatedEntries + " 个。");
+            NotifyNewUnmappedFontEntries(result);
+        }
+
+        private void NotifyNewUnmappedFontEntries(FigmaImportResult result)
+        {
+            if (result.FontMappingAddedEntries <= 0)
+            {
+                return;
+            }
+
+            int unmappedCount = CountUnmappedFontEntries();
+            if (unmappedCount <= 0)
+            {
+                return;
+            }
+
+            string message = "本次新增 " + result.FontMappingAddedEntries
+                + " 个字体映射条目，当前共有 " + unmappedCount
+                + " 个条目未配置 TMP 字体。\n\n请在右侧“字体映射”的映射条目中为“未配置 TMP 字体”的项目指定 FontAsset。";
+            AddLog("需要配置字体映射：新增 " + result.FontMappingAddedEntries + " 个，当前未配置 " + unmappedCount + " 个。");
+
+            if (EditorUtility.DisplayDialog("发现新的 Figma 字体", message, "定位字体映射", "稍后"))
+            {
+                SelectGlobalFontMapping();
+            }
+        }
+
+        private int CountUnmappedFontEntries()
+        {
+            BindFontMappingAsset();
+            if (_fontMapping == null || _fontMapping.Entries == null)
+            {
+                return 0;
+            }
+
+            int count = 0;
+            for (int i = 0; i < _fontMapping.Entries.Count; i++)
+            {
+                FigmaFontMappingAsset.Entry entry = _fontMapping.Entries[i];
+                if (entry != null && entry.FontAsset == null)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private void SelectGlobalFontMapping()
+        {
+            BindFontMappingAsset();
+            if (_fontMapping == null)
+            {
+                return;
+            }
+
+            Selection.activeObject = _fontMapping;
+            EditorGUIUtility.PingObject(_fontMapping);
         }
 
         private bool ConfirmPluginPackageImport(FigmaPluginPackageInfo packageInfo, FigmaImportSettings settings)

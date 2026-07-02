@@ -121,9 +121,9 @@ Figma 字体不会自动变成 Unity 字体资源。导入器会统一使用项�
 Assets/FigmaImports/FigmaFontMapping.asset
 ```
 
-首次导入、从 Manifest 重建、从 Figma 插件包导入，都会自动创建或更新这一个映射表。导入窗口右侧会直接显示字体映射管理栏，可更新所有已导入页面、编辑映射条目、应用映射到选中项，或应用映射到当前打开场景。更新操作会自动扫描 `Assets/FigmaImports` 下所有导入过的页面 manifest 并补齐字体条目。
+首次导入、从 Manifest 重建、从 Figma 插件包导入，都会自动创建或更新这一个映射表。导入窗口右侧会直接显示字体映射管理栏，可更新所有已导入页面、编辑映射条目、应用映射到选中项，或应用映射到当前打开场景。更新操作会自动扫描 `Assets/FigmaImports` 下所有导入过的页面 manifest 并补齐字体条目；如果导入后新增了未配置的字体条目，窗口会提示需要为这些条目指定 `FontAsset`。
 
-映射表支持按 Figma PostScript 名称、字体族 + 样式、字体族 + 字重范围匹配到 `TMP_FontAsset`。没有匹配时会使用映射表里的默认字体；如果默认字体也没设置，Unity 会使用 TextMeshPro 组件自己的默认字体。导入时创建的 TMP 文字会记录 Figma 字体信息，设置好映射后可以一键把当前场景里的文字节点更新为新的 TMP 字体。
+映射表支持按 Figma PostScript 名称、字体族 + 样式、字体族 + 字重范围匹配到 `TMP_FontAsset`。条目中最需要手动配置的是 `FontAsset`；Figma 字体族、样式、PostScript 名称、字重、样本文本和使用次数主要用于识别来源和匹配。没有匹配时会使用映射表里的默认字体；如果默认字体也没设置，Unity 会使用 TextMeshPro 组件自己的默认字体。导入时创建的 TMP 文字会记录 Figma 字体信息，设置好映射后可以一键把当前场景里的文字节点更新为新的 TMP 字体。
 
 ## 导入诊断报告
 
