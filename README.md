@@ -41,7 +41,7 @@
 6. 在 Page / Frame 树中选择要导入的目标。
 7. 点击 `导入选中项`。
 
-如果 Figma API 正在限流，且项目里已经有一次成功导入生成的 `manifest.json` 和 PNG 资源，可以点击 `从 Manifest 重建场景`，选择对应的 `manifest.json`。该流程不会请求 Figma，只会使用本地 `reference.png` 和 `layers/*.png` 重新生成 Canvas 层级。
+如果 Figma API 正在限流，且项目里已经有一次成功导入生成的 `manifest.json` 和 PNG 资源，可以在窗口左下角的“已导入项目”列表中点击对应项目按钮重建场景。该流程不会请求 Figma，只会使用本地 `reference.png` 和 `layers/*.png` 重新生成 Canvas 层级。
 
 ### Figma 插件离线包导入
 
@@ -140,7 +140,7 @@ Assets/FigmaImports/FigmaFontMapping.asset
 - 如果 Figma 返回 `429 Rate limit exceeded`，说明当前 token、seat、plan 或网络出口触发了 Figma REST API 限流。可以等待额度恢复，也可以改用 `FigmaPlugin` 本地插件导出 `.figma2unity.json` 离线包。
 - 插件会把 Figma 文件结构缓存到 Unity 项目的 `Library/FigmaUiImporterCache`，该目录不会进入版本库。导入时会优先使用已加载的节点树，减少额外 API 请求。
 - 导入前如果预估切图数量较多，插件会弹窗确认，避免自动切片一次性触发过多图片导出请求。
-- `从 Manifest 重建场景` 只能使用当前 Unity 项目 `Assets` 目录内的 manifest 和图片资源；如果移动了 `reference.png` 或 `layers` 目录，需要保持 manifest 中记录的相对路径仍然可用。
+- 已导入项目列表的离线重建只能使用当前 Unity 项目 `Assets` 目录内的 manifest 和图片资源；如果移动了 `reference.png` 或 `layers` 目录，需要保持 manifest 中记录的相对路径仍然可用。
 - `.figma2unity.json` 使用 base64 内嵌 PNG，文件会比原始图片总量更大。导入器会校验 manifest 引用、图片路径和 base64 数据，错误信息会指出缺失或损坏的资源。很大的 Frame 建议先用 Figma 插件的“仅导出整张参考图”或“只导出已设置 Export 的节点”。
 - 为了让切图大小和位置更贴近参考图，建议保留 `创建参考图`。没有参考图时，插件仍会使用 PNG 实际尺寸，但无法进行像素位置校准。
 - 插件优先按视觉还原导入；普通 Figma Text 可按文本导入模式转成 TMP，但不会自动生成 Button、Toggle、ScrollView 等语义组件。

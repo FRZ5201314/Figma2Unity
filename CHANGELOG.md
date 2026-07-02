@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.5
+
+- Added an imported-project list in the lower-left importer window area that scans existing `manifest.json` files and rebuilds scenes from the selected project button.
+- Removed the old manual manifest picker from the main action bar while keeping plugin package import there.
+
 ## 0.7.4
 
 - Restored the font mapping entries to Unity's default serialized List UI in both the importer window and `FigmaFontMapping.asset` Inspector.

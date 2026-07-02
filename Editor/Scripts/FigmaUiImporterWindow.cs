@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
@@ -33,6 +34,7 @@ namespace FigmaUiImporter.Editor
         private const float WindowMinHeight = 620f;
         private const float LeftColumnWidth = 360f;
         private const float CenterColumnWidth = 410f;
+        private const float ImportedManifestListHeight = 170f;
 
         private static readonly string[] SliceModeLabels =
         {
@@ -79,20 +81,24 @@ namespace FigmaUiImporter.Editor
         private FigmaNodeInfo _selectedNode;
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
         private readonly List<string> _logs = new List<string>();
+        private readonly List<ImportedManifestEntry> _importedManifests = new List<ImportedManifestEntry>();
         private readonly FigmaFileCacheService _fileCache = new FigmaFileCacheService();
         private int _loadedPageCount;
         private int _loadedFrameCount;
         private Vector2 _treeScroll;
         private Vector2 _logScroll;
         private Vector2 _fontEntriesScroll;
+        private Vector2 _importedManifestScroll;
         private bool _isBusy;
         private string _status;
         private string _error;
+        private string _importedManifestMessage;
         private float _progress = -1f;
         private CancellationTokenSource _cancellation;
         private SerializedObject _fontMappingSerializedObject;
         private SerializedProperty _fontDefaultFontProperty;
         private SerializedProperty _fontEntriesProperty;
+        private GUIStyle _importedManifestButtonStyle;
 
         [MenuItem("Tools/Figma UI Importer")]
         public static void Open()
@@ -131,6 +137,7 @@ namespace FigmaUiImporter.Editor
             _preferCachedFile = EditorPrefs.GetBool(PrefPreferCachedFile, true);
             _status = "等待加载 Figma 文件。";
             BindFontMappingAsset();
+            RefreshImportedManifests(false);
         }
 
         private void OnDisable()
@@ -159,6 +166,9 @@ namespace FigmaUiImporter.Editor
             EditorGUILayout.BeginHorizontal(GUILayout.ExpandHeight(true));
             EditorGUILayout.BeginVertical(GUILayout.Width(LeftColumnWidth), GUILayout.ExpandHeight(true));
             DrawSettings();
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.Space(8f);
+            DrawImportedManifestsPanel();
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space(8f);
@@ -317,11 +327,6 @@ namespace FigmaUiImporter.Editor
             EditorGUILayout.BeginHorizontal();
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                if (GUILayout.Button("从 Manifest 重建场景", GUILayout.Height(26f)))
-                {
-                    RebuildFromManifest();
-                }
-
                 if (GUILayout.Button("从 Figma 插件包导入", GUILayout.Height(26f)))
                 {
                     ImportFromPluginPackage();
@@ -330,6 +335,235 @@ namespace FigmaUiImporter.Editor
 
             EditorGUILayout.EndHorizontal();
             EndSection();
+        }
+
+        private void DrawImportedManifestsPanel()
+        {
+            BeginSection("已导入项目");
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("点击项目从 manifest 重建场景", EditorStyles.miniLabel);
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                if (GUILayout.Button("刷新", GUILayout.Width(52f)))
+                {
+                    RefreshImportedManifests(true);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (!string.IsNullOrEmpty(_importedManifestMessage))
+            {
+                EditorGUILayout.HelpBox(_importedManifestMessage, MessageType.Warning);
+            }
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Height(ImportedManifestListHeight));
+            if (_importedManifests.Count == 0)
+            {
+                EditorGUILayout.LabelField("暂无已导入项目。导入后会在这里显示。", EditorStyles.miniLabel);
+            }
+            else
+            {
+                _importedManifestScroll = EditorGUILayout.BeginScrollView(_importedManifestScroll, GUILayout.ExpandHeight(true));
+                GUIStyle buttonStyle = GetImportedManifestButtonStyle();
+                using (new EditorGUI.DisabledScope(_isBusy))
+                {
+                    for (int i = 0; i < _importedManifests.Count; i++)
+                    {
+                        ImportedManifestEntry entry = _importedManifests[i];
+                        GUIContent content = new GUIContent(entry.ButtonText, entry.ManifestPath);
+                        if (GUILayout.Button(content, buttonStyle, GUILayout.Height(42f)))
+                        {
+                            RebuildFromManifest(entry.ManifestPath);
+                        }
+                    }
+                }
+                EditorGUILayout.EndScrollView();
+            }
+            EditorGUILayout.EndVertical();
+            EndSection();
+        }
+
+        private GUIStyle GetImportedManifestButtonStyle()
+        {
+            if (_importedManifestButtonStyle == null)
+            {
+                _importedManifestButtonStyle = new GUIStyle(GUI.skin.button);
+                _importedManifestButtonStyle.alignment = TextAnchor.MiddleLeft;
+                _importedManifestButtonStyle.wordWrap = true;
+                _importedManifestButtonStyle.fontSize = 11;
+            }
+
+            return _importedManifestButtonStyle;
+        }
+
+        private void RefreshImportedManifests(bool addLog)
+        {
+            _importedManifests.Clear();
+            _importedManifestMessage = string.Empty;
+
+            try
+            {
+                List<string> manifestPaths = FindImportedManifestPaths();
+                int skipped = 0;
+                for (int i = 0; i < manifestPaths.Count; i++)
+                {
+                    try
+                    {
+                        _importedManifests.Add(BuildImportedManifestEntry(manifestPaths[i]));
+                    }
+                    catch (Exception)
+                    {
+                        skipped++;
+                    }
+                }
+
+                _importedManifests.Sort(CompareImportedManifestEntries);
+                if (skipped > 0)
+                {
+                    _importedManifestMessage = "已跳过 " + skipped + " 个无法读取的 manifest。";
+                }
+
+                if (addLog)
+                {
+                    AddLog("已刷新导入项目列表：找到 " + _importedManifests.Count + " 个 manifest。");
+                }
+            }
+            catch (Exception exception)
+            {
+                _importedManifestMessage = "扫描已导入项目失败：" + exception.Message;
+                if (addLog)
+                {
+                    AddLog(_importedManifestMessage);
+                }
+            }
+
+            Repaint();
+        }
+
+        private static int CompareImportedManifestEntries(ImportedManifestEntry left, ImportedManifestEntry right)
+        {
+            return right.SortTimeUtc.CompareTo(left.SortTimeUtc);
+        }
+
+        private List<string> FindImportedManifestPaths()
+        {
+            List<string> manifestPaths = new List<string>();
+            HashSet<string> seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            List<string> rootFolders = new List<string>();
+            AddImportedManifestRoot(rootFolders, GetAssetDirectory(FigmaFontMappingService.GlobalMappingAssetPath));
+            AddImportedManifestRoot(rootFolders, FigmaPathUtility.NormalizeAssetFolder(_outputFolder));
+
+            for (int i = 0; i < rootFolders.Count; i++)
+            {
+                string rootFolder = rootFolders[i];
+                string fullRoot = FigmaPathUtility.ToFullPath(rootFolder);
+                if (!Directory.Exists(fullRoot))
+                {
+                    continue;
+                }
+
+                string[] files = Directory.GetFiles(fullRoot, "manifest.json", SearchOption.AllDirectories);
+                for (int fileIndex = 0; fileIndex < files.Length; fileIndex++)
+                {
+                    string assetPath = ToAssetPath(files[fileIndex]);
+                    if (seenPaths.Add(assetPath))
+                    {
+                        manifestPaths.Add(assetPath);
+                    }
+                }
+            }
+
+            return manifestPaths;
+        }
+
+        private static void AddImportedManifestRoot(List<string> rootFolders, string rootFolder)
+        {
+            if (string.IsNullOrWhiteSpace(rootFolder))
+            {
+                return;
+            }
+
+            string normalized = FigmaPathUtility.NormalizeAssetFolder(rootFolder);
+            for (int i = 0; i < rootFolders.Count; i++)
+            {
+                if (string.Equals(rootFolders[i], normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+
+            rootFolders.Add(normalized);
+        }
+
+        private static ImportedManifestEntry BuildImportedManifestEntry(string manifestPath)
+        {
+            string fullPath = FigmaPathUtility.ToFullPath(manifestPath);
+            ImportedManifestSummaryDto manifest = JsonUtility.FromJson<ImportedManifestSummaryDto>(File.ReadAllText(fullPath));
+            if (manifest == null || string.IsNullOrEmpty(manifest.selectedNodeId))
+            {
+                throw new InvalidOperationException("manifest 内容无效：" + manifestPath);
+            }
+
+            DateTime sortTime = File.GetLastWriteTimeUtc(fullPath);
+            DateTime importedAt;
+            if (!string.IsNullOrEmpty(manifest.importedAt)
+                && DateTime.TryParse(
+                    manifest.importedAt,
+                    null,
+                    System.Globalization.DateTimeStyles.RoundtripKind,
+                    out importedAt))
+            {
+                sortTime = importedAt.ToUniversalTime();
+            }
+
+            string nodeName = string.IsNullOrWhiteSpace(manifest.selectedNodeName)
+                ? "(未命名项目)"
+                : manifest.selectedNodeName.Trim();
+            nodeName = ShortenText(nodeName, 26);
+            string nodeType = string.IsNullOrWhiteSpace(manifest.selectedNodeType)
+                ? "FRAME"
+                : manifest.selectedNodeType.Trim();
+            int layerCount = manifest.layers == null ? 0 : manifest.layers.Count;
+            string importedTime = sortTime.ToLocalTime().ToString("MM-dd HH:mm");
+            string detail = importedTime + " | " + layerCount + " 图层 | " + ShortenAssetPath(manifestPath, 42);
+
+            ImportedManifestEntry entry = new ImportedManifestEntry();
+            entry.ManifestPath = manifestPath;
+            entry.SortTimeUtc = sortTime;
+            entry.ButtonText = nodeName + " [" + nodeType + "]\n" + detail;
+            return entry;
+        }
+
+        private static string ToAssetPath(string fullPath)
+        {
+            string normalizedFullPath = Path.GetFullPath(fullPath).Replace('\\', '/');
+            string projectRoot = Directory.GetParent(Application.dataPath).FullName.Replace('\\', '/');
+            if (normalizedFullPath.StartsWith(projectRoot + "/", StringComparison.OrdinalIgnoreCase))
+            {
+                return normalizedFullPath.Substring(projectRoot.Length + 1);
+            }
+
+            return normalizedFullPath;
+        }
+
+        private static string ShortenAssetPath(string assetPath, int maxLength)
+        {
+            if (string.IsNullOrEmpty(assetPath) || assetPath.Length <= maxLength)
+            {
+                return assetPath;
+            }
+
+            return "..." + assetPath.Substring(assetPath.Length - maxLength + 3);
+        }
+
+        private static string ShortenText(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
+            {
+                return value;
+            }
+
+            return value.Substring(0, maxLength - 3) + "...";
         }
 
         private void DrawFontMappingPanel()
@@ -715,6 +949,8 @@ namespace FigmaUiImporter.Editor
                 {
                     AddLog("场景根节点：" + result.RootObject.name);
                 }
+
+                RefreshImportedManifests(false);
             }
             catch (OperationCanceledException)
             {
@@ -733,10 +969,9 @@ namespace FigmaUiImporter.Editor
             }
         }
 
-        private void RebuildFromManifest()
+        private void RebuildFromManifest(string manifestPath)
         {
-            string pickedManifest = EditorUtility.OpenFilePanel("选择 manifest.json", Application.dataPath, "json");
-            if (string.IsNullOrEmpty(pickedManifest))
+            if (string.IsNullOrEmpty(manifestPath))
             {
                 return;
             }
@@ -748,7 +983,7 @@ namespace FigmaUiImporter.Editor
             {
                 FigmaImportSettings settings = BuildSettings(FigmaPathUtility.ExtractFileKey(_fileInput));
                 FigmaOfflineSceneRebuilder rebuilder = new FigmaOfflineSceneRebuilder();
-                FigmaImportResult result = rebuilder.Rebuild(settings, pickedManifest, new ImmediateProgress(OnProgress));
+                FigmaImportResult result = rebuilder.Rebuild(settings, manifestPath, new ImmediateProgress(OnProgress));
 
                 _status = "离线重建完成：" + result.LayerCount + " 个切图图层。";
                 _progress = 1f;
@@ -769,6 +1004,8 @@ namespace FigmaUiImporter.Editor
                 {
                     AddLog("场景根节点：" + result.RootObject.name);
                 }
+
+                RefreshImportedManifests(false);
             }
             catch (Exception exception)
             {
@@ -850,6 +1087,8 @@ namespace FigmaUiImporter.Editor
                 {
                     AddLog("场景根节点：" + result.RootObject.name);
                 }
+
+                RefreshImportedManifests(false);
             }
             catch (Exception exception)
             {
@@ -1282,6 +1521,7 @@ namespace FigmaUiImporter.Editor
 
             string assetPath = picked.Substring(projectRoot.Length + 1);
             _outputFolder = FigmaPathUtility.NormalizeAssetFolder(assetPath);
+            RefreshImportedManifests(false);
         }
 
         private void PickPrefabFolder()
@@ -1312,6 +1552,18 @@ namespace FigmaUiImporter.Editor
             }
 
             return FigmaPathUtility.NormalizeAssetFolder(prefabFolder);
+        }
+
+        private static string GetAssetDirectory(string assetPath)
+        {
+            string normalized = assetPath.Replace('\\', '/');
+            int slashIndex = normalized.LastIndexOf("/", StringComparison.Ordinal);
+            if (slashIndex <= 0)
+            {
+                return "Assets";
+            }
+
+            return normalized.Substring(0, slashIndex);
         }
 
         private bool GetFoldout(FigmaNodeInfo node)
@@ -1389,6 +1641,29 @@ namespace FigmaUiImporter.Editor
                     _handler(value);
                 }
             }
+        }
+
+        private sealed class ImportedManifestEntry
+        {
+            public string ManifestPath;
+            public string ButtonText;
+            public DateTime SortTimeUtc;
+        }
+
+        [Serializable]
+        private sealed class ImportedManifestSummaryDto
+        {
+            public string selectedNodeId;
+            public string selectedNodeName;
+            public string selectedNodeType;
+            public string importedAt;
+            public List<ImportedManifestLayerSummaryDto> layers;
+        }
+
+        [Serializable]
+        private sealed class ImportedManifestLayerSummaryDto
+        {
+            public string nodeId;
         }
     }
 }
