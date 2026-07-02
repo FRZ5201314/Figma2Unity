@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.10
+
+- Reduced the fixed importer window size and narrowed the font mapping column.
+
 ## 0.7.9
 
 - Added a compact font mapping entry drawer that keeps `FontAsset` prominent and supports row-summary expand/collapse.
