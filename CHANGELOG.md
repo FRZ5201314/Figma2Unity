@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.4
+
+- Restored the font mapping entries to Unity's default serialized List UI in both the importer window and `FigmaFontMapping.asset` Inspector.
+- Shortened the importer window and moved the operation controls above the page/status panels in the main workflow column.
+
 ## 0.7.3
 
 - Reworked the importer window into a wider three-column layout with settings, page/status panels, and font mapping management visible at once.

@@ -30,9 +30,9 @@ namespace FigmaUiImporter.Editor
         private const int LargePluginPackageAssetThreshold = 120;
         private const long LargePluginPackageSizeBytes = 80L * 1024L * 1024L;
         private const float WindowMinWidth = 1180f;
-        private const float WindowMinHeight = 720f;
+        private const float WindowMinHeight = 620f;
         private const float LeftColumnWidth = 360f;
-        private const float CenterColumnWidth = 390f;
+        private const float CenterColumnWidth = 410f;
 
         private static readonly string[] SliceModeLabels =
         {
@@ -159,12 +159,12 @@ namespace FigmaUiImporter.Editor
             EditorGUILayout.BeginHorizontal(GUILayout.ExpandHeight(true));
             EditorGUILayout.BeginVertical(GUILayout.Width(LeftColumnWidth), GUILayout.ExpandHeight(true));
             DrawSettings();
-            EditorGUILayout.Space(8f);
-            DrawActions();
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space(8f);
             EditorGUILayout.BeginVertical(GUILayout.Width(CenterColumnWidth), GUILayout.ExpandHeight(true));
+            DrawActions();
+            EditorGUILayout.Space(8f);
             DrawSelectionTree();
             EditorGUILayout.Space(8f);
             DrawStatus();
@@ -387,7 +387,6 @@ namespace FigmaUiImporter.Editor
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(4f);
-            EditorGUILayout.LabelField("映射条目 (" + _fontEntriesProperty.arraySize + ")", EditorStyles.boldLabel);
             DrawFontMappingEntries();
 
             _fontMappingSerializedObject.ApplyModifiedProperties();
@@ -398,125 +397,12 @@ namespace FigmaUiImporter.Editor
         {
             EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.ExpandHeight(true));
             _fontEntriesScroll = EditorGUILayout.BeginScrollView(_fontEntriesScroll, GUILayout.ExpandHeight(true));
-
-            if (_fontEntriesProperty.arraySize == 0)
-            {
-                EditorGUILayout.HelpBox("暂无字体映射条目。导入 Figma 页面后会自动补充，也可以点击“更新已导入页面”。", MessageType.Info);
-            }
-
-            for (int i = 0; i < _fontEntriesProperty.arraySize; i++)
-            {
-                SerializedProperty entry = _fontEntriesProperty.GetArrayElementAtIndex(i);
-                if (DrawFontMappingEntry(entry, i))
-                {
-                    break;
-                }
-            }
-
+            EditorGUILayout.PropertyField(
+                _fontEntriesProperty,
+                new GUIContent("映射条目 (" + _fontEntriesProperty.arraySize + ")"),
+                true);
             EditorGUILayout.EndScrollView();
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button("新增映射", GUILayout.Width(92f)))
-            {
-                _fontEntriesProperty.InsertArrayElementAtIndex(_fontEntriesProperty.arraySize);
-                SerializedProperty entry = _fontEntriesProperty.GetArrayElementAtIndex(_fontEntriesProperty.arraySize - 1);
-                ResetFontMappingEntry(entry);
-            }
-            EditorGUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
-        }
-
-        private bool DrawFontMappingEntry(SerializedProperty entry, int index)
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            EditorGUILayout.BeginHorizontal();
-            entry.isExpanded = EditorGUILayout.Foldout(entry.isExpanded, BuildFontEntrySummary(entry), true);
-            if (GUILayout.Button("删除", GUILayout.Width(48f)))
-            {
-                _fontEntriesProperty.DeleteArrayElementAtIndex(index);
-                EditorGUILayout.EndHorizontal();
-                EditorGUILayout.EndVertical();
-                return true;
-            }
-            EditorGUILayout.EndHorizontal();
-
-            if (entry.isExpanded)
-            {
-                DrawTwoProperties(
-                    entry.FindPropertyRelative("FigmaFontFamily"),
-                    "Figma 字体族",
-                    entry.FindPropertyRelative("FigmaFontStyle"),
-                    "样式");
-                EditorGUILayout.PropertyField(
-                    entry.FindPropertyRelative("FigmaFontPostScriptName"),
-                    new GUIContent("PostScript 名称"));
-                DrawTwoProperties(
-                    entry.FindPropertyRelative("MinWeight"),
-                    "最小字重",
-                    entry.FindPropertyRelative("MaxWeight"),
-                    "最大字重");
-                DrawTwoProperties(
-                    entry.FindPropertyRelative("FontAsset"),
-                    "TMP 字体",
-                    entry.FindPropertyRelative("FontStyle"),
-                    "TMP 样式");
-                DrawTwoProperties(
-                    entry.FindPropertyRelative("UsageCount"),
-                    "使用次数",
-                    entry.FindPropertyRelative("LastSeenAt"),
-                    "最后发现");
-                EditorGUILayout.PropertyField(entry.FindPropertyRelative("SampleText"), new GUIContent("文本样本"));
-            }
-
-            EditorGUILayout.EndVertical();
-            return false;
-        }
-
-        private static void DrawTwoProperties(
-            SerializedProperty leftProperty,
-            string leftLabel,
-            SerializedProperty rightProperty,
-            string rightLabel)
-        {
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.PropertyField(leftProperty, new GUIContent(leftLabel));
-            EditorGUILayout.PropertyField(rightProperty, new GUIContent(rightLabel));
-            EditorGUILayout.EndHorizontal();
-        }
-
-        private static void ResetFontMappingEntry(SerializedProperty entry)
-        {
-            entry.FindPropertyRelative("FigmaFontFamily").stringValue = string.Empty;
-            entry.FindPropertyRelative("FigmaFontStyle").stringValue = string.Empty;
-            entry.FindPropertyRelative("FigmaFontPostScriptName").stringValue = string.Empty;
-            entry.FindPropertyRelative("MinWeight").intValue = 0;
-            entry.FindPropertyRelative("MaxWeight").intValue = 0;
-            entry.FindPropertyRelative("UsageCount").intValue = 0;
-            entry.FindPropertyRelative("SampleText").stringValue = string.Empty;
-            entry.FindPropertyRelative("LastSeenAt").stringValue = string.Empty;
-            entry.FindPropertyRelative("FontAsset").objectReferenceValue = null;
-            entry.FindPropertyRelative("FontStyle").enumValueIndex = 0;
-        }
-
-        private static string BuildFontEntrySummary(SerializedProperty entry)
-        {
-            string family = entry.FindPropertyRelative("FigmaFontFamily").stringValue;
-            string style = entry.FindPropertyRelative("FigmaFontStyle").stringValue;
-            string postScriptName = entry.FindPropertyRelative("FigmaFontPostScriptName").stringValue;
-            UnityEngine.Object fontAsset = entry.FindPropertyRelative("FontAsset").objectReferenceValue;
-
-            string figmaName = string.IsNullOrEmpty(family) ? "(未命名字体)" : family;
-            if (!string.IsNullOrEmpty(style))
-            {
-                figmaName += " " + style;
-            }
-
-            if (!string.IsNullOrEmpty(postScriptName))
-            {
-                figmaName += " / " + postScriptName;
-            }
-
-            return figmaName + "  ->  " + (fontAsset == null ? "未映射" : fontAsset.name);
         }
 
         private void DrawSelectionTree()
