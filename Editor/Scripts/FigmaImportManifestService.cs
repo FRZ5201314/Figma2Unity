@@ -112,6 +112,95 @@ namespace FigmaUiImporter.Editor
             return data;
         }
 
+        public bool TryLoadTextStyleForLayer(
+            string manifestPath,
+            string nodeId,
+            out FigmaTextStyleInfo textStyle)
+        {
+            textStyle = null;
+            if (string.IsNullOrEmpty(nodeId))
+            {
+                return false;
+            }
+
+            string normalizedManifestPath = NormalizeManifestAssetPath(manifestPath);
+            string fullPath = FigmaPathUtility.ToFullPath(normalizedManifestPath);
+            if (!File.Exists(fullPath))
+            {
+                return false;
+            }
+
+            ManifestDto manifest = JsonUtility.FromJson<ManifestDto>(File.ReadAllText(fullPath));
+            if (manifest == null || manifest.layers == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < manifest.layers.Count; i++)
+            {
+                LayerDto layer = manifest.layers[i];
+                if (layer != null
+                    && layer.text != null
+                    && string.Equals(layer.nodeId, nodeId, StringComparison.Ordinal))
+                {
+                    textStyle = ToTextStyle(layer.text);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool TryLoadLayerForConversion(
+            string manifestPath,
+            string nodeId,
+            out FigmaManifestRebuildData data)
+        {
+            data = null;
+            if (string.IsNullOrEmpty(nodeId))
+            {
+                return false;
+            }
+
+            string normalizedManifestPath = NormalizeManifestAssetPath(manifestPath);
+            string fullPath = FigmaPathUtility.ToFullPath(normalizedManifestPath);
+            if (!File.Exists(fullPath))
+            {
+                return false;
+            }
+
+            ManifestDto manifest = JsonUtility.FromJson<ManifestDto>(File.ReadAllText(fullPath));
+            if (manifest == null || manifest.layers == null)
+            {
+                return false;
+            }
+
+            string outputFolder = GetAssetDirectory(normalizedManifestPath);
+            FigmaNodeInfo rootNode = CreateRootNode(manifest);
+            for (int i = 0; i < manifest.layers.Count; i++)
+            {
+                LayerDto layerDto = manifest.layers[i];
+                if (layerDto == null || !string.Equals(layerDto.nodeId, nodeId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                data = new FigmaManifestRebuildData();
+                data.FileKey = manifest.fileKey;
+                data.ImageScale = manifest.imageScale > 0.01f ? manifest.imageScale : 1f;
+                data.ContainerSliceStrategy = manifest.containerSliceStrategy;
+                data.TextImportMode = manifest.textImportMode;
+                data.ManifestPath = normalizedManifestPath;
+                data.OutputFolder = outputFolder;
+                data.RootNode = rootNode;
+                data.ReferenceAssetPath = ResolveAssetPath(outputFolder, manifest.referenceImage);
+                data.Layers.Add(CreateLayerInfo(outputFolder, rootNode.AbsoluteBounds, layerDto, i));
+                return true;
+            }
+
+            return false;
+        }
+
         private static BoundsDto ToBoundsDto(Rect rect)
         {
             BoundsDto dto = new BoundsDto();

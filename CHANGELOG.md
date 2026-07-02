@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.13
+
+- Added `FigmaLayerBinding` Inspector actions for switching Figma TEXT nodes between fallback PNG Image and editable TextMeshProUGUI.
+- Added lightweight manifest lookup for converting imported PNG text layers back to TMP and removed the redundant scene `FigmaTextBinding`.
+
 ## 0.7.12
 
 - Shortened the fixed importer window while keeping all columns at the same content height.

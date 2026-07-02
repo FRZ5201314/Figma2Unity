@@ -24,7 +24,7 @@ namespace FigmaUiImporter.Editor
 
             FigmaPathUtility.EnsureAssetFolder(GetAssetDirectory(GlobalMappingAssetPath));
             mapping = ScriptableObject.CreateInstance<FigmaFontMappingAsset>();
-            mapping.DefaultFont = TMP_Settings.defaultFontAsset;
+            mapping.DefaultFont = FigmaTmpFontUtility.GetProjectDefaultFont();
             AssetDatabase.CreateAsset(mapping, GlobalMappingAssetPath);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -194,7 +194,7 @@ namespace FigmaUiImporter.Editor
             }
 
             HashSet<int> seen = new HashSet<int>();
-            List<FigmaTextBinding> bindings = new List<FigmaTextBinding>();
+            List<FigmaLayerBinding> bindings = new List<FigmaLayerBinding>();
             for (int i = 0; i < selectedObjects.Length; i++)
             {
                 GameObject selectedObject = selectedObjects[i];
@@ -203,10 +203,10 @@ namespace FigmaUiImporter.Editor
                     continue;
                 }
 
-                FigmaTextBinding[] childBindings = selectedObject.GetComponentsInChildren<FigmaTextBinding>(true);
+                FigmaLayerBinding[] childBindings = selectedObject.GetComponentsInChildren<FigmaLayerBinding>(true);
                 for (int j = 0; j < childBindings.Length; j++)
                 {
-                    FigmaTextBinding binding = childBindings[j];
+                    FigmaLayerBinding binding = childBindings[j];
                     if (binding != null && seen.Add(binding.GetInstanceID()))
                     {
                         bindings.Add(binding);
@@ -224,7 +224,7 @@ namespace FigmaUiImporter.Editor
 
         public static int ApplyMappingToOpenScenes(FigmaFontMappingAsset mapping)
         {
-            return ApplyMappingToBindings(mapping, FindSceneTextBindings());
+            return ApplyMappingToBindings(mapping, FindSceneLayerBindings());
         }
 
         public static FontStyles ResolveEffectiveFontStyle(
@@ -250,7 +250,7 @@ namespace FigmaUiImporter.Editor
 
         private static int ApplyMappingToBindings(
             FigmaFontMappingAsset mapping,
-            IEnumerable<FigmaTextBinding> bindings)
+            IEnumerable<FigmaLayerBinding> bindings)
         {
             if (mapping == null || bindings == null)
             {
@@ -258,11 +258,12 @@ namespace FigmaUiImporter.Editor
             }
 
             int count = 0;
-            foreach (FigmaTextBinding binding in bindings)
+            foreach (FigmaLayerBinding binding in bindings)
             {
                 if (binding == null
                     || EditorUtility.IsPersistent(binding)
-                    || !binding.gameObject.scene.IsValid())
+                    || !binding.gameObject.scene.IsValid()
+                    || !FigmaLayerConversionService.IsTextNode(binding))
                 {
                     continue;
                 }
@@ -273,10 +274,21 @@ namespace FigmaUiImporter.Editor
                     continue;
                 }
 
-                FigmaTextStyleInfo style = CreateTextStyle(binding);
+                FigmaTextStyleInfo style;
+                string reason;
+                if (!FigmaLayerConversionService.TryLoadTextStyle(binding, out style, out reason))
+                {
+                    continue;
+                }
+
                 FontStyles mappedStyle = FontStyles.Normal;
-                bool matchedMappedFont;
-                TMP_FontAsset mappedFont = mapping.ResolveFont(style, out mappedStyle, out matchedMappedFont);
+                bool matchedMappedFont = false;
+                TMP_FontAsset mappedFont = FigmaTmpFontUtility.ResolveFont(
+                    text,
+                    style,
+                    mapping,
+                    out mappedStyle,
+                    out matchedMappedFont);
                 if (mappedFont == null)
                 {
                     continue;
@@ -297,27 +309,15 @@ namespace FigmaUiImporter.Editor
             return count;
         }
 
-        private static IEnumerable<FigmaTextBinding> FindSceneTextBindings()
+        private static IEnumerable<FigmaLayerBinding> FindSceneLayerBindings()
         {
 #if UNITY_2023_1_OR_NEWER
-            return UnityEngine.Object.FindObjectsByType<FigmaTextBinding>(
+            return UnityEngine.Object.FindObjectsByType<FigmaLayerBinding>(
                 FindObjectsInactive.Include,
                 FindObjectsSortMode.None);
 #else
-            return Resources.FindObjectsOfTypeAll<FigmaTextBinding>();
+            return Resources.FindObjectsOfTypeAll<FigmaLayerBinding>();
 #endif
-        }
-
-        private static FigmaTextStyleInfo CreateTextStyle(FigmaTextBinding binding)
-        {
-            FigmaTextStyleInfo style = new FigmaTextStyleInfo();
-            style.Characters = binding.Characters;
-            style.FontFamily = binding.FontFamily;
-            style.FontStyleName = binding.FontStyleName;
-            style.FontPostScriptName = binding.FontPostScriptName;
-            style.FontWeight = binding.FontWeight;
-            style.FontSize = 1f;
-            return style;
         }
 
         private static FigmaFontMappingAsset.Entry CreateEntry(FigmaTextStyleInfo textStyle)

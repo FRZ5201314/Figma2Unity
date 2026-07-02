@@ -92,15 +92,21 @@ namespace FigmaUiImporter.Editor
 
             public bool MatchesPostScriptName(FigmaTextStyleInfo textStyle)
             {
-                return !string.IsNullOrWhiteSpace(FigmaFontPostScriptName)
-                    && string.Equals(FigmaFontPostScriptName, textStyle.FontPostScriptName, StringComparison.OrdinalIgnoreCase);
+                return !string.IsNullOrEmpty(Normalize(FigmaFontPostScriptName))
+                    && string.Equals(
+                        Normalize(FigmaFontPostScriptName),
+                        Normalize(textStyle == null ? string.Empty : textStyle.FontPostScriptName),
+                        StringComparison.OrdinalIgnoreCase);
             }
 
             public bool MatchesFamilyAndStyle(FigmaTextStyleInfo textStyle)
             {
                 return MatchesFamily(textStyle)
-                    && !string.IsNullOrWhiteSpace(FigmaFontStyle)
-                    && string.Equals(FigmaFontStyle, textStyle.FontStyleName, StringComparison.OrdinalIgnoreCase);
+                    && !string.IsNullOrEmpty(Normalize(FigmaFontStyle))
+                    && string.Equals(
+                        Normalize(FigmaFontStyle),
+                        Normalize(textStyle == null ? string.Empty : textStyle.FontStyleName),
+                        StringComparison.OrdinalIgnoreCase);
             }
 
             public bool MatchesFamilyAndWeight(FigmaTextStyleInfo textStyle)
@@ -118,8 +124,13 @@ namespace FigmaUiImporter.Editor
             public bool MatchesFamily(FigmaTextStyleInfo textStyle)
             {
                 return textStyle != null
-                    && !string.IsNullOrWhiteSpace(FigmaFontFamily)
-                    && string.Equals(FigmaFontFamily, textStyle.FontFamily, StringComparison.OrdinalIgnoreCase);
+                    && !string.IsNullOrEmpty(Normalize(FigmaFontFamily))
+                    && string.Equals(Normalize(FigmaFontFamily), Normalize(textStyle.FontFamily), StringComparison.OrdinalIgnoreCase);
+            }
+
+            private static string Normalize(string value)
+            {
+                return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
             }
         }
     }

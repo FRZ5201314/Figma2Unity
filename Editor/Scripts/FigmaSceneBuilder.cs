@@ -124,78 +124,21 @@ namespace FigmaUiImporter.Editor
         private static void CreateTextLayer(FigmaImportSettings settings, GameObject layerObject, ImportedLayerInfo layer)
         {
             FigmaTextStyleInfo style = layer.TextStyle;
+            TMP_FontAsset resolvedFont = FigmaTmpFontUtility.ResolveFont(null, style, settings.FontMapping);
+            string reason;
+            FigmaTmpFontUtility.TryEnsureProjectDefaultFont(resolvedFont, out resolvedFont, out reason);
+
             TextMeshProUGUI text = layerObject.AddComponent<TextMeshProUGUI>();
-            text.text = style.Characters ?? string.Empty;
-            text.richText = false;
-            text.fontSize = style.FontSize;
-            text.color = style.Color;
-            text.alignment = ResolveTextAlignment(style.HorizontalAlign, style.VerticalAlign);
-            text.enableWordWrapping = !string.Equals(style.AutoResize, "WIDTH_AND_HEIGHT", System.StringComparison.OrdinalIgnoreCase);
-            text.overflowMode = TextOverflowModes.Overflow;
-            text.raycastTarget = !settings.DisableRaycastTarget;
-            text.margin = Vector4.zero;
-
-            FontStyles mappedStyle = FontStyles.Normal;
-            bool matchedMappedFont = false;
-            TMP_FontAsset mappedFont = settings.FontMapping == null
-                ? null
-                : settings.FontMapping.ResolveFont(style, out mappedStyle, out matchedMappedFont);
-            if (mappedFont != null)
+            if (resolvedFont != null)
             {
-                text.font = mappedFont;
+                text.font = resolvedFont;
             }
 
-            text.fontStyle = FigmaFontMappingService.ResolveEffectiveFontStyle(style, mappedStyle, matchedMappedFont);
-
-            if (style.LineHeightPx > style.FontSize + 0.01f)
-            {
-                text.lineSpacing = style.LineHeightPx - style.FontSize;
-            }
-
-            text.characterSpacing = style.LetterSpacing;
-
-            FigmaTextBinding binding = layerObject.AddComponent<FigmaTextBinding>();
-            binding.SetTextInfo(
-                style.Characters,
-                style.FontFamily,
-                style.FontStyleName,
-                style.FontPostScriptName,
-                style.FontWeight);
-        }
-
-        private static TextAlignmentOptions ResolveTextAlignment(string horizontal, string vertical)
-        {
-            bool isCenterX = string.Equals(horizontal, "CENTER", System.StringComparison.OrdinalIgnoreCase);
-            bool isRight = string.Equals(horizontal, "RIGHT", System.StringComparison.OrdinalIgnoreCase);
-            bool isCenterY = string.Equals(vertical, "CENTER", System.StringComparison.OrdinalIgnoreCase);
-            bool isBottom = string.Equals(vertical, "BOTTOM", System.StringComparison.OrdinalIgnoreCase);
-
-            if (isBottom)
-            {
-                if (isRight)
-                {
-                    return TextAlignmentOptions.BottomRight;
-                }
-
-                return isCenterX ? TextAlignmentOptions.Bottom : TextAlignmentOptions.BottomLeft;
-            }
-
-            if (isCenterY)
-            {
-                if (isRight)
-                {
-                    return TextAlignmentOptions.Right;
-                }
-
-                return isCenterX ? TextAlignmentOptions.Center : TextAlignmentOptions.Left;
-            }
-
-            if (isRight)
-            {
-                return TextAlignmentOptions.TopRight;
-            }
-
-            return isCenterX ? TextAlignmentOptions.Top : TextAlignmentOptions.TopLeft;
+            FigmaTextLayerUtility.ApplyTextStyle(
+                text,
+                style,
+                settings.FontMapping,
+                !settings.DisableRaycastTarget);
         }
 
         private static void CreateReference(
