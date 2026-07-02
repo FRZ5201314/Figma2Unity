@@ -31,12 +31,15 @@ namespace FigmaUiImporter.Editor
         private const int LargePluginPackageAssetThreshold = 120;
         private const long LargePluginPackageSizeBytes = 80L * 1024L * 1024L;
         private const float WindowWidth = 1160f;
-        private const float WindowHeight = 700f;
+        private const float WindowHeight = 670f;
+        private const float ColumnContentHeight = 640f;
         private const float LeftColumnWidth = 360f;
         private const float CenterColumnWidth = 410f;
         private const float FontColumnWidth = LeftColumnWidth;
-        private const float PageTreeHeight = 220f;
+        private const float PageTreeHeight = 190f;
         private const float ImportedManifestListHeight = 170f;
+        private const float LogPanelMinHeight = 100f;
+        private const float LogScrollHeight = 92f;
 
         private static readonly string[] SliceModeLabels =
         {
@@ -174,17 +177,17 @@ namespace FigmaUiImporter.Editor
             BindFontMappingAsset();
 
             EditorGUILayout.BeginHorizontal(GUILayout.ExpandHeight(true));
-            EditorGUILayout.BeginVertical(GUILayout.Width(LeftColumnWidth), GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(GUILayout.Width(LeftColumnWidth), GUILayout.Height(ColumnContentHeight));
             DrawNetworkColumn();
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space(8f);
-            EditorGUILayout.BeginVertical(GUILayout.Width(CenterColumnWidth), GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(GUILayout.Width(CenterColumnWidth), GUILayout.Height(ColumnContentHeight));
             DrawLocalColumn();
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space(8f);
-            EditorGUILayout.BeginVertical(GUILayout.Width(FontColumnWidth), GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(GUILayout.Width(FontColumnWidth), GUILayout.Height(ColumnContentHeight));
             DrawFontMappingPanel();
             EditorGUILayout.EndVertical();
             EditorGUILayout.EndHorizontal();
@@ -812,14 +815,14 @@ namespace FigmaUiImporter.Editor
             }
 
             EditorGUILayout.LabelField("日志", EditorStyles.boldLabel);
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.MinHeight(124f));
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.MinHeight(LogPanelMinHeight));
             if (_logs.Count == 0)
             {
                 EditorGUILayout.LabelField("暂无日志。执行加载、导入或离线重建后会显示记录。", EditorStyles.miniLabel);
             }
             else
             {
-                _logScroll = EditorGUILayout.BeginScrollView(_logScroll, GUILayout.Height(116f));
+                _logScroll = EditorGUILayout.BeginScrollView(_logScroll, GUILayout.Height(LogScrollHeight));
                 for (int i = 0; i < _logs.Count; i++)
                 {
                     EditorGUILayout.LabelField(_logs[i], EditorStyles.wordWrappedLabel);

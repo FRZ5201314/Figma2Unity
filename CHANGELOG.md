@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.12
+
+- Shortened the fixed importer window while keeping all columns at the same content height.
+- Reduced the page tree and log panel heights so the left column remains fully visible.
+
 ## 0.7.11
 
 - Made the font mapping column the same width as the left column and restored enough fixed height so lower controls are visible.
