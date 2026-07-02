@@ -31,7 +31,11 @@ namespace FigmaUiImporter.Editor
             property.isExpanded = EditorGUI.Foldout(
                 row,
                 property.isExpanded,
-                new GUIContent(BuildSummary(familyProperty, styleProperty, minWeightProperty, maxWeightProperty, fontAssetProperty)),
+                new GUIContent(BuildSummary(
+                    familyProperty,
+                    styleProperty,
+                    usageCountProperty,
+                    fontAssetProperty)),
                 true);
 
             row.y += line + spacing;
@@ -119,39 +123,24 @@ namespace FigmaUiImporter.Editor
         private static string BuildSummary(
             SerializedProperty familyProperty,
             SerializedProperty styleProperty,
-            SerializedProperty minWeightProperty,
-            SerializedProperty maxWeightProperty,
+            SerializedProperty usageCountProperty,
             SerializedProperty fontAssetProperty)
         {
             string prefix = fontAssetProperty.objectReferenceValue == null ? "未配置" : "已映射";
-            return prefix + " | " + BuildFigmaName(familyProperty, styleProperty, minWeightProperty, maxWeightProperty);
+            return prefix
+                + " | 使用 "
+                + Mathf.Max(0, usageCountProperty.intValue)
+                + " | "
+                + BuildFigmaName(familyProperty, styleProperty);
         }
 
         private static string BuildFigmaName(
             SerializedProperty familyProperty,
-            SerializedProperty styleProperty,
-            SerializedProperty minWeightProperty,
-            SerializedProperty maxWeightProperty)
+            SerializedProperty styleProperty)
         {
             string family = string.IsNullOrWhiteSpace(familyProperty.stringValue) ? "(未知字体族)" : familyProperty.stringValue;
             string style = string.IsNullOrWhiteSpace(styleProperty.stringValue) ? string.Empty : " " + styleProperty.stringValue;
-            string weight = BuildWeightLabel(minWeightProperty.intValue, maxWeightProperty.intValue);
-            return family + style + weight;
-        }
-
-        private static string BuildWeightLabel(int minWeight, int maxWeight)
-        {
-            if (minWeight <= 0 && maxWeight <= 0)
-            {
-                return string.Empty;
-            }
-
-            if (minWeight == maxWeight || maxWeight <= 0)
-            {
-                return " / W" + minWeight;
-            }
-
-            return " / W" + Mathf.Min(minWeight, maxWeight) + "-" + Mathf.Max(minWeight, maxWeight);
+            return family + style;
         }
     }
 }
