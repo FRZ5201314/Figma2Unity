@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.7
+
+- Reorganized the importer window so the REST network workflow lives in the left column and local package/manifest workflows live in the middle column.
+- Tightened the page tree height to keep the left network workflow visible as a single vertical path.
+
 ## 0.7.6
 
 - Split the importer window workflow into REST network import, local Figma plugin package import, and local manifest rebuild sections.

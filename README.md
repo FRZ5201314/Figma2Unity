@@ -33,7 +33,7 @@
 
 ### REST API 导入
 
-1. 在 Unity 菜单打开 `Tools/Figma UI Importer`。窗口中“网络导入（Figma REST API）”会使用 Figma API，“本地导入（Figma 插件包）”和“本地重建（已导入项目）”只读取本地文件。
+1. 在 Unity 菜单打开 `Tools/Figma UI Importer`。窗口左列是会使用 Figma API 的网络导入流程，中列是只读取本地文件的插件包导入和 manifest 重建流程。
 2. 填写 Figma Personal Access Token。
 3. 填写 Figma File Key 或文件 URL。
 4. 设置输出资源目录，默认是 `Assets/FigmaImports`。如果需要复用导入结果，可勾选 `保存为 Prefab` 并设置 Prefab 输出目录。

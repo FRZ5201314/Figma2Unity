@@ -34,6 +34,7 @@ namespace FigmaUiImporter.Editor
         private const float WindowMinHeight = 620f;
         private const float LeftColumnWidth = 360f;
         private const float CenterColumnWidth = 410f;
+        private const float PageTreeHeight = 220f;
         private const float ImportedManifestListHeight = 170f;
 
         private static readonly string[] SliceModeLabels =
@@ -165,19 +166,12 @@ namespace FigmaUiImporter.Editor
 
             EditorGUILayout.BeginHorizontal(GUILayout.ExpandHeight(true));
             EditorGUILayout.BeginVertical(GUILayout.Width(LeftColumnWidth), GUILayout.ExpandHeight(true));
-            DrawSettings();
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.Space(8f);
-            DrawImportedManifestsPanel();
+            DrawNetworkColumn();
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space(8f);
             EditorGUILayout.BeginVertical(GUILayout.Width(CenterColumnWidth), GUILayout.ExpandHeight(true));
-            DrawActions();
-            EditorGUILayout.Space(8f);
-            DrawSelectionTree();
-            EditorGUILayout.Space(8f);
-            DrawStatus();
+            DrawLocalColumn();
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space(8f);
@@ -219,7 +213,45 @@ namespace FigmaUiImporter.Editor
             }
         }
 
-        private void DrawSettings()
+        private void DrawNetworkColumn()
+        {
+            DrawRestConnectionSettings();
+            EditorGUILayout.Space(8f);
+            DrawNetworkImportActions();
+            EditorGUILayout.Space(8f);
+            DrawSelectionTree();
+            EditorGUILayout.Space(8f);
+            DrawStatus();
+        }
+
+        private void DrawLocalColumn()
+        {
+            DrawSharedSettings();
+            EditorGUILayout.Space(8f);
+            DrawLocalImportActions();
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.Space(8f);
+            DrawImportedManifestsPanel();
+        }
+
+        private void DrawRestConnectionSettings()
+        {
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                BeginSection("REST 连接");
+                _accessToken = EditorGUILayout.PasswordField("Figma Token", _accessToken);
+                _fileInput = EditorGUILayout.TextField("File Key 或 URL", _fileInput);
+                _preferCachedFile = EditorGUILayout.Toggle("优先使用本地缓存", _preferCachedFile);
+                _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
+                if (_ignoreSslCertificateErrors)
+                {
+                    EditorGUILayout.HelpBox("仅在 Unity 报 Unable to complete SSL connection 时使用。该选项会跳过 HTTPS 证书校验。", MessageType.Warning);
+                }
+                EndSection();
+            }
+        }
+
+        private void DrawSharedSettings()
         {
             using (new EditorGUI.DisabledScope(_isBusy))
             {
@@ -233,18 +265,6 @@ namespace FigmaUiImporter.Editor
                 EditorGUILayout.EndHorizontal();
 
                 _targetCanvas = (Canvas)EditorGUILayout.ObjectField("目标 Canvas", _targetCanvas, typeof(Canvas), true);
-                EndSection();
-
-                EditorGUILayout.Space(6f);
-                BeginSection("REST 连接");
-                _accessToken = EditorGUILayout.PasswordField("Figma Token", _accessToken);
-                _fileInput = EditorGUILayout.TextField("File Key 或 URL", _fileInput);
-                _preferCachedFile = EditorGUILayout.Toggle("优先使用本地缓存", _preferCachedFile);
-                _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
-                if (_ignoreSslCertificateErrors)
-                {
-                    EditorGUILayout.HelpBox("仅在 Unity 报 Unable to complete SSL connection 时使用。该选项会跳过 HTTPS 证书校验。", MessageType.Warning);
-                }
                 EndSection();
 
                 EditorGUILayout.Space(6f);
@@ -287,13 +307,6 @@ namespace FigmaUiImporter.Editor
                 }
                 EndSection();
             }
-        }
-
-        private void DrawActions()
-        {
-            DrawNetworkImportActions();
-            EditorGUILayout.Space(8f);
-            DrawLocalImportActions();
         }
 
         private void DrawNetworkImportActions()
@@ -665,7 +678,7 @@ namespace FigmaUiImporter.Editor
                     EditorStyles.miniLabel);
             }
 
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Height(260f));
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.Height(PageTreeHeight));
             _treeScroll = EditorGUILayout.BeginScrollView(_treeScroll, GUILayout.ExpandHeight(true));
 
             if (_documentRoot == null)
