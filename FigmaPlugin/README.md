@@ -10,7 +10,7 @@
 4. 运行 `Figma2Unity Offline Exporter`。
 5. 选择导出模式、容器处理策略和图片倍率。
 6. 点击 `导出 .figma2unity.json`。
-7. 回到 Unity，打开 `Tools/Figma UI Importer`，点击 `从 Figma 插件包导入`。
+7. 回到 Unity，打开 `Tools/Figma2Unity`，点击 `从 Figma 插件包导入`。
 
 插件不会请求 Figma REST API，也不需要 Personal Access Token。它只读取当前打开文件中的当前选择，并使用 Figma Plugin API 的 `exportAsync` 导出 PNG。
 

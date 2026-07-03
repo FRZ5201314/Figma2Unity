@@ -111,11 +111,11 @@ namespace FigmaUiImporter.Editor
         private SerializedProperty _fontEntriesProperty;
         private GUIStyle _importedManifestButtonStyle;
 
-        [MenuItem("Tools/Figma UI Importer")]
+        [MenuItem("Tools/Figma2Unity")]
         public static void Open()
         {
             FigmaUiImporterWindow window = GetWindow<FigmaUiImporterWindow>();
-            window.titleContent = new GUIContent("Figma UI 导入器");
+            window.titleContent = new GUIContent("Figma2Unity");
             window.ApplyFixedWindowSize();
             window.Show();
         }

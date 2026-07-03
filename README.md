@@ -1,10 +1,20 @@
-# Figma UI Importer
+# Figma2Unity
 
 这是一个 Unity Editor 插件 MVP，用于把 Figma 中选定的 Page / Frame 导入到 Unity Canvas 中。
 
+## 预览
+
+![Figma2Unity 编辑器窗口](docs/images/editor-view.webp)
+
+![Figma2Unity 字体映射与导入列表](docs/images/editor-view-2.webp)
+
+### 离线导入演示
+
+![Figma2Unity 导入演示](docs/images/demo.webp)
+
 当前版本实现：
 
-- 中文编辑器窗口：`Tools/Figma UI Importer`
+- 中文编辑器窗口：`Tools/Figma2Unity`
 - 支持输入 Figma Personal Access Token
 - 支持输入 Figma File Key 或 Figma 文件 URL
 - 加载 Figma 文件并展示 Page / Frame
@@ -33,7 +43,7 @@
 
 ### REST API 导入
 
-1. 在 Unity 菜单打开 `Tools/Figma UI Importer`。窗口左列是会使用 Figma API 的网络导入流程，中列是只读取本地文件的插件包导入和 manifest 重建流程。
+1. 在 Unity 菜单打开 `Tools/Figma2Unity`。窗口左列是会使用 Figma API 的网络导入流程，中列是只读取本地文件的插件包导入和 manifest 重建流程。
 2. 填写 Figma Personal Access Token。
 3. 填写 Figma File Key 或文件 URL。
 4. 设置输出资源目录，默认是 `Assets/FigmaImports`。如果需要复用导入结果，可勾选 `保存为 Prefab` 并设置 Prefab 输出目录。
@@ -51,7 +61,7 @@
 2. 选择本仓库 `FigmaPlugin/manifest.json`。
 3. 在 Figma 文件中选中要导入的 Frame / Component / Instance。
 4. 运行 `Figma2Unity Offline Exporter`，导出 `.figma2unity.json`。
-5. 回到 Unity，打开 `Tools/Figma UI Importer`。
+5. 回到 Unity，打开 `Tools/Figma2Unity`。
 6. 设置输出资源目录、目标 Canvas、参考图透明度、容器处理策略、是否保存 Prefab 等 Unity 侧选项。
 7. 在“本地导入（Figma 插件包）”中点击 `导入 .figma2unity.json`，选择刚下载的 `.figma2unity.json`。
 8. Unity 会先展示离线包信息，包括节点名、节点类型、根尺寸、图片倍率、图片资源数、切图图层数、包大小和输出目录；确认后才会写入资源并重建场景。

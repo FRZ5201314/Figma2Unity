@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace FigmaUiImporter.Editor
 {
-    [CreateAssetMenu(fileName = "FigmaFontMapping", menuName = "Figma UI Importer/Font Mapping")]
+    [CreateAssetMenu(fileName = "FigmaFontMapping", menuName = "Figma2Unity/Font Mapping")]
     public sealed class FigmaFontMappingAsset : ScriptableObject
     {
         public TMP_FontAsset DefaultFont;

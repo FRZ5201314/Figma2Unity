@@ -106,7 +106,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            Debug.Log("[Figma UI Importer] " + message, binding);
+                Debug.Log("[Figma2Unity] " + message, binding);
         }
     }
 }

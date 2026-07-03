@@ -1,4 +1,4 @@
-# Unity Figma UI Importer 插件开发设计文档
+# Figma2Unity 插件开发设计文档
 
 ## 1. 目标
 
@@ -43,7 +43,7 @@ MVP 的导入结果是一个高保真的视觉还原层，适合用于 Unity 中
 
 ## 4. 用户工作流
 
-1. 用户打开 Unity 菜单：`Tools/Figma UI Importer`。
+1. 用户打开 Unity 菜单：`Tools/Figma2Unity`。
 2. 在编辑器窗口中填写：
    - Figma Personal Access Token。
    - Figma File Key 或文件 URL。
