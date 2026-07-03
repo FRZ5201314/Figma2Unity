@@ -135,6 +135,24 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void DefaultSliceModeKeepsUnmarkedRootVisualSelfBeforeChildren()
+        {
+            FigmaNodeInfo root = CreateNode("0:0", "Root Background", "FRAME", new Rect(0f, 0f, 300f, 200f));
+            root.HasVisibleFills = true;
+
+            FigmaNodeInfo button = CreateNode("1:1", "Button", "INSTANCE", new Rect(20f, 20f, 100f, 40f));
+            AddChild(root, button);
+
+            List<FigmaNodeInfo> nodes = FigmaDocumentParser.CollectImportableNodes(
+                root,
+                FigmaSliceMode.ExportSettingsThenAutoSlice);
+
+            Assert.AreEqual(2, nodes.Count);
+            Assert.AreEqual(root.Id, nodes[0].Id);
+            Assert.AreEqual(button.Id, nodes[1].Id);
+        }
+
+        [Test]
         public void MarkedOnlySliceModeKeepsMarkedAutoLayoutContainer()
         {
             FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));

@@ -275,7 +275,14 @@ namespace FigmaUiImporter.Editor
                 return false;
             }
 
-            bool canRenderSelf = node != root && IsRenderableNode(node);
+            bool isRoot = node == root;
+            bool hasOwnRootVisual = isRoot && IsRenderableNode(node) && HasVisualSelf(node);
+            if (hasOwnRootVisual)
+            {
+                results.Add(node);
+            }
+
+            bool canRenderSelf = !isRoot && IsRenderableNode(node);
             if (canRenderSelf && IsAtomicContainerNode(node))
             {
                 results.Add(node);
@@ -302,9 +309,9 @@ namespace FigmaUiImporter.Editor
                 hasCollectedChild |= CollectAutoSliceNodes(root, node.Children[i], results);
             }
 
-            if (node == root)
+            if (isRoot)
             {
-                return hasCollectedChild;
+                return hasOwnRootVisual || hasCollectedChild;
             }
 
             if (hasOwnContainerVisual)
@@ -334,6 +341,14 @@ namespace FigmaUiImporter.Editor
             if (root != null && !string.IsNullOrEmpty(root.Id) && markedMap.TryGetValue(root.Id, out markedRoot))
             {
                 merged.Add(markedRoot);
+            }
+            else if (root != null && !string.IsNullOrEmpty(root.Id))
+            {
+                FigmaNodeInfo autoRoot;
+                if (autoSliceMap.TryGetValue(root.Id, out autoRoot))
+                {
+                    merged.Add(autoRoot);
+                }
             }
 
             CollectMergedNodesInDrawOrder(root, markedMap, autoSliceMap, containerSliceStrategy, merged);
