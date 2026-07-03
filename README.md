@@ -236,6 +236,10 @@ Unity Canvas 层级还原
 按需保存 Prefab、配置 TMP 字体映射
 ```
 
+## 📜 License
+
+MIT License © 2026 FRZ
+
 ---
 
 Made for Unity UI workflow · ✨ 🚀 🧩

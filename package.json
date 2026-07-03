@@ -2,6 +2,7 @@
   "name": "com.local.figma-ui-importer",
   "displayName": "Figma2Unity",
   "version": "0.7.13",
+  "license": "MIT",
   "unity": "2019.4",
   "description": "Unity editor tool for importing Figma frames as reference images, sliced UI layers, offline packages, and prefabs.",
   "keywords": [
