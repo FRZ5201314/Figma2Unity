@@ -338,11 +338,13 @@ namespace FigmaUiImporter.Editor
             }
 
             Vector2 sizeDelta = Vector2.zero;
-            Vector2 anchoredPosition = rectTransform.anchoredPosition;
+            Vector2 rootCenteredPosition = rectTransform.anchoredPosition;
+            FigmaNodeInfo rootNode = null;
 
             FigmaManifestRebuildData data;
             if (TryLoadConversionData(binding, out data) && data.Layers.Count > 0)
             {
+                rootNode = data.RootNode;
                 ImportedLayerInfo layer = data.Layers[0];
                 layer.Kind = ImportedLayerKind.Image;
 
@@ -360,7 +362,7 @@ namespace FigmaUiImporter.Editor
                 }
 
                 sizeDelta = layer.SizeDelta;
-                anchoredPosition = layer.AnchoredPosition;
+                rootCenteredPosition = layer.AnchoredPosition;
             }
 
             if (sizeDelta.x <= 0.01f || sizeDelta.y <= 0.01f)
@@ -373,10 +375,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            Undo.RecordObject(rectTransform, "Figma 文本转 PNG");
-            rectTransform.sizeDelta = sizeDelta;
-            rectTransform.anchoredPosition = anchoredPosition;
-            EditorUtility.SetDirty(rectTransform);
+            ApplyResolvedRect(rectTransform, rootNode, rootCenteredPosition, sizeDelta, "Figma 文本转 PNG");
         }
 
         private static void ApplyTextRect(FigmaLayerBinding binding)
@@ -409,10 +408,120 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            Undo.RecordObject(rectTransform, "Figma PNG 转 TMP");
-            rectTransform.sizeDelta = layer.SizeDelta;
-            rectTransform.anchoredPosition = layer.AnchoredPosition;
+            ApplyResolvedRect(rectTransform, data.RootNode, layer.AnchoredPosition, layer.SizeDelta, "Figma PNG 转 TMP");
+        }
+
+        private static void ApplyResolvedRect(
+            RectTransform rectTransform,
+            FigmaNodeInfo rootNode,
+            Vector2 rootCenteredPosition,
+            Vector2 size,
+            string undoName)
+        {
+            if (rectTransform == null || size.x <= 0.01f || size.y <= 0.01f)
+            {
+                return;
+            }
+
+            Vector3 fallbackCenter = GetWorldCenter(rectTransform);
+            Undo.RecordObject(rectTransform, undoName);
+            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
+            rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);
+
+            RectTransform coordinateRoot;
+            if (TryFindCoordinateRoot(rectTransform, rootNode, out coordinateRoot))
+            {
+                Vector3 rootLocalCenter = ToRootLocalCenter(coordinateRoot, rootCenteredPosition);
+                SetWorldCenter(rectTransform, coordinateRoot.TransformPoint(rootLocalCenter));
+            }
+            else
+            {
+                SetWorldCenter(rectTransform, fallbackCenter);
+            }
+
             EditorUtility.SetDirty(rectTransform);
+        }
+
+        private static bool TryFindCoordinateRoot(
+            RectTransform rectTransform,
+            FigmaNodeInfo rootNode,
+            out RectTransform coordinateRoot)
+        {
+            coordinateRoot = null;
+            if (rectTransform == null)
+            {
+                return false;
+            }
+
+            Transform current = rectTransform.transform.parent;
+            while (current != null)
+            {
+                RectTransform candidate = current as RectTransform;
+                if (candidate != null && string.Equals(current.name, "Layers", StringComparison.OrdinalIgnoreCase))
+                {
+                    coordinateRoot = candidate;
+                    return true;
+                }
+
+                current = current.parent;
+            }
+
+            string safeRootId = rootNode == null || string.IsNullOrEmpty(rootNode.Id)
+                ? string.Empty
+                : FigmaPathUtility.SafeFileName(rootNode.Id);
+            current = rectTransform.transform.parent;
+            while (current != null)
+            {
+                RectTransform candidate = current as RectTransform;
+                if (candidate != null && IsImportRootName(current.name, safeRootId))
+                {
+                    coordinateRoot = candidate;
+                    return true;
+                }
+
+                current = current.parent;
+            }
+
+            return false;
+        }
+
+        private static bool IsImportRootName(string name, string safeRootId)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(safeRootId)
+                && name.IndexOf(safeRootId, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            return name.StartsWith("FigmaImport_", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Vector3 ToRootLocalCenter(RectTransform root, Vector2 centerRelativeToRoot)
+        {
+            Rect rect = root.rect;
+            Vector2 centerOffset = new Vector2(
+                (0.5f - root.pivot.x) * rect.width,
+                (0.5f - root.pivot.y) * rect.height);
+            Vector2 localCenter = centerOffset + centerRelativeToRoot;
+            return new Vector3(localCenter.x, localCenter.y, 0f);
+        }
+
+        private static Vector3 GetWorldCenter(RectTransform rectTransform)
+        {
+            Vector3[] corners = new Vector3[4];
+            rectTransform.GetWorldCorners(corners);
+            return (corners[0] + corners[2]) * 0.5f;
+        }
+
+        private static void SetWorldCenter(RectTransform rectTransform, Vector3 targetWorldCenter)
+        {
+            Vector3 currentCenter = GetWorldCenter(rectTransform);
+            rectTransform.position += targetWorldCenter - currentCenter;
         }
 
         private static bool TryLoadConversionData(
