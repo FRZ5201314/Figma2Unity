@@ -8,7 +8,7 @@ namespace FigmaUiImporter.Editor
 {
     internal sealed class FigmaImageExporter
     {
-        private const int BatchSize = 40;
+        private const int BatchSize = 20;
         private readonly FigmaApiClient _client;
         private readonly UnitySpriteAssetImporter _spriteImporter;
 

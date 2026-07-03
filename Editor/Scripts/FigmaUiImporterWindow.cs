@@ -40,7 +40,10 @@ namespace FigmaUiImporter.Editor
         private const float SectionSpacing = 8f;
         private const float PageTreeHeight = 160f;
         private const float ImportedManifestListHeight = 150f;
-        private const float LogPanelMinHeight = 108f;
+        private const float LogPanelMinHeight = 84f;
+        private const float StatusMessageMaxHeight = 44f;
+        private const float ErrorMessageMaxHeight = 56f;
+        private const float StatusMessageContentWidth = CenterColumnWidth - 36f;
 
         private static readonly string[] SliceModeLabels =
         {
@@ -93,6 +96,8 @@ namespace FigmaUiImporter.Editor
         private int _loadedFrameCount;
         private Vector2 _treeScroll;
         private Vector2 _logScroll;
+        private Vector2 _statusMessageScroll;
+        private Vector2 _errorMessageScroll;
         private Vector2 _fontEntriesScroll;
         private Vector2 _importedManifestScroll;
         private bool _isBusy;
@@ -813,14 +818,18 @@ namespace FigmaUiImporter.Editor
                 Rect rect = GUILayoutUtility.GetRect(1f, 20f, GUILayout.ExpandWidth(true));
                 EditorGUI.ProgressBar(rect, _progress, _status);
             }
+            else if (!string.IsNullOrEmpty(_error))
+            {
+                EditorGUILayout.LabelField(_status, EditorStyles.miniLabel);
+            }
             else
             {
-                EditorGUILayout.HelpBox(_status, MessageType.None);
+                DrawBoundedHelpBox(ref _statusMessageScroll, _status, MessageType.None, StatusMessageMaxHeight);
             }
 
             if (!string.IsNullOrEmpty(_error))
             {
-                EditorGUILayout.HelpBox(_error, MessageType.Error);
+                DrawBoundedHelpBox(ref _errorMessageScroll, _error, MessageType.Error, ErrorMessageMaxHeight);
             }
 
             EditorGUILayout.LabelField("日志", EditorStyles.boldLabel);
@@ -843,6 +852,30 @@ namespace FigmaUiImporter.Editor
             }
             EditorGUILayout.EndVertical();
             EndSection();
+        }
+
+        private static void DrawBoundedHelpBox(
+            ref Vector2 scroll,
+            string message,
+            MessageType messageType,
+            float maxHeight)
+        {
+            if (string.IsNullOrEmpty(message))
+            {
+                return;
+            }
+
+            GUIContent content = new GUIContent(message);
+            float contentHeight = EditorStyles.helpBox.CalcHeight(content, StatusMessageContentWidth) + 6f;
+            if (contentHeight <= maxHeight)
+            {
+                EditorGUILayout.HelpBox(message, messageType);
+                return;
+            }
+
+            scroll = EditorGUILayout.BeginScrollView(scroll, GUILayout.Height(maxHeight));
+            EditorGUILayout.HelpBox(message, messageType);
+            EditorGUILayout.EndScrollView();
         }
 
         private async Task LoadFileAsync(bool forceRemote)

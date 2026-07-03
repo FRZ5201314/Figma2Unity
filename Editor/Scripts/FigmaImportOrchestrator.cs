@@ -55,7 +55,11 @@ namespace FigmaUiImporter.Editor
             FigmaPathUtility.EnsureAssetFolder(outputFolder);
 
             string referenceAssetPath = string.Empty;
-            if (settings.CreateReference)
+            if (settings.CreateReference && selectedRoot.IsPage)
+            {
+                progress.Report(new FigmaImportProgress("Page 导入跳过整页参考图，避免下载超大页面图片...", 0.24f));
+            }
+            else if (settings.CreateReference)
             {
                 referenceAssetPath = FigmaPathUtility.CombineAssetPath(outputFolder, "reference.png");
                 await _imageExporter.ExportSingleImageAsync(
