@@ -446,6 +446,11 @@ function collectAutoSliceNodes(root, node, results) {
     return true;
   }
 
+  var hasOwnContainerVisual = canRenderSelf && isContainer && hasVisualSelf(node);
+  if (hasOwnContainerVisual) {
+    results.push(node);
+  }
+
   var hasCollectedChild = false;
   var children = getChildren(node);
   for (var i = 0; i < children.length; i++) {
@@ -454,6 +459,10 @@ function collectAutoSliceNodes(root, node, results) {
 
   if (node === root) {
     return hasCollectedChild;
+  }
+
+  if (hasOwnContainerVisual) {
+    return true;
   }
 
   if (canRenderSelf && !hasCollectedChild && (hasExportSettings(node) || children.length === 0 || hasRenderableSelf(node))) {
@@ -499,6 +508,12 @@ function collectMergedNodesInDrawOrder(node, markedMap, autoMap, containerStrate
     }
 
     if (autoMap[child.id] && (isAtomicContainerNode(child) || !hasMappedDescendant(child, markedMap))) {
+      if (!isAtomicContainerNode(child) && hasVisualSelf(child) && hasMappedDescendant(child, autoMap)) {
+        results.push(autoMap[child.id]);
+        collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results);
+        continue;
+      }
+
       results.push(autoMap[child.id]);
       continue;
     }

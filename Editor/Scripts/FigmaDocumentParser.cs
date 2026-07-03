@@ -290,6 +290,12 @@ namespace FigmaUiImporter.Editor
                 return true;
             }
 
+            bool hasOwnContainerVisual = canRenderSelf && isContainer && HasVisualSelf(node);
+            if (hasOwnContainerVisual)
+            {
+                results.Add(node);
+            }
+
             bool hasCollectedChild = false;
             for (int i = 0; i < node.Children.Count; i++)
             {
@@ -299,6 +305,11 @@ namespace FigmaUiImporter.Editor
             if (node == root)
             {
                 return hasCollectedChild;
+            }
+
+            if (hasOwnContainerVisual)
+            {
+                return true;
             }
 
             if (canRenderSelf && !hasCollectedChild && (node.HasExportSettings || node.Children.Count == 0 || HasRenderableSelf(node)))
@@ -366,6 +377,15 @@ namespace FigmaUiImporter.Editor
                 if (autoSliceMap.TryGetValue(child.Id, out autoSliceNode)
                     && (IsAtomicContainerNode(child) || !HasMappedDescendant(child, markedMap)))
                 {
+                    if (!IsAtomicContainerNode(child)
+                        && HasVisualSelf(child)
+                        && HasMappedDescendant(child, autoSliceMap))
+                    {
+                        results.Add(autoSliceNode);
+                        CollectMergedNodesInDrawOrder(child, markedMap, autoSliceMap, containerSliceStrategy, results);
+                        continue;
+                    }
+
                     results.Add(autoSliceNode);
                     continue;
                 }
