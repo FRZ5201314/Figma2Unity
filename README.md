@@ -2,7 +2,7 @@
 
 > ✨ 将 Figma 的 Page / Frame 快速导入 Unity Canvas 的编辑器插件 MVP。
 
-Figma2Unity 是一个 Unity Package Manager 本地包，支持通过 Figma REST API 在线导入，也支持使用配套 Figma 本地插件导出 `.figma2unity.json` 离线包，再在 Unity 中重建 Canvas 层级、参考图、切图资源、TextMeshPro 文本和 Prefab。
+Figma2Unity 是一个 Unity Package Manager 本地包。推荐优先使用配套 Figma 本地插件导出 `.figma2unity.json` 离线包，再在 Unity 中重建 Canvas 层级、参考图、切图资源、TextMeshPro 文本和 Prefab；同时也保留通过 Figma REST API 在线导入的流程。
 
 ## 🌟 功能亮点
 
@@ -16,7 +16,7 @@ Figma2Unity 是一个 Unity Package Manager 本地包，支持通过 Figma REST 
 | 🎯 像素校准 | 使用导出 PNG 实际尺寸和参考图局部匹配校准切图位置 |
 | 📄 Manifest | 自动生成 `manifest.json`，支持离线重建场景 |
 | 🧯 诊断报告 | 自动生成 `diagnostics.json`，记录导入、展开、合并、跳过原因 |
-| 📦 离线包 | 支持导入 Figma 本地插件导出的 `.figma2unity.json` |
+| 📦 离线包 | ⭐ 推荐导入方式：支持导入 Figma 本地插件导出的 `.figma2unity.json` |
 | 🔤 文本导入 | 支持图片、TextMeshPro、智能三种文本模式 |
 | 🧠 字体映射 | 项目级全局 TMP 字体映射表，可从 manifest 自动补全字体条目 |
 | 🧱 场景管理 | 支持覆盖同名场景根节点 |
@@ -46,24 +46,11 @@ Window / Package Manager / + / Add package from disk...
 
 ## ⚡ 快速开始
 
-### 🌐 REST API 导入
+> ⭐ 推荐优先使用 Figma 插件离线包导入：不需要 Figma Personal Access Token，不依赖 REST API 额度，也更适合团队内保存、复现和排查导入结果。REST API 导入更适合作为需要直接从 Unity 拉取设计稿结构时的补充方式。
 
-1. 在 Unity 菜单打开 `Tools/Figma2Unity`。
-2. 在左列填写 Figma Personal Access Token。
-3. 填写 Figma File Key 或 Figma 文件 URL。
-4. 设置输出资源目录，默认是 `Assets/FigmaImports`。
-5. 如需复用结果，勾选 `保存为 Prefab` 并设置 Prefab 输出目录。
-6. 点击 `加载 Figma 文件`。
-7. 在 Page / Frame 树中选择要导入的目标。
-8. 在“页面 / Frame”区块中点击 `导入选中项`。
+### ⭐ 推荐：Figma 插件离线包导入
 
-> 💡 默认会优先读取本地缓存，减少 Figma API 请求。需要获取最新设计稿时，点击 `强制重新加载`。
-
-如果 Figma API 正在限流，且项目里已有一次成功导入生成的 `manifest.json` 和 PNG 资源，可以在窗口左下角“已导入项目”列表中点击对应项目按钮重建场景。该流程不会请求 Figma，只会使用本地 `reference.png` 和 `layers/*.png` 重新生成 Canvas 层级。
-
-### 🧳 Figma 插件离线包导入
-
-REST API 被限流，或希望完全离线导入时，可以使用仓库内配套的 Figma 本地插件：
+这是更推荐的日常导入方式，尤其适合接口限流、内网代理、团队协作和需要保留导入包的场景。
 
 1. 在 Figma 中打开 `Plugins / Development / Import plugin from manifest...`。
 2. 选择本仓库 `FigmaPlugin/manifest.json`。
@@ -106,6 +93,23 @@ Canvas
         ├── Layer_[Name]_[NodeId]
         └── ...
 ```
+
+### 🌐 REST API 导入（可选）
+
+REST API 导入适合希望直接在 Unity 内加载 Figma 文件结构、选择 Page / Frame 并发起导入的场景。
+
+1. 在 Unity 菜单打开 `Tools/Figma2Unity`。
+2. 在左列填写 Figma Personal Access Token。
+3. 填写 Figma File Key 或 Figma 文件 URL。
+4. 设置输出资源目录，默认是 `Assets/FigmaImports`。
+5. 如需复用结果，勾选 `保存为 Prefab` 并设置 Prefab 输出目录。
+6. 点击 `加载 Figma 文件`。
+7. 在 Page / Frame 树中选择要导入的目标。
+8. 在“页面 / Frame”区块中点击 `导入选中项`。
+
+> 💡 默认会优先读取本地缓存，减少 Figma API 请求。需要获取最新设计稿时，点击 `强制重新加载`。
+
+如果 Figma API 正在限流，且项目里已有一次成功导入生成的 `manifest.json` 和 PNG 资源，可以在窗口左下角“已导入项目”列表中点击对应项目按钮重建场景。该流程不会请求 Figma，只会使用本地 `reference.png` 和 `layers/*.png` 重新生成 Canvas 层级。
 
 ## 🧩 Prefab 输出
 
@@ -223,7 +227,7 @@ diagnostics.json
 ```text
 Figma Frame
    ↓
-选择导入方式：REST API / 离线包 / Manifest 重建
+推荐使用 Figma 插件导出 .figma2unity.json 离线包
    ↓
 生成 reference.png、layers、manifest.json、diagnostics.json
    ↓
