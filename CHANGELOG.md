@@ -4,6 +4,7 @@
 
 - Added `FigmaLayerBinding` Inspector actions for switching Figma TEXT nodes between fallback PNG Image and editable TextMeshProUGUI.
 - Added lightweight manifest lookup for converting imported PNG text layers back to TMP and removed the redundant scene `FigmaTextBinding`.
+- Prepared Git URL installation metadata, release docs, and the Figma offline exporter zip workflow.
 
 ## 0.7.12
 

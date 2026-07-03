@@ -34,9 +34,57 @@ Figma2Unity 是一个 Unity Package Manager 本地包。推荐优先使用配套
 
 ## 📦 安装
 
-这是一个 Unity Package Manager 本地包。推荐放在 Unity 项目外部，或 Unity 项目内 `Packages` 目录外。
+### 🚀 通过 Git URL 安装（推荐）
 
 在 Unity 中打开：
+
+```text
+Window / Package Manager / + / Add package from git URL...
+```
+
+输入固定版本地址：
+
+```text
+https://gitee.com/furanzhang/figma2unity.git#v0.7.13
+```
+
+也可以安装 `master` 最新版本：
+
+```text
+https://gitee.com/furanzhang/figma2unity.git
+```
+
+包名：
+
+```text
+com.frz.figma2unity
+```
+
+### 🧳 Figma 离线导出插件
+
+Figma 侧插件作为配套发布包提供，建议从 Gitee Release 下载：
+
+```text
+Figma2Unity-Offline-Exporter-v0.7.13.zip
+```
+
+解压后在 Figma 中打开：
+
+```text
+Plugins / Development / Import plugin from manifest...
+```
+
+然后选择解压目录中的：
+
+```text
+manifest.json
+```
+
+开发调试时，也可以直接选择仓库内的 `FigmaPlugin/manifest.json`。
+
+### 🛠️ 本地安装（开发调试）
+
+如果是本地开发，可以把仓库放在 Unity 项目外部，或 Unity 项目内 `Packages` 目录外，然后在 Unity 中打开：
 
 ```text
 Window / Package Manager / + / Add package from disk...

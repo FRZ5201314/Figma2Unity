@@ -1,5 +1,5 @@
 {
-  "name": "com.local.figma-ui-importer",
+  "name": "com.frz.figma2unity",
   "displayName": "Figma2Unity",
   "version": "0.7.13",
   "license": "MIT",
@@ -16,6 +16,6 @@
     "com.unity.textmeshpro": "2.1.0"
   },
   "author": {
-    "name": "Local"
+    "name": "FRZ"
   }
 }

@@ -4,6 +4,15 @@
 
 ## 使用方式
 
+### 发布包安装
+
+1. 下载 `Figma2Unity-Offline-Exporter-v0.7.13.zip`。
+2. 解压到本地目录。
+3. 在 Figma 中打开 `Plugins / Development / Import plugin from manifest...`。
+4. 选择解压目录中的 `manifest.json`。
+
+### 仓库源码安装
+
 1. 在 Figma 中打开 `Plugins / Development / Import plugin from manifest...`。
 2. 选择本目录下的 `manifest.json`。
 3. 在设计稿里选中一个 Frame / Component / Instance。
