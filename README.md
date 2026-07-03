@@ -92,18 +92,6 @@ Plugins / Development / Import plugin from manifest...
 manifest.json
 ```
 
-开发调试时，也可以直接选择仓库内的 `FigmaPlugin/manifest.json`。
-
-### 🛠️ 本地安装（开发调试）
-
-如果是本地开发，可以把仓库放在 Unity 项目外部，或 Unity 项目内 `Packages` 目录外，然后在 Unity 中打开：
-
-```text
-Window / Package Manager / + / Add package from disk...
-```
-
-然后选择本目录下的 `package.json`。
-
 ## ⚡ 快速开始
 
 > ⭐ 推荐优先使用 Figma 插件离线包导入：不需要 Figma Personal Access Token，不依赖 REST API 额度，也更适合团队内保存、复现和排查导入结果。REST API 导入更适合作为需要直接从 Unity 拉取设计稿结构时的补充方式。
