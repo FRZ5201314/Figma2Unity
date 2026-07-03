@@ -42,13 +42,25 @@ Figma2Unity 是一个 Unity Package Manager 本地包。推荐优先使用配套
 Window / Package Manager / + / Add package from git URL...
 ```
 
-输入固定版本地址：
+输入固定版本地址（GitHub）：
+
+```text
+https://github.com/FRZ5201314/Figma2Unity.git#v0.7.13
+```
+
+如果访问 GitHub 不稳定，也可以使用 Gitee 地址：
 
 ```text
 https://gitee.com/furanzhang/figma2unity.git#v0.7.13
 ```
 
 也可以安装 `master` 最新版本：
+
+```text
+https://github.com/FRZ5201314/Figma2Unity.git
+```
+
+Gitee 地址：
 
 ```text
 https://gitee.com/furanzhang/figma2unity.git
