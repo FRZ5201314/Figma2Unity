@@ -270,6 +270,13 @@ diagnostics.json
 | `FigmaPluginPackageImporterTests` | `.figma2unity.json` 信息读取、解包、图片写入、资源引用校验、base64 损坏提示和非法资源路径拦截 |
 | `FigmaFontMappingServiceTests` | 全局字体映射条目去重、PNG 文本图层元数据收集和 manifest 文本元数据扫描 |
 
+## ✅ 已验证 Unity 版本
+
+| Unity 版本 | 验证状态 |
+| --- | --- |
+| `2019.4.40` | ✅ 已验证 |
+| `2021.3.40` | ✅ 已验证 |
+
 ## 🗺️ 推荐工作流
 
 ```text
