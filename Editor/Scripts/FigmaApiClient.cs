@@ -12,6 +12,7 @@ namespace FigmaUiImporter.Editor
     {
         private const string ApiBaseUrl = "https://api.figma.com/v1";
         private const int MaxAutomaticRateLimitDelayMs = 30000;
+        private const int DownloadTimeoutSeconds = 120;
         private readonly string _accessToken;
         private readonly bool _ignoreSslCertificateErrors;
         private readonly Action<string> _statusReporter;
@@ -139,10 +140,63 @@ namespace FigmaUiImporter.Editor
         {
             using (UnityWebRequest request = UnityWebRequest.Get(url))
             {
-                ConfigureRequest(request);
+                ConfigureRequest(request, DownloadTimeoutSeconds);
                 await SendRequestAsync(request, cancellationToken, false);
                 return request.downloadHandler.data;
             }
+        }
+
+        /// <summary>
+        /// 图片 CDN 偶发失败不应中断整次导入；只对网络错误、429 和 5xx 做有限重试。
+        /// </summary>
+        public async Task<byte[]> DownloadBytesWithRetryAsync(string url, CancellationToken cancellationToken)
+        {
+            const int maxAttempts = 3;
+            Exception lastException = null;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    return await DownloadBytesAsync(url, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    lastException = exception;
+                    if (attempt == maxAttempts || !ShouldRetryDownload(exception))
+                    {
+                        throw;
+                    }
+
+                    int delayMs = 1000 * attempt;
+                    ReportStatus(string.Format(
+                        "图片下载失败，等待 {0} 秒后重试（第 {1}/{2} 次）：{3}",
+                        delayMs / 1000,
+                        attempt,
+                        maxAttempts,
+                        exception.Message));
+                    await Task.Delay(delayMs, cancellationToken);
+                }
+            }
+
+            throw lastException ?? new InvalidOperationException("图片下载失败。");
+        }
+
+        private static bool ShouldRetryDownload(Exception exception)
+        {
+            FigmaApiException apiException = exception as FigmaApiException;
+            if (apiException == null)
+            {
+                return true;
+            }
+
+            return apiException.StatusCode == 0
+                || apiException.StatusCode == 429
+                || apiException.StatusCode >= 500;
         }
 
         private async Task<string> SendTextWithRetryAsync(string url, bool authenticated, CancellationToken cancellationToken)
@@ -160,7 +214,7 @@ namespace FigmaUiImporter.Editor
                 {
                     using (UnityWebRequest request = UnityWebRequest.Get(url))
                     {
-                        ConfigureRequest(request);
+                        ConfigureRequest(request, 60);
                         if (authenticated)
                         {
                             request.SetRequestHeader("X-Figma-Token", _accessToken);
@@ -212,9 +266,9 @@ namespace FigmaUiImporter.Editor
             throw lastException ?? new InvalidOperationException("Figma 请求失败。");
         }
 
-        private void ConfigureRequest(UnityWebRequest request)
+        private void ConfigureRequest(UnityWebRequest request, int timeoutSeconds)
         {
-            request.timeout = 60;
+            request.timeout = timeoutSeconds;
             if (_ignoreSslCertificateErrors)
             {
                 request.certificateHandler = new TrustAllCertificateHandler();

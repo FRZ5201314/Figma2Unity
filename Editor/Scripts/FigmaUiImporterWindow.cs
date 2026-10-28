@@ -19,6 +19,7 @@ namespace FigmaUiImporter.Editor
         private const string PrefTextImportMode = "FigmaUiImporter.TextImportMode";
         private const string PrefFontMappingPath = "FigmaUiImporter.FontMappingPath";
         private const string PrefImageScale = "FigmaUiImporter.ImageScale";
+        private const string PrefCompressionMode = "FigmaUiImporter.CompressionMode";
         private const string PrefReferenceAlpha = "FigmaUiImporter.ReferenceAlpha";
         private const string PrefCreateReference = "FigmaUiImporter.CreateReference";
         private const string PrefDisableRaycast = "FigmaUiImporter.DisableRaycast";
@@ -67,6 +68,12 @@ namespace FigmaUiImporter.Editor
             "智能：普通文本转 TMP，复杂文本用图片"
         };
 
+        private static readonly string[] CompressionModeLabels =
+        {
+            "不压缩（质量优先）",
+            "压缩（体积优先）"
+        };
+
         private string _accessToken;
         private string _fileInput;
         private string _loadedFileKey;
@@ -77,6 +84,7 @@ namespace FigmaUiImporter.Editor
         private FigmaTextImportMode _textImportMode;
         private FigmaFontMappingAsset _fontMapping;
         private float _imageScale;
+        private TextureImporterCompressionMode _compressionMode;
         private bool _createReference;
         private float _referenceAlpha;
         private bool _disableRaycastTarget;
@@ -135,6 +143,9 @@ namespace FigmaUiImporter.Editor
                 _fontMapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>(FigmaFontMappingService.GlobalMappingAssetPath);
             }
             _imageScale = EditorPrefs.GetFloat(PrefImageScale, 1f);
+            _compressionMode = (TextureImporterCompressionMode)EditorPrefs.GetInt(
+                PrefCompressionMode,
+                (int)TextureImporterCompressionMode.None);
             _referenceAlpha = EditorPrefs.GetFloat(PrefReferenceAlpha, 0.5f);
             _createReference = EditorPrefs.GetBool(PrefCreateReference, true);
             _disableRaycastTarget = EditorPrefs.GetBool(PrefDisableRaycast, true);
@@ -304,6 +315,10 @@ namespace FigmaUiImporter.Editor
                     EditorGUILayout.ObjectField("全局字体映射", _fontMapping, typeof(FigmaFontMappingAsset), false);
                 }
                 _imageScale = Mathf.Clamp(EditorGUILayout.FloatField("图片倍率", _imageScale), 0.01f, 4f);
+                _compressionMode = (TextureImporterCompressionMode)EditorGUILayout.Popup(
+                    "纹理压缩",
+                    (int)_compressionMode,
+                    CompressionModeLabels);
                 _createReference = EditorGUILayout.Toggle("创建参考图", _createReference);
                 using (new EditorGUI.DisabledScope(!_createReference))
                 {
@@ -1217,7 +1232,9 @@ namespace FigmaUiImporter.Editor
                 }
 
                 Undo.RecordObject(_fontMapping, "更新 Figma 字体映射");
-                FontMappingUpdateResult result = FigmaFontMappingService.UpdateFromImportedManifests(_fontMapping);
+                FontMappingUpdateResult result = FigmaFontMappingService.UpdateFromImportedManifests(
+                    _fontMapping,
+                    new[] { FigmaPathUtility.NormalizeAssetFolder(_outputFolder) });
                 if (_fontMappingSerializedObject != null)
                 {
                     _fontMappingSerializedObject.Update();
@@ -1506,6 +1523,13 @@ namespace FigmaUiImporter.Editor
             int sliceCount = importableNodes.Count;
             AddLog("预计切图数量：" + sliceCount);
 
+            int overlapCount = FigmaDocumentParser.CountNodesWithSelectedAncestor(importableNodes);
+            if (overlapCount > 0)
+            {
+                AddLog("REST 导入提示：" + overlapCount
+                    + " 个切图的祖先容器也会导出，半透明/阴影区域可能出现重复叠加；需要严格避免时请改用 Figma 插件离线包。");
+            }
+
             if (sliceCount <= SliceWarningThreshold)
             {
                 return true;
@@ -1530,6 +1554,7 @@ namespace FigmaUiImporter.Editor
             settings.FontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
             _fontMapping = settings.FontMapping;
             settings.ImageScale = _imageScale;
+            settings.CompressionMode = _compressionMode;
             settings.CreateReference = _createReference;
             settings.ReferenceAlpha = _referenceAlpha;
             settings.DisableRaycastTarget = _disableRaycastTarget;
@@ -1635,6 +1660,7 @@ namespace FigmaUiImporter.Editor
             EditorPrefs.SetInt(PrefTextImportMode, (int)_textImportMode);
             EditorPrefs.SetString(PrefFontMappingPath, _fontMapping == null ? string.Empty : AssetDatabase.GetAssetPath(_fontMapping));
             EditorPrefs.SetFloat(PrefImageScale, _imageScale);
+            EditorPrefs.SetInt(PrefCompressionMode, (int)_compressionMode);
             EditorPrefs.SetFloat(PrefReferenceAlpha, _referenceAlpha);
             EditorPrefs.SetBool(PrefCreateReference, _createReference);
             EditorPrefs.SetBool(PrefDisableRaycast, _disableRaycastTarget);

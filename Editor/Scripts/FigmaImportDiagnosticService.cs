@@ -23,6 +23,14 @@ namespace FigmaUiImporter.Editor
             ReportDto report = CreateBaseReport(settings, selectedRoot);
             report.source = "Figma API";
             report.exportedLayerCount = layers == null ? 0 : layers.Count;
+            int overlapCount = FigmaDocumentParser.CountNodesWithSelectedAncestor(plan.Nodes);
+            if (overlapCount > 0)
+            {
+                report.warnings.Add(
+                    "REST 图片接口无法隐藏已单独导出的子级，检测到 " + overlapCount
+                    + " 个切图的祖先容器也会导出，半透明/阴影区域可能出现重复叠加。");
+            }
+
             Dictionary<string, ImportedLayerInfo> layerMap = ToLayerMap(layers);
 
             for (int i = 0; i < plan.Diagnostics.Count; i++)
@@ -146,6 +154,7 @@ namespace FigmaUiImporter.Editor
             public string containerSliceStrategy;
             public string textImportMode;
             public int exportedLayerCount;
+            public List<string> warnings = new List<string>();
             public List<NodeDto> nodes = new List<NodeDto>();
         }
 

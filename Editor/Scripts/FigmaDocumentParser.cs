@@ -197,6 +197,45 @@ namespace FigmaUiImporter.Editor
             return plan;
         }
 
+        /// <summary>
+        /// 统计导出计划中“祖先也已被选中”的节点数量。REST 图片接口无法隐藏子级，
+        /// 这类节点会与祖先的整张 PNG 重复叠加，窗口可据此提示用户。
+        /// </summary>
+        public static int CountNodesWithSelectedAncestor(IList<FigmaNodeInfo> nodes)
+        {
+            if (nodes == null || nodes.Count == 0)
+            {
+                return 0;
+            }
+
+            HashSet<string> selectedIds = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                if (nodes[i] != null && !string.IsNullOrEmpty(nodes[i].Id))
+                {
+                    selectedIds.Add(nodes[i].Id);
+                }
+            }
+
+            int overlapCount = 0;
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                FigmaNodeInfo current = nodes[i] == null ? null : nodes[i].Parent;
+                while (current != null)
+                {
+                    if (!string.IsNullOrEmpty(current.Id) && selectedIds.Contains(current.Id))
+                    {
+                        overlapCount++;
+                        break;
+                    }
+
+                    current = current.Parent;
+                }
+            }
+
+            return overlapCount;
+        }
+
         public static bool EnsureBoundsFromChildren(FigmaNodeInfo node)
         {
             if (node == null)
@@ -772,6 +811,8 @@ namespace FigmaUiImporter.Editor
             node.Type = GetString(data, "type");
             node.LayoutMode = GetString(data, "layoutMode");
             node.Visible = !data.ContainsKey("visible") || GetBool(data, "visible", true);
+            // GROUP / TEXT 等类型没有 clipsContent 字段，默认不裁剪；Frame 类节点默认裁剪。
+            node.ClipsContent = GetBool(data, "clipsContent", node.IsFrameLike);
             node.HasAbsoluteBounds = TryGetBounds(data, "absoluteBoundingBox", out node.AbsoluteBounds);
             node.HasAbsoluteRenderBounds = TryGetBounds(data, "absoluteRenderBounds", out node.AbsoluteRenderBounds);
             if ((!node.HasAbsoluteBounds || !IsUsableRect(node.AbsoluteBounds)) && node.HasAbsoluteRenderBounds)

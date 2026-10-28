@@ -6,7 +6,7 @@
 
 ### 发布包安装
 
-1. 下载 `Figma2Unity-Offline-Exporter-v0.7.13.zip`。
+1. 从 [GitHub Releases](https://github.com/FRZ5201314/Figma2Unity/releases) 或 [Gitee Releases](https://gitee.com/furanzhang/figma2unity/releases) 下载最新的 `Figma2Unity-Offline-Exporter-v*.zip`。
 2. 解压到本地目录。
 3. 在 Figma 中打开 `Plugins / Development / Import plugin from manifest...`。
 4. 选择解压目录中的 `manifest.json`。

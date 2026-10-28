@@ -117,6 +117,11 @@ async function exportSelectedNode(options) {
       selectedNodeId: root.id,
       selectedNodeName: root.name || "Selection",
       selectedNodeType: root.type || "FRAME",
+      // 只有 Frame 类节点会显式提供 clipsContent；GROUP 默认不裁剪。
+      clipsContent: root.clipsContent === undefined
+        ? (root.type === "FRAME" || root.type === "COMPONENT" || root.type === "INSTANCE")
+        : root.clipsContent === true,
+      clipsContentVersion: 1,
       containerSliceStrategy: containerStrategy,
       textImportMode: "metadata",
       importedAt: now,

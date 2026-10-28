@@ -68,6 +68,8 @@ namespace FigmaUiImporter.Editor
         public string Type;
         public string LayoutMode;
         public bool Visible = true;
+        /// <summary>Figma 节点是否裁剪超出边界的内容；GROUP 等非 Frame 类型通常不裁剪。</summary>
+        public bool ClipsContent = true;
         public Rect AbsoluteBounds;
         public bool HasAbsoluteBounds;
         public Rect AbsoluteRenderBounds;

@@ -116,6 +116,14 @@ namespace FigmaUiImporter.Editor
             }
         }
 
+        /// <summary>判断资源目录下是否已有文件，用于阻止未勾选覆盖时复用旧导入目录。</summary>
+        public static bool AssetFolderHasContents(string assetFolder)
+        {
+            string fullPath = ToFullPath(assetFolder);
+            return Directory.Exists(fullPath)
+                && Directory.GetFiles(fullPath, "*", SearchOption.AllDirectories).Length > 0;
+        }
+
         public static string SafeFileName(string value)
         {
             if (string.IsNullOrEmpty(value))

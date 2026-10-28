@@ -52,6 +52,13 @@ namespace FigmaUiImporter.Editor
             }
 
             string outputFolder = FigmaPathUtility.BuildImportFolder(settings.OutputFolder, settings.FileKey, selectedRoot.Id);
+            if (!settings.OverwriteExisting && FigmaPathUtility.AssetFolderHasContents(outputFolder))
+            {
+                throw new InvalidOperationException(
+                    "输出目录已存在导入内容：" + outputFolder
+                    + "。请勾选“覆盖同名场景根节点 / Prefab”，或更换输出资源目录后再导入，避免旧场景和新 manifest 不一致。");
+            }
+
             FigmaPathUtility.EnsureAssetFolder(outputFolder);
 
             string referenceAssetPath = string.Empty;

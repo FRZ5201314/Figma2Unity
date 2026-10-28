@@ -8,6 +8,8 @@ namespace FigmaUiImporter.Editor
     internal sealed class FigmaLayerGeometryResolver : IDisposable
     {
         private const int MaxSamples = 512;
+        private const int MaxSampleCandidates = MaxSamples * 8;
+        private const int MaxCoarseGridSteps = 64;
         private const int MinAlpha = 48;
         private const int StrongAlpha = 128;
         private const float MaxAcceptedMeanDifference = 48f;
@@ -153,24 +155,52 @@ namespace FigmaUiImporter.Editor
             int bestX = expectedX;
             int bestY = expectedY;
 
-            for (int y = minY; y <= maxY; y++)
-            {
-                for (int x = minX; x <= maxX; x++)
-                {
-                    int comparedSamples;
-                    float score = ScoreAt(_reference, layerTexture, samples, x, y, out comparedSamples);
-                    if (comparedSamples < minComparedSamples)
-                    {
-                        continue;
-                    }
+            // 先评估 Figma 期望位置，再做粗网格搜索，最后在粗结果附近细化。
+            // 大搜索窗口下这能把 O(半径² × 样本数) 降到约 1/20。
+            EvaluateOffset(
+                _reference,
+                layerTexture,
+                samples,
+                expectedX,
+                expectedY,
+                minComparedSamples,
+                ref bestScore,
+                ref bestX,
+                ref bestY);
 
-                    if (score < bestScore)
-                    {
-                        bestScore = score;
-                        bestX = x;
-                        bestY = y;
-                    }
-                }
+            int coarseStep = Mathf.Max(
+                1,
+                Mathf.CeilToInt(Mathf.Max(maxX - minX, maxY - minY) / (float)MaxCoarseGridSteps));
+            SearchGrid(
+                _reference,
+                layerTexture,
+                samples,
+                minX,
+                maxX,
+                minY,
+                maxY,
+                coarseStep,
+                minComparedSamples,
+                ref bestScore,
+                ref bestX,
+                ref bestY);
+
+            if (coarseStep > 1)
+            {
+                int fineRadius = coarseStep + 1;
+                SearchGrid(
+                    _reference,
+                    layerTexture,
+                    samples,
+                    Mathf.Max(minX, bestX - fineRadius),
+                    Mathf.Min(maxX, bestX + fineRadius),
+                    Mathf.Max(minY, bestY - fineRadius),
+                    Mathf.Min(maxY, bestY + fineRadius),
+                    1,
+                    minComparedSamples,
+                    ref bestScore,
+                    ref bestX,
+                    ref bestY);
             }
 
             if (bestScore > MaxAcceptedMeanDifference)
@@ -196,6 +226,115 @@ namespace FigmaUiImporter.Editor
                 imageSize.y);
             anchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(_rootBounds, imageBounds);
             return true;
+        }
+
+        private static void SearchGrid(
+            TextureData reference,
+            TextureData layer,
+            IList<SamplePoint> samples,
+            int minX,
+            int maxX,
+            int minY,
+            int maxY,
+            int step,
+            int minComparedSamples,
+            ref float bestScore,
+            ref int bestX,
+            ref int bestY)
+        {
+            if (minX > maxX || minY > maxY)
+            {
+                return;
+            }
+
+            int stride = Mathf.Max(1, step);
+            for (int y = minY; y <= maxY; y += stride)
+            {
+                int rowY = Mathf.Min(y, maxY);
+                for (int x = minX; x <= maxX; x += stride)
+                {
+                    EvaluateOffset(
+                        reference,
+                        layer,
+                        samples,
+                        Mathf.Min(x, maxX),
+                        rowY,
+                        minComparedSamples,
+                        ref bestScore,
+                        ref bestX,
+                        ref bestY);
+                }
+
+                // 步长不一定正好落在右边界，补一次边缘评估。
+                if ((maxX - minX) % stride != 0)
+                {
+                    EvaluateOffset(
+                        reference,
+                        layer,
+                        samples,
+                        maxX,
+                        rowY,
+                        minComparedSamples,
+                        ref bestScore,
+                        ref bestX,
+                        ref bestY);
+                }
+            }
+
+            // 同理补下边界。
+            if ((maxY - minY) % stride != 0)
+            {
+                for (int x = minX; x <= maxX; x += stride)
+                {
+                    EvaluateOffset(
+                        reference,
+                        layer,
+                        samples,
+                        x,
+                        maxY,
+                        minComparedSamples,
+                        ref bestScore,
+                        ref bestX,
+                        ref bestY);
+                }
+
+                EvaluateOffset(
+                    reference,
+                    layer,
+                    samples,
+                    maxX,
+                    maxY,
+                    minComparedSamples,
+                    ref bestScore,
+                    ref bestX,
+                    ref bestY);
+            }
+        }
+
+        private static void EvaluateOffset(
+            TextureData reference,
+            TextureData layer,
+            IList<SamplePoint> samples,
+            int offsetX,
+            int offsetY,
+            int minComparedSamples,
+            ref float bestScore,
+            ref int bestX,
+            ref int bestY)
+        {
+            int comparedSamples;
+            float score = ScoreAt(reference, layer, samples, offsetX, offsetY, out comparedSamples);
+            if (comparedSamples < minComparedSamples)
+            {
+                return;
+            }
+
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestX = offsetX;
+                bestY = offsetY;
+            }
         }
 
         private int ResolveHorizontalPosition(
@@ -293,16 +432,18 @@ namespace FigmaUiImporter.Editor
 
         private static List<SamplePoint> BuildSamples(TextureData texture, int minAlpha)
         {
-            List<SamplePoint> visible = new List<SamplePoint>();
-            for (int y = 0; y < texture.Height; y++)
+            // 限制候选样本上限，避免大图（例如 4K 切图）一次生成数百万个 SamplePoint。
+            long pixelCount = (long)texture.Width * texture.Height;
+            int stride = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(pixelCount / (float)MaxSampleCandidates)));
+            List<SamplePoint> visible = CollectSamples(texture, minAlpha, stride);
+
+            // 稀疏内容先用步长采样可能漏掉过多像素，退半步再采一次。
+            if (visible.Count < 24 && stride > 1)
             {
-                for (int x = 0; x < texture.Width; x++)
+                int fallbackStride = Mathf.Max(1, stride / 2);
+                if (fallbackStride < stride)
                 {
-                    Color32 color = texture.GetPixelTopLeft(x, y);
-                    if (color.a >= minAlpha)
-                    {
-                        visible.Add(new SamplePoint(x, y, color));
-                    }
+                    visible = CollectSamples(texture, minAlpha, fallbackStride);
                 }
             }
 
@@ -320,6 +461,25 @@ namespace FigmaUiImporter.Editor
             }
 
             return samples;
+        }
+
+        private static List<SamplePoint> CollectSamples(TextureData texture, int minAlpha, int stride)
+        {
+            int step = Mathf.Max(1, stride);
+            List<SamplePoint> visible = new List<SamplePoint>(MaxSampleCandidates);
+            for (int y = 0; y < texture.Height; y += step)
+            {
+                for (int x = 0; x < texture.Width; x += step)
+                {
+                    Color32 color = texture.GetPixelTopLeft(x, y);
+                    if (color.a >= minAlpha)
+                    {
+                        visible.Add(new SamplePoint(x, y, color));
+                    }
+                }
+            }
+
+            return visible;
         }
 
         private static float ScoreAt(
@@ -343,7 +503,7 @@ namespace FigmaUiImporter.Editor
                 }
 
                 Color32 referenceColor = reference.GetPixelTopLeft(referenceX, referenceY);
-                Color32 layerColor = layer.GetPixelTopLeft(sample.X, sample.Y);
+                Color32 layerColor = sample.Color;
                 total += Math.Abs(referenceColor.r - layerColor.r);
                 total += Math.Abs(referenceColor.g - layerColor.g);
                 total += Math.Abs(referenceColor.b - layerColor.b);

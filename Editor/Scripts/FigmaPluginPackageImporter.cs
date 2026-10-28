@@ -48,6 +48,13 @@ namespace FigmaUiImporter.Editor
                 settings.OutputFolder,
                 fileKey,
                 package.manifest.selectedNodeId);
+            if (!settings.OverwriteExisting && FigmaPathUtility.AssetFolderHasContents(outputFolder))
+            {
+                throw new InvalidOperationException(
+                    "输出目录已存在导入内容：" + outputFolder
+                    + "。请勾选“覆盖同名场景根节点 / Prefab”，或更换输出资源目录后再导入。");
+            }
+
             FigmaPathUtility.EnsureAssetFolder(outputFolder);
 
             progress.Report(new FigmaImportProgress("写入插件包图片资源...", 0.22f));
@@ -367,6 +374,8 @@ namespace FigmaUiImporter.Editor
             public string selectedNodeId;
             public string selectedNodeName;
             public string selectedNodeType;
+            public bool clipsContent;
+            public int clipsContentVersion;
             public string containerSliceStrategy;
             public string textImportMode;
             public string importedAt;

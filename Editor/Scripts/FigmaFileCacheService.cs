@@ -52,11 +52,6 @@ namespace FigmaUiImporter.Editor
             File.WriteAllText(path, json);
         }
 
-        public string GetCacheDisplayPath(string fileKey)
-        {
-            return GetCachePath(fileKey);
-        }
-
         private static string GetCachePath(string fileKey)
         {
             string projectRoot = Directory.GetParent(Application.dataPath).FullName;

@@ -20,6 +20,9 @@ namespace FigmaUiImporter.Editor
             manifest.selectedNodeId = selectedRoot.Id;
             manifest.selectedNodeName = selectedRoot.Name;
             manifest.selectedNodeType = selectedRoot.Type;
+            // version 用于区分旧 manifest（没有裁剪字段）和显式 false。
+            manifest.clipsContentVersion = 1;
+            manifest.clipsContent = selectedRoot.ClipsContent;
             manifest.containerSliceStrategy = settings.ContainerSliceStrategy.ToString();
             manifest.textImportMode = settings.TextImportMode.ToString();
             manifest.importedAt = DateTime.UtcNow.ToString("o");
@@ -238,6 +241,8 @@ namespace FigmaUiImporter.Editor
             root.Name = manifest.selectedNodeName;
             root.Type = string.IsNullOrEmpty(manifest.selectedNodeType) ? "FRAME" : manifest.selectedNodeType;
             root.Visible = true;
+            // 旧 manifest 没有 clipsContentVersion，沿用历史行为：默认裁剪。
+            root.ClipsContent = manifest.clipsContentVersion > 0 ? manifest.clipsContent : true;
             root.AbsoluteBounds = ToRect(manifest.rootBounds);
             root.HasAbsoluteBounds = true;
             return root;
@@ -454,6 +459,8 @@ namespace FigmaUiImporter.Editor
             public string selectedNodeId;
             public string selectedNodeName;
             public string selectedNodeType;
+            public bool clipsContent;
+            public int clipsContentVersion;
             public string containerSliceStrategy;
             public string textImportMode;
             public string importedAt;

@@ -25,7 +25,8 @@ namespace FigmaUiImporter.Editor
             Transform oldRoot = canvas.transform.Find(baseName);
             if (oldRoot != null && settings.OverwriteExisting)
             {
-                Object.DestroyImmediate(oldRoot.gameObject);
+                // 走 Undo 销毁，保证覆盖导入也可以撤销。
+                Undo.DestroyObjectImmediate(oldRoot.gameObject);
             }
 
             string rootName = settings.OverwriteExisting
@@ -33,7 +34,6 @@ namespace FigmaUiImporter.Editor
                 : GameObjectUtility.GetUniqueNameForSibling(canvas.transform, baseName);
 
             GameObject rootObject = CreateRectObject(rootName, canvas.transform);
-            Undo.RegisterCreatedObjectUndo(rootObject, "导入 Figma UI");
 
             RectTransform rootRect = rootObject.GetComponent<RectTransform>();
             rootRect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -41,7 +41,11 @@ namespace FigmaUiImporter.Editor
             rootRect.pivot = new Vector2(0.5f, 0.5f);
             rootRect.anchoredPosition = Vector2.zero;
             rootRect.sizeDelta = new Vector2(selectedRoot.AbsoluteBounds.width, selectedRoot.AbsoluteBounds.height);
-            rootObject.AddComponent<RectMask2D>();
+            if (selectedRoot.ClipsContent)
+            {
+                // 只有 Figma 明确裁剪时才加 RectMask2D，避免 GROUP 或 clipsContent=false 的 Frame 被误裁。
+                rootObject.AddComponent<RectMask2D>();
+            }
 
             if (!string.IsNullOrEmpty(referenceAssetPath))
             {
@@ -126,7 +130,7 @@ namespace FigmaUiImporter.Editor
             FigmaTextStyleInfo style = layer.TextStyle;
             TMP_FontAsset resolvedFont = FigmaTmpFontUtility.ResolveFont(null, style, settings.FontMapping);
             string reason;
-            FigmaTmpFontUtility.TryEnsureProjectDefaultFont(resolvedFont, out resolvedFont, out reason);
+            FigmaTmpFontUtility.TryResolveFallbackFont(resolvedFont, out resolvedFont, out reason);
 
             TextMeshProUGUI text = layerObject.AddComponent<TextMeshProUGUI>();
             if (resolvedFont != null)
@@ -199,6 +203,8 @@ namespace FigmaUiImporter.Editor
             RectTransform rectTransform = gameObject.GetComponent<RectTransform>();
             rectTransform.SetParent(parent, false);
             rectTransform.localScale = Vector3.one;
+            // 每个新建节点都注册 Undo，避免撤销创建后重做时只剩根节点。
+            Undo.RegisterCreatedObjectUndo(gameObject, "导入 Figma UI");
             return gameObject;
         }
 

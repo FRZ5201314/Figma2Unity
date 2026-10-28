@@ -70,20 +70,12 @@ namespace FigmaUiImporter.Editor
                 return null;
             }
 
-            TMP_FontAsset firstConfiguredFont = null;
-            FontStyles firstConfiguredStyle = FontStyles.Normal;
             for (int i = 0; i < fontMapping.Entries.Count; i++)
             {
                 FigmaFontMappingAsset.Entry entry = fontMapping.Entries[i];
                 if (entry == null || entry.FontAsset == null)
                 {
                     continue;
-                }
-
-                if (firstConfiguredFont == null)
-                {
-                    firstConfiguredFont = entry.FontAsset;
-                    firstConfiguredStyle = entry.FontStyle;
                 }
 
                 if (HasSamePostScriptName(entry, style)
@@ -97,13 +89,9 @@ namespace FigmaUiImporter.Editor
                 }
             }
 
-            if (firstConfiguredFont != null)
-            {
-                mappedStyle = firstConfiguredStyle;
-                matchedMappedFont = true;
-            }
-
-            return firstConfiguredFont;
+            // 没有真正匹配时不要拿“第一个已配置字体”兜底，否则会绕过 DefaultFont，
+            // 还会把未匹配的粗体误判为已匹配而丢掉 Bold 样式。
+            return null;
         }
 
         private static bool HasSamePostScriptName(
@@ -164,7 +152,11 @@ namespace FigmaUiImporter.Editor
             return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
         }
 
-        public static bool TryEnsureProjectDefaultFont(
+        /// <summary>
+        /// 解析本次文本可用的兜底字体，但不再改写项目 TMP Settings.asset。
+        /// 组件本身会显式设置 font，因此无需产生项目级副作用。
+        /// </summary>
+        public static bool TryResolveFallbackFont(
             TMP_FontAsset preferredFont,
             out TMP_FontAsset defaultFont,
             out string reason)
@@ -176,31 +168,14 @@ namespace FigmaUiImporter.Editor
                 return true;
             }
 
-            if (preferredFont == null)
+            defaultFont = preferredFont != null ? preferredFont : FindAnyFontAsset();
+            if (defaultFont != null)
             {
-                preferredFont = FindAnyFontAsset();
+                return true;
             }
 
-            if (preferredFont == null)
-            {
-                reason = "未找到可用 TMP 字体。请先导入 TextMeshPro Essential Resources，并在 FigmaFontMapping.asset 中配置默认 TMP 字体或对应 FontAsset。";
-                return false;
-            }
-
-            SerializedObject settingsObject;
-            SerializedProperty defaultFontProperty;
-            if (!TryGetDefaultFontProperty(out settingsObject, out defaultFontProperty))
-            {
-                reason = "未找到 TMP Settings.asset。请先执行 Window/TextMeshPro/Import TMP Essential Resources。";
-                return false;
-            }
-
-            defaultFontProperty.objectReferenceValue = preferredFont;
-            settingsObject.ApplyModifiedProperties();
-            EditorUtility.SetDirty(settingsObject.targetObject);
-            AssetDatabase.SaveAssets();
-            defaultFont = preferredFont;
-            return true;
+            reason = "未找到可用 TMP 字体。请先导入 TextMeshPro Essential Resources，并在 FigmaFontMapping.asset 中配置默认 TMP 字体或对应 FontAsset。";
+            return false;
         }
 
         public static TMP_FontAsset GetProjectDefaultFont()

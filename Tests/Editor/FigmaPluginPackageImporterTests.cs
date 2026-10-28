@@ -149,6 +149,31 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void ImportPackageRejectsExistingOutputWithoutOverwrite()
+        {
+            string packagePath = WritePackage(CreatePackageJson());
+
+            try
+            {
+                FigmaPluginPackageImporter importer = new FigmaPluginPackageImporter();
+                importer.ImportPackage(
+                    packagePath,
+                    new FigmaImportSettings { OutputFolder = TestFolder, OverwriteExisting = true },
+                    new NullProgress());
+
+                Assert.Throws<InvalidOperationException>(
+                    () => importer.ImportPackage(
+                        packagePath,
+                        new FigmaImportSettings { OutputFolder = TestFolder, OverwriteExisting = false },
+                        new NullProgress()));
+            }
+            finally
+            {
+                File.Delete(packagePath);
+            }
+        }
+
+        [Test]
         public void ImportPackageReportsCorruptBase64()
         {
             string packagePath = WritePackage(CreatePackageJson(referenceBase64: "not-base64"));

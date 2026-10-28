@@ -26,6 +26,7 @@ namespace FigmaUiImporter.Editor.Tests
         public void SaveReportWritesDiagnosticsJson()
         {
             FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 100f, 80f));
+            root.HasVisibleFills = true;
             FigmaNodeInfo child = CreateNode("1:1", "Icon", "RECTANGLE", new Rect(10f, 10f, 20f, 20f));
             child.HasVisibleFills = true;
             AddChild(root, child);
@@ -58,6 +59,8 @@ namespace FigmaUiImporter.Editor.Tests
             StringAssert.Contains("Figma API", json);
             StringAssert.Contains("导出", json);
             StringAssert.Contains("Assets/FigmaUiImporterDiagnosticTests/layers/icon.png", json);
+            StringAssert.Contains("warnings", json);
+            StringAssert.Contains("重复叠加", json);
         }
 
         private static FigmaNodeInfo CreateNode(string id, string name, string type, Rect bounds)

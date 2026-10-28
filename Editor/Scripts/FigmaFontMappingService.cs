@@ -50,8 +50,19 @@ namespace FigmaUiImporter.Editor
 
         public static FontMappingUpdateResult UpdateFromImportedManifests(FigmaFontMappingAsset mapping)
         {
+            return UpdateFromImportedManifests(mapping, null);
+        }
+
+        /// <summary>
+        /// 扫描全局映射目录和额外输出目录下的 manifest，补齐字体条目。
+        /// extraRootFolders 用于支持用户在窗口中自定义的输出资源目录。
+        /// </summary>
+        public static FontMappingUpdateResult UpdateFromImportedManifests(
+            FigmaFontMappingAsset mapping,
+            IEnumerable<string> extraRootFolders)
+        {
             List<FigmaTextStyleInfo> styles = new List<FigmaTextStyleInfo>();
-            List<string> manifestPaths = FindImportedManifestPaths();
+            List<string> manifestPaths = FindImportedManifestPaths(extraRootFolders);
 
             for (int i = 0; i < manifestPaths.Count; i++)
             {
@@ -658,23 +669,59 @@ namespace FigmaUiImporter.Editor
             return normalized.Substring(0, slashIndex);
         }
 
-        private static List<string> FindImportedManifestPaths()
+        private static List<string> FindImportedManifestPaths(IEnumerable<string> extraRootFolders)
         {
+            List<string> roots = new List<string>();
+            AddManifestRoot(roots, GetAssetDirectory(GlobalMappingAssetPath));
+            if (extraRootFolders != null)
+            {
+                foreach (string folder in extraRootFolders)
+                {
+                    AddManifestRoot(roots, folder);
+                }
+            }
+
+            HashSet<string> seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             List<string> manifestPaths = new List<string>();
-            string importsRoot = FigmaPathUtility.ToFullPath(GetAssetDirectory(GlobalMappingAssetPath));
-            if (!Directory.Exists(importsRoot))
+            for (int rootIndex = 0; rootIndex < roots.Count; rootIndex++)
             {
-                return manifestPaths;
+                string fullRoot = FigmaPathUtility.ToFullPath(roots[rootIndex]);
+                if (!Directory.Exists(fullRoot))
+                {
+                    continue;
+                }
+
+                string[] files = Directory.GetFiles(fullRoot, "manifest.json", SearchOption.AllDirectories);
+                for (int i = 0; i < files.Length; i++)
+                {
+                    if (seenPaths.Add(files[i]))
+                    {
+                        manifestPaths.Add(files[i]);
+                    }
+                }
             }
 
-            string[] files = Directory.GetFiles(importsRoot, "manifest.json", SearchOption.AllDirectories);
-            Array.Sort(files, StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < files.Length; i++)
-            {
-                manifestPaths.Add(files[i]);
-            }
-
+            manifestPaths.Sort(StringComparer.OrdinalIgnoreCase);
             return manifestPaths;
+        }
+
+        private static void AddManifestRoot(List<string> roots, string folder)
+        {
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                return;
+            }
+
+            string normalized = FigmaPathUtility.NormalizeAssetFolder(folder);
+            for (int i = 0; i < roots.Count; i++)
+            {
+                if (string.Equals(roots[i], normalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+
+            roots.Add(normalized);
         }
     }
 

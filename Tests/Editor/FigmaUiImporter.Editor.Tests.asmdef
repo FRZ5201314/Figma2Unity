@@ -3,7 +3,9 @@
   "rootNamespace": "FigmaUiImporter.Editor.Tests",
   "references": [
     "FigmaUiImporter.Editor",
-    "FigmaUiImporter.Runtime"
+    "FigmaUiImporter.Runtime",
+    "UnityEngine.UI",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"

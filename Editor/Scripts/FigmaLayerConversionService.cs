@@ -163,7 +163,7 @@ namespace FigmaUiImporter.Editor
             FigmaFontMappingService.UpdateFromTextStyles(mapping, new List<FigmaTextStyleInfo> { style });
             TMP_FontAsset resolvedFont = FigmaTmpFontUtility.ResolveFont(text, style, mapping);
             if (text == null
-                && !FigmaTmpFontUtility.TryEnsureProjectDefaultFont(
+                && !FigmaTmpFontUtility.TryResolveFallbackFont(
                     resolvedFont,
                     out resolvedFont,
                     out message))

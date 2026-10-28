@@ -32,6 +32,39 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void ParseFileReadsClipsContentAndDefaultsGroupsToNoClipping()
+        {
+            string json = "{"
+                + "\"document\":{"
+                + "\"id\":\"0:0\",\"name\":\"Document\",\"type\":\"DOCUMENT\",\"children\":["
+                + "{\"id\":\"1:1\",\"name\":\"No Clip Frame\",\"type\":\"FRAME\",\"clipsContent\":false,"
+                + "\"absoluteBoundingBox\":{\"x\":0,\"y\":0,\"width\":100,\"height\":80}},"
+                + "{\"id\":\"1:2\",\"name\":\"Group\",\"type\":\"GROUP\","
+                + "\"absoluteBoundingBox\":{\"x\":0,\"y\":0,\"width\":100,\"height\":80}}"
+                + "]}}";
+
+            FigmaNodeInfo document = FigmaDocumentParser.ParseFile(json);
+
+            Assert.IsFalse(document.Children[0].ClipsContent);
+            Assert.IsFalse(document.Children[1].ClipsContent);
+        }
+
+        [Test]
+        public void CountNodesWithSelectedAncestorDetectsOverlappingSlices()
+        {
+            FigmaNodeInfo root = CreateNode("0:0", "Root", "FRAME", new Rect(0f, 0f, 300f, 200f));
+            FigmaNodeInfo container = CreateNode("1:1", "Container", "FRAME", new Rect(10f, 10f, 200f, 120f));
+            FigmaNodeInfo child = CreateNode("2:1", "Child", "RECTANGLE", new Rect(20f, 20f, 40f, 40f));
+            AddChild(root, container);
+            AddChild(container, child);
+
+            int count = FigmaDocumentParser.CountNodesWithSelectedAncestor(
+                new List<FigmaNodeInfo> { root, container, child });
+
+            Assert.AreEqual(2, count);
+        }
+
+        [Test]
         public void ParseFileReadsSingleStyleTextData()
         {
             string json = "{"

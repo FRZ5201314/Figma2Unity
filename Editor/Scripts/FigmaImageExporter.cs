@@ -120,7 +120,7 @@ namespace FigmaUiImporter.Editor
                 Directory.CreateDirectory(directory);
             }
 
-            byte[] bytes = await _client.DownloadBytesAsync(url, cancellationToken);
+            byte[] bytes = await _client.DownloadBytesWithRetryAsync(url, cancellationToken);
             File.WriteAllBytes(fullPath, bytes);
         }
     }

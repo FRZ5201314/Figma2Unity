@@ -42,10 +42,32 @@ namespace FigmaUiImporter.Editor
             text.margin = Vector4.zero;
 
             text.fontStyle = FigmaFontMappingService.ResolveEffectiveFontStyle(style, mappedStyle, matchedMappedFont);
-            text.lineSpacing = style.LineHeightPx > style.FontSize + 0.01f
-                ? style.LineHeightPx - style.FontSize
-                : 0f;
-            text.characterSpacing = style.LetterSpacing;
+            text.lineSpacing = ResolveTmpLineSpacing(style);
+            text.characterSpacing = ResolveTmpCharacterSpacing(style);
+        }
+
+        /// <summary>
+        /// TMP 的 lineSpacing / characterSpacing 使用字体单位（约 1/100 em），
+        /// Figma 返回的是像素值，需要按字号换算后再写入。
+        /// </summary>
+        internal static float PixelsToTmpFontUnits(float pixels, float fontSize)
+        {
+            return fontSize > 0.01f ? pixels / fontSize * 100f : 0f;
+        }
+
+        internal static float ResolveTmpLineSpacing(FigmaTextStyleInfo style)
+        {
+            if (style == null || style.FontSize <= 0.01f || style.LineHeightPx <= style.FontSize + 0.01f)
+            {
+                return 0f;
+            }
+
+            return PixelsToTmpFontUnits(style.LineHeightPx - style.FontSize, style.FontSize);
+        }
+
+        internal static float ResolveTmpCharacterSpacing(FigmaTextStyleInfo style)
+        {
+            return style == null ? 0f : PixelsToTmpFontUnits(style.LetterSpacing, style.FontSize);
         }
 
         public static TextAlignmentOptions ResolveTextAlignment(string horizontal, string vertical)

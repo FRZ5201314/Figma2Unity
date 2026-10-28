@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.14
+
+- Fixed TMP font fallback so unmatched Figma fonts use `DefaultFont` instead of the first configured font asset.
+- Fixed TMP line/character spacing conversion from Figma pixels to TextMeshPro font units.
+- Stopped rewriting the project-wide TMP Settings default font during import; font fallback now only affects the generated text components.
+- Added automatic `maxTextureSize` based on source image dimensions to avoid high-resolution slices being downscaled to 2048.
+- Added texture compression mode to the importer window.
+- Added download retry for image CDN failures and increased download timeout.
+- Added `clipsContent` parsing/round-tripping so `RectMask2D` is only added when the Figma root actually clips.
+- Improved geometry calibration performance with bounded sampling and coarse-to-fine search.
+- Made font discovery scan the configured output folder in addition to `Assets/FigmaImports`.
+- Added a safe import guard when the output folder already contains files and overwrite is disabled.
+- Added overlap warnings to the importer log and `diagnostics.json` for REST imports where a parent and child are both exported.
+- Improved Undo support for generated scene hierarchies.
+- Added missing `UnityEngine.UI` / `Unity.TextMeshPro` references to the test assembly.
+- Docs: `README.md` is now the English homepage README; the Chinese README moved to `README.zh-CN.md` with a language switcher.
+
 ## 0.7.13
 
 - Added `FigmaLayerBinding` Inspector actions for switching Figma TEXT nodes between fallback PNG Image and editable TextMeshProUGUI.

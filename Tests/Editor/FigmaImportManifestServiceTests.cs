@@ -34,6 +34,7 @@ namespace FigmaUiImporter.Editor.Tests
             root.Id = "1:2";
             root.Name = "Root";
             root.Type = "FRAME";
+            root.ClipsContent = false;
             root.AbsoluteBounds = new Rect(10f, 20f, 300f, 200f);
             root.HasAbsoluteBounds = true;
 
@@ -90,6 +91,7 @@ namespace FigmaUiImporter.Editor.Tests
             Assert.AreEqual("fileKey", data.FileKey);
             Assert.AreEqual(2f, data.ImageScale);
             Assert.AreEqual(root.Id, data.RootNode.Id);
+            Assert.IsFalse(data.RootNode.ClipsContent);
             Assert.AreEqual(root.AbsoluteBounds, data.RootNode.AbsoluteBounds);
             Assert.AreEqual(referencePath, data.ReferenceAssetPath);
             Assert.AreEqual(2, data.Layers.Count);
@@ -102,6 +104,23 @@ namespace FigmaUiImporter.Editor.Tests
             Assert.AreEqual("Regular", data.Layers[1].TextStyle.FontStyleName);
             Assert.AreEqual(18f, data.Layers[1].TextStyle.FontSize);
             Assert.AreEqual(0.1f, data.Layers[1].TextStyle.Color.r, 0.001f);
+        }
+
+        [Test]
+        public void LoadForRebuildDefaultsLegacyManifestToClipping()
+        {
+            string manifestPath = FigmaPathUtility.CombineAssetPath(TestFolder, "manifest.json");
+            WriteTextAsset(
+                manifestPath,
+                "{"
+                + "\"selectedNodeId\":\"1:2\",\"selectedNodeName\":\"Root\",\"selectedNodeType\":\"FRAME\","
+                + "\"rootBounds\":{\"x\":0,\"y\":0,\"width\":100,\"height\":80},"
+                + "\"layers\":[]"
+                + "}");
+
+            FigmaManifestRebuildData data = new FigmaImportManifestService().LoadForRebuild(manifestPath);
+
+            Assert.IsTrue(data.RootNode.ClipsContent);
         }
 
         [Test]

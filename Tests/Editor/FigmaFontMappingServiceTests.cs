@@ -120,6 +120,59 @@ namespace FigmaUiImporter.Editor.Tests
             Assert.AreEqual(FontStyles.Bold, result);
         }
 
+        [Test]
+        public void ResolveFontFallsBackToDefaultFontWhenNoEntryMatches()
+        {
+            FigmaFontMappingAsset mapping = ScriptableObject.CreateInstance<FigmaFontMappingAsset>();
+            TMP_FontAsset defaultFont = ScriptableObject.CreateInstance<TMP_FontAsset>();
+            TMP_FontAsset configuredFont = ScriptableObject.CreateInstance<TMP_FontAsset>();
+            try
+            {
+                mapping.DefaultFont = defaultFont;
+                mapping.Entries.Add(new FigmaFontMappingAsset.Entry
+                {
+                    FigmaFontFamily = "Other Font",
+                    FontAsset = configuredFont
+                });
+
+                FigmaTextStyleInfo style = new FigmaTextStyleInfo();
+                style.FontFamily = "Missing Font";
+                style.FontStyleName = "Bold";
+                style.FontWeight = 700;
+                style.FontSize = 20f;
+
+                FontStyles mappedStyle;
+                bool matchedMappedFont;
+                TMP_FontAsset resolved = FigmaTmpFontUtility.ResolveFont(
+                    null,
+                    style,
+                    mapping,
+                    out mappedStyle,
+                    out matchedMappedFont);
+
+                Assert.AreSame(defaultFont, resolved);
+                Assert.IsFalse(matchedMappedFont);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(defaultFont);
+                UnityEngine.Object.DestroyImmediate(configuredFont);
+                UnityEngine.Object.DestroyImmediate(mapping);
+            }
+        }
+
+        [Test]
+        public void TextSpacingConvertsPixelsToTmpFontUnits()
+        {
+            FigmaTextStyleInfo style = new FigmaTextStyleInfo();
+            style.FontSize = 20f;
+            style.LineHeightPx = 26f;
+            style.LetterSpacing = 1f;
+
+            Assert.AreEqual(30f, FigmaTextLayerUtility.ResolveTmpLineSpacing(style), 0.001f);
+            Assert.AreEqual(5f, FigmaTextLayerUtility.ResolveTmpCharacterSpacing(style), 0.001f);
+        }
+
         private static ImportedLayerInfo CreateTextLayer(
             string name,
             string family,
