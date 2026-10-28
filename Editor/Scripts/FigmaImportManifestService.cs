@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -71,13 +72,13 @@ namespace FigmaUiImporter.Editor
             string fullPath = FigmaPathUtility.ToFullPath(normalizedManifestPath);
             if (!File.Exists(fullPath))
             {
-                throw new FileNotFoundException("未找到 manifest 文件：" + normalizedManifestPath);
+                throw new FileNotFoundException(F("未找到 manifest 文件：{0}", "Manifest file not found: {0}", normalizedManifestPath));
             }
 
             ManifestDto manifest = JsonUtility.FromJson<ManifestDto>(File.ReadAllText(fullPath));
             if (manifest == null || string.IsNullOrEmpty(manifest.selectedNodeId))
             {
-                throw new InvalidOperationException("manifest 内容无效，缺少 selectedNodeId。");
+                throw new InvalidOperationException(L("manifest 内容无效，缺少 selectedNodeId。", "Invalid manifest: selectedNodeId is missing."));
             }
 
             string outputFolder = GetAssetDirectory(normalizedManifestPath);
@@ -93,7 +94,7 @@ namespace FigmaUiImporter.Editor
 
             if (!string.IsNullOrEmpty(data.ReferenceAssetPath))
             {
-                EnsureAssetFileExists(data.ReferenceAssetPath, "参考图");
+                EnsureAssetFileExists(data.ReferenceAssetPath, L("参考图", "reference image"));
             }
 
             if (manifest.layers != null)
@@ -107,7 +108,7 @@ namespace FigmaUiImporter.Editor
                     }
 
                     ImportedLayerInfo layer = CreateLayerInfo(outputFolder, data.RootNode.AbsoluteBounds, dto, i);
-                    EnsureAssetFileExists(layer.AssetPath, "切图");
+                    EnsureAssetFileExists(layer.AssetPath, L("切图", "slice"));
                     data.Layers.Add(layer);
                 }
             }
@@ -284,7 +285,7 @@ namespace FigmaUiImporter.Editor
 
             if (layer.SizeDelta.x <= 0.01f || layer.SizeDelta.y <= 0.01f)
             {
-                throw new InvalidOperationException("manifest 中存在尺寸无效的切图：" + layer.NodeName);
+                throw new InvalidOperationException(F("manifest 中存在尺寸无效的切图：{0}", "Manifest contains a slice with an invalid size: {0}", layer.NodeName));
             }
 
             if (dto.unity == null)
@@ -406,7 +407,7 @@ namespace FigmaUiImporter.Editor
         {
             if (string.IsNullOrEmpty(assetPath) || !File.Exists(FigmaPathUtility.ToFullPath(assetPath)))
             {
-                throw new FileNotFoundException(label + "资源不存在：" + assetPath);
+                throw new FileNotFoundException(F("{0}资源不存在：{1}", "{0} asset not found: {1}", label, assetPath));
             }
         }
 
@@ -414,7 +415,7 @@ namespace FigmaUiImporter.Editor
         {
             if (string.IsNullOrWhiteSpace(path))
             {
-                throw new InvalidOperationException("请先选择 manifest.json。");
+                throw new InvalidOperationException(L("请先选择 manifest.json。", "Select a manifest.json first."));
             }
 
             string normalized = path.Trim().Replace('\\', '/');
@@ -427,13 +428,13 @@ namespace FigmaUiImporter.Editor
             string fullPath = Path.GetFullPath(path).Replace('\\', '/');
             if (!fullPath.StartsWith(projectRoot + "/", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("manifest 必须位于当前 Unity 项目的 Assets 目录内。");
+                throw new InvalidOperationException(L("manifest 必须位于当前 Unity 项目的 Assets 目录内。", "The manifest must be inside the current Unity project's Assets folder."));
             }
 
             string assetPath = fullPath.Substring(projectRoot.Length + 1);
             if (!assetPath.StartsWith("Assets/", StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("manifest 必须位于当前 Unity 项目的 Assets 目录内。");
+                throw new InvalidOperationException(L("manifest 必须位于当前 Unity 项目的 Assets 目录内。", "The manifest must be inside the current Unity project's Assets folder."));
             }
 
             return assetPath;

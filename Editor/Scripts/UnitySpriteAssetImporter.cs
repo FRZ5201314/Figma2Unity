@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -31,7 +32,7 @@ namespace FigmaUiImporter.Editor
 
                 if (importer == null)
                 {
-                    Debug.LogWarning("无法配置图片导入设置：" + assetPath);
+                    Debug.LogWarning(F("无法配置图片导入设置：{0}", "Could not configure image import settings: {0}", assetPath));
                     continue;
                 }
 

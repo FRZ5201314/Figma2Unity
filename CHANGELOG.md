@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.15
+
+- Added English/Chinese language switching to the Unity editor UI and the Figma offline exporter. English is the default; the language button switches languages and persists the choice.
+- Rebalanced the importer window for English labels with equal side columns and two-row font mapping actions.
+- Tightened column spacing and made the importer window resizable, with a comfortable default size on first open.
+- Removed the Chinese-only UI note from the English README and updated its preview screenshot.
+
 ## 0.7.14
 
 - Fixed TMP font fallback so unmatched Figma fonts use `DefaultFont` instead of the first configured font asset.

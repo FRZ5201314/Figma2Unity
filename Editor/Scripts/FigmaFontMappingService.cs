@@ -6,6 +6,7 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -305,7 +306,7 @@ namespace FigmaUiImporter.Editor
                     continue;
                 }
 
-                Undo.RecordObject(text, "应用 Figma 字体映射");
+                Undo.RecordObject(text, L("应用 Figma 字体映射", "Apply Figma font mapping"));
                 text.font = mappedFont;
                 text.fontStyle = ResolveEffectiveFontStyle(style, mappedStyle, matchedMappedFont);
                 EditorUtility.SetDirty(text);

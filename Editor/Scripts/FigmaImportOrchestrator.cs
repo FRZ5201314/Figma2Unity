@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -32,12 +33,12 @@ namespace FigmaUiImporter.Editor
             IProgress<FigmaImportProgress> progress,
             CancellationToken cancellationToken)
         {
-            progress.Report(new FigmaImportProgress("读取所选节点...", 0.08f));
+            progress.Report(new FigmaImportProgress(L("读取所选节点...", "Reading selected node..."), 0.08f));
             FigmaNodeInfo selectedRoot = null;
             if (settings.UseLoadedNodeTree && selectedNode != null)
             {
                 selectedRoot = selectedNode;
-                progress.Report(new FigmaImportProgress("使用已加载的节点结构，跳过节点 API 请求...", 0.1f));
+                progress.Report(new FigmaImportProgress(L("使用已加载的节点结构，跳过节点 API 请求...", "Using the loaded node tree; skipping the node API request..."), 0.1f));
             }
             else
             {
@@ -48,15 +49,13 @@ namespace FigmaUiImporter.Editor
 
             if (!selectedRoot.HasUsableBounds)
             {
-                throw new System.InvalidOperationException("所选节点没有可用尺寸，无法导入。");
+                throw new System.InvalidOperationException(L("所选节点没有可用尺寸，无法导入。", "The selected node has no usable size and cannot be imported."));
             }
 
             string outputFolder = FigmaPathUtility.BuildImportFolder(settings.OutputFolder, settings.FileKey, selectedRoot.Id);
             if (!settings.OverwriteExisting && FigmaPathUtility.AssetFolderHasContents(outputFolder))
             {
-                throw new InvalidOperationException(
-                    "输出目录已存在导入内容：" + outputFolder
-                    + "。请勾选“覆盖同名场景根节点 / Prefab”，或更换输出资源目录后再导入，避免旧场景和新 manifest 不一致。");
+                throw new InvalidOperationException(F("输出目录已存在导入内容：{0}。请勾选“覆盖同名场景根节点 / Prefab”，或更换输出资源目录后再导入，避免旧场景和新 manifest 不一致。", "The output folder already contains imported content: {0}. Enable \"Overwrite scene root / Prefab\" or choose another output folder to avoid mismatches between the old scene and the new manifest.", outputFolder));
             }
 
             FigmaPathUtility.EnsureAssetFolder(outputFolder);
@@ -64,7 +63,7 @@ namespace FigmaUiImporter.Editor
             string referenceAssetPath = string.Empty;
             if (settings.CreateReference && selectedRoot.IsPage)
             {
-                progress.Report(new FigmaImportProgress("Page 导入跳过整页参考图，避免下载超大页面图片...", 0.24f));
+                progress.Report(new FigmaImportProgress(L("Page 导入跳过整页参考图，避免下载超大页面图片...", "Page import skips the full-page reference image to avoid huge downloads..."), 0.24f));
             }
             else if (settings.CreateReference)
             {
@@ -77,7 +76,7 @@ namespace FigmaUiImporter.Editor
                     cancellationToken);
             }
 
-            progress.Report(new FigmaImportProgress("筛选可导入图层...", 0.38f));
+            progress.Report(new FigmaImportProgress(L("筛选可导入图层...", "Selecting importable layers..."), 0.38f));
             FigmaImportPlan importPlan = FigmaDocumentParser.CreateImportPlan(
                 selectedRoot,
                 settings.SliceMode,
@@ -96,30 +95,30 @@ namespace FigmaUiImporter.Editor
                     cancellationToken);
             }
 
-            progress.Report(new FigmaImportProgress("计算 Unity 布局...", 0.88f));
+            progress.Report(new FigmaImportProgress(L("计算 Unity 布局...", "Calculating Unity layout..."), 0.88f));
             List<ImportedLayerInfo> layers = BuildLayerInfos(settings, selectedRoot, importableNodes, layerAssetPaths);
 
-            progress.Report(new FigmaImportProgress("更新全局字体映射...", 0.9f));
+            progress.Report(new FigmaImportProgress(L("更新全局字体映射...", "Updating global font mapping..."), 0.9f));
             FigmaFontMappingAsset fontMapping = FigmaFontMappingService.EnsureSettingsUseGlobalMapping(settings);
             FontMappingUpdateResult fontMappingResult = FigmaFontMappingService.UpdateFromLayers(fontMapping, layers);
 
-            progress.Report(new FigmaImportProgress("生成场景对象...", 0.92f));
+            progress.Report(new FigmaImportProgress(L("生成场景对象...", "Building scene objects..."), 0.92f));
             GameObject rootObject = _sceneBuilder.BuildSceneObjects(settings, selectedRoot, referenceAssetPath, layers);
 
-            progress.Report(new FigmaImportProgress("保存 manifest...", 0.97f));
+            progress.Report(new FigmaImportProgress(L("保存 manifest...", "Saving manifest..."), 0.97f));
             string manifestPath = _manifestService.SaveManifest(settings, selectedRoot, outputFolder, referenceAssetPath, layers);
 
-            progress.Report(new FigmaImportProgress("保存导入诊断报告...", 0.98f));
+            progress.Report(new FigmaImportProgress(L("保存导入诊断报告...", "Saving diagnostics..."), 0.98f));
             string diagnosticReportPath = _diagnosticService.SaveReport(settings, selectedRoot, outputFolder, importPlan, layers);
 
             string prefabPath = string.Empty;
             if (settings.SavePrefab)
             {
-                progress.Report(new FigmaImportProgress("保存 Prefab...", 0.99f));
+                progress.Report(new FigmaImportProgress(L("保存 Prefab...", "Saving Prefab..."), 0.99f));
                 prefabPath = _prefabSaver.SavePrefab(settings, selectedRoot, rootObject);
             }
 
-            progress.Report(new FigmaImportProgress("导入完成。", 1f));
+            progress.Report(new FigmaImportProgress(L("导入完成。", "Import complete."), 1f));
             return new FigmaImportResult
             {
                 OutputFolder = outputFolder,

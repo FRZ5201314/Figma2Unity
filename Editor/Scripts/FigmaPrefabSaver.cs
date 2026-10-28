@@ -1,6 +1,7 @@
 using System;
 using UnityEditor;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -45,7 +46,7 @@ namespace FigmaUiImporter.Editor
             GameObject prefab = PrefabUtility.SaveAsPrefabAssetAndConnect(rootObject, prefabPath, InteractionMode.UserAction);
             if (prefab == null)
             {
-                throw new InvalidOperationException("保存 Prefab 失败：" + prefabPath);
+                throw new InvalidOperationException(F("保存 Prefab 失败：{0}", "Failed to save Prefab: {0}", prefabPath));
             }
 
             AssetDatabase.Refresh();

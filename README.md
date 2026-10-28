@@ -5,8 +5,6 @@
 Import Figma frames into a Unity Canvas with reference images, sliced sprites, TextMeshPro text, font mapping, manifests, and prefabs.
 
 > Requires UGUI and TextMeshPro.
->
-> ℹ️ The editor window and diagnostics are currently in Chinese.
 
 ## ✨ Features
 
@@ -14,15 +12,14 @@ Import Figma frames into a Unity Canvas with reference images, sliced sprites, T
 - 🖼️ **Visual fidelity**: full reference image + pixel-calibrated slices, clipping based on `clipsContent`
 - 🔤 **Text**: TMP / Image / Smart modes with fallback PNGs
 - 🅰️ **Font mapping**: one project-wide TMP mapping asset with auto-discovery
+- 🌐 **Bilingual UI**: English by default; switch the editor and Figma plugin to Chinese with one click
 - 📄 **Reproducible**: `manifest.json`, `diagnostics.json`, offline rebuilds, Prefab output
 - 🖼️ **Textures**: automatic `maxTextureSize`, compressed or uncompressed imports
 - 🛡️ **Safe re-imports**: existing output folders are protected unless overwrite is enabled
 
 ## 👀 Preview
 
-![Editor window](docs/images/editor-view.webp)
-
-![Font mapping](docs/images/editor-view-2.webp)
+![Figma2Unity editor window](docs/images/editor-view-en.webp)
 
 ![Offline import demo](docs/images/demo.webp)
 

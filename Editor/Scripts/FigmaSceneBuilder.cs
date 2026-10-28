@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -186,7 +187,7 @@ namespace FigmaUiImporter.Editor
             }
 
             GameObject canvasObject = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            Undo.RegisterCreatedObjectUndo(canvasObject, "创建 Canvas");
+            Undo.RegisterCreatedObjectUndo(canvasObject, L("创建 Canvas", "Create Canvas"));
             Canvas canvas = canvasObject.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
@@ -204,7 +205,7 @@ namespace FigmaUiImporter.Editor
             rectTransform.SetParent(parent, false);
             rectTransform.localScale = Vector3.one;
             // 每个新建节点都注册 Undo，避免撤销创建后重做时只剩根节点。
-            Undo.RegisterCreatedObjectUndo(gameObject, "导入 Figma UI");
+            Undo.RegisterCreatedObjectUndo(gameObject, L("导入 Figma UI", "Import Figma UI"));
             return gameObject;
         }
 

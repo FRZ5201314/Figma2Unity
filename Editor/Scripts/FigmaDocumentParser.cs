@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -42,7 +43,7 @@ namespace FigmaUiImporter.Editor
             Dictionary<string, object> root = MiniJson.Deserialize(json) as Dictionary<string, object>;
             if (root == null || !root.ContainsKey("document"))
             {
-                throw new InvalidOperationException("Figma 返回内容缺少 document。");
+                throw new InvalidOperationException(L("Figma 返回内容缺少 document。", "Figma response is missing document."));
             }
 
             return ParseNode(root["document"] as Dictionary<string, object>, null);
@@ -53,13 +54,13 @@ namespace FigmaUiImporter.Editor
             Dictionary<string, object> root = MiniJson.Deserialize(json) as Dictionary<string, object>;
             if (root == null || !root.ContainsKey("nodes"))
             {
-                throw new InvalidOperationException("Figma 返回内容缺少 nodes。");
+                throw new InvalidOperationException(L("Figma 返回内容缺少 nodes。", "Figma response is missing nodes."));
             }
 
             Dictionary<string, object> nodes = root["nodes"] as Dictionary<string, object>;
             if (nodes == null || nodes.Count == 0)
             {
-                throw new InvalidOperationException("未读取到所选节点。");
+                throw new InvalidOperationException(L("未读取到所选节点。", "The selected node could not be read."));
             }
 
             object wrapperObject;
@@ -81,7 +82,7 @@ namespace FigmaUiImporter.Editor
                 }
             }
 
-            throw new InvalidOperationException("所选节点没有 document 数据。");
+            throw new InvalidOperationException(L("所选节点没有 document 数据。", "The selected node has no document data."));
         }
 
         public static List<FigmaNodeInfo> GetPages(FigmaNodeInfo documentRoot)
@@ -568,37 +569,37 @@ namespace FigmaUiImporter.Editor
             bool selected = !string.IsNullOrEmpty(node.Id) && selectedMap.ContainsKey(node.Id);
             if (selected)
             {
-                entry.Action = "导出";
+                entry.Action = L("导出", "Export");
                 entry.Reason = GetExportReason(node, markedMap, autoSliceMap, selectedMap, containerSliceStrategy);
             }
             else if (sliceMode == FigmaSliceMode.FlattenSelectedFrameAsSingleImage)
             {
-                entry.Action = "跳过";
-                entry.Reason = "当前切图模式为仅导入整张参考图。";
+                entry.Action = L("跳过", "Skip");
+                entry.Reason = L("当前切图模式为仅导入整张参考图。", "The slice mode is reference-image-only.");
             }
             else if (!node.Visible)
             {
-                entry.Action = "跳过";
-                entry.Reason = "节点不可见。";
+                entry.Action = L("跳过", "Skip");
+                entry.Reason = L("节点不可见。", "Node is not visible.");
             }
             else if (!node.HasUsableBounds)
             {
-                entry.Action = "跳过";
-                entry.Reason = "节点没有可用尺寸。";
+                entry.Action = L("跳过", "Skip");
+                entry.Reason = L("节点没有可用尺寸。", "Node has no usable size.");
             }
             else if (HasSelectedAncestor(node, selectedMap))
             {
-                entry.Action = "合并";
-                entry.Reason = "节点已包含在导出的祖先容器中：" + GetSelectedAncestorLabel(node, selectedMap);
+                entry.Action = L("合并", "Merge");
+                entry.Reason = F("节点已包含在导出的祖先容器中：{0}", "Node is already included in an exported ancestor: {0}", GetSelectedAncestorLabel(node, selectedMap));
             }
             else if (HasMappedDescendant(node, selectedMap))
             {
-                entry.Action = "展开";
+                entry.Action = L("展开", "Expand");
                 entry.Reason = GetExpandReason(node, containerSliceStrategy);
             }
             else
             {
-                entry.Action = "跳过";
+                entry.Action = L("跳过", "Skip");
                 entry.Reason = GetSkipReason(node, markedMap, autoSliceMap);
             }
 
@@ -633,45 +634,45 @@ namespace FigmaUiImporter.Editor
 
             if (expandedContainerSelf && HasVisualSelf(node))
             {
-                return "容器自身有可见内容，作为背景层导出，同时展开子级。";
+                return L("容器自身有可见内容，作为背景层导出，同时展开子级。", "The container has its own visible content; exported as a background layer and its children are expanded.");
             }
 
             if (marked && auto)
             {
-                return "节点设置了 ExportSettings，且符合自动切片条件。";
+                return L("节点设置了 ExportSettings，且符合自动切片条件。", "Node has export settings and meets auto-slice criteria.");
             }
 
             if (marked)
             {
-                return "节点设置了 ExportSettings。";
+                return L("节点设置了 ExportSettings。", "Node has export settings.");
             }
 
             if (IsAtomicContainerNode(node))
             {
-                return "组件实例按容器策略独立导出。";
+                return L("组件实例按容器策略独立导出。", "Component instance exported separately by the container strategy.");
             }
 
             if (auto)
             {
-                return "节点符合自动切片条件。";
+                return L("节点符合自动切片条件。", "Node meets auto-slice criteria.");
             }
 
-            return "节点被选入导出列表。";
+            return L("节点被选入导出列表。", "Node was selected for export.");
         }
 
         private static string GetExpandReason(FigmaNodeInfo node, FigmaContainerSliceStrategy containerSliceStrategy)
         {
             if (containerSliceStrategy == FigmaContainerSliceStrategy.ExpandContainers)
             {
-                return "容器处理策略为强制展开，已展开到子级切片。";
+                return L("容器处理策略为强制展开，已展开到子级切片。", "Container strategy forced expansion; exported child slices.");
             }
 
             if (node.IsAutoLayout)
             {
-                return "Auto Layout 容器包含组件实例，已展开到子级切片。";
+                return L("Auto Layout 容器包含组件实例，已展开到子级切片。", "Auto Layout container contains component instances; expanded to child slices.");
             }
 
-            return "节点本身未导出，但子级包含可导出的切片。";
+            return L("节点本身未导出，但子级包含可导出的切片。", "Node itself is not exported, but its children contain exportable slices.");
         }
 
         private static string GetSkipReason(
@@ -683,25 +684,25 @@ namespace FigmaUiImporter.Editor
             bool auto = !string.IsNullOrEmpty(node.Id) && autoSliceMap.ContainsKey(node.Id);
             if (marked)
             {
-                return "节点有 ExportSettings，但被容器策略或合并策略排除。";
+                return L("节点有 ExportSettings，但被容器策略或合并策略排除。", "Node has export settings but was excluded by the container or merge strategy.");
             }
 
             if (auto)
             {
-                return "节点符合自动切片条件，但绘制顺序中已有更合适的切片覆盖。";
+                return L("节点符合自动切片条件，但绘制顺序中已有更合适的切片覆盖。", "Node meets auto-slice criteria, but a better slice covers it in draw order.");
             }
 
             if (IsContainerNode(node))
             {
-                return "容器没有可单独导出的视觉内容或子级已处理。";
+                return L("容器没有可单独导出的视觉内容或子级已处理。", "Container has no separately exportable visual content, or its children were handled.");
             }
 
             if (!IsRenderableNode(node))
             {
-                return "节点类型不在当前可渲染类型列表中。";
+                return L("节点类型不在当前可渲染类型列表中。", "Node type is not in the renderable type list.");
             }
 
-            return "节点不符合 ExportSettings 或自动切片条件。";
+            return L("节点不符合 ExportSettings 或自动切片条件。", "Node does not meet ExportSettings or auto-slice criteria.");
         }
 
         private static bool HasSelectedAncestor(FigmaNodeInfo node, IDictionary<string, FigmaNodeInfo> selectedMap)
@@ -733,7 +734,7 @@ namespace FigmaUiImporter.Editor
                 current = current.Parent;
             }
 
-            return "(未知)";
+            return L("(未知)", "(Unknown)");
         }
 
         private static Dictionary<string, FigmaNodeInfo> ToNodeMap(IList<FigmaNodeInfo> nodes)

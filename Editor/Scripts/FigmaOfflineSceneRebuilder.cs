@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -22,22 +23,22 @@ namespace FigmaUiImporter.Editor
                 throw new ArgumentNullException("settings");
             }
 
-            progress.Report(new FigmaImportProgress("读取 manifest...", 0.12f));
+            progress.Report(new FigmaImportProgress(L("读取 manifest...", "Reading manifest..."), 0.12f));
             FigmaManifestRebuildData data = _manifestService.LoadForRebuild(manifestPath);
             if (data.RootNode == null || !data.RootNode.HasUsableBounds)
             {
-                throw new InvalidOperationException("manifest 中的根节点尺寸无效，无法重建场景。");
+                throw new InvalidOperationException(L("manifest 中的根节点尺寸无效，无法重建场景。", "The root size in the manifest is invalid; the scene cannot be rebuilt."));
             }
 
             settings.FileKey = data.FileKey;
             settings.ImageScale = data.ImageScale;
             settings.OutputFolder = data.OutputFolder;
 
-            progress.Report(new FigmaImportProgress("更新全局字体映射...", 0.24f));
+            progress.Report(new FigmaImportProgress(L("更新全局字体映射...", "Updating global font mapping..."), 0.24f));
             FigmaFontMappingAsset fontMapping = FigmaFontMappingService.EnsureSettingsUseGlobalMapping(settings);
             FontMappingUpdateResult fontMappingResult = FigmaFontMappingService.UpdateFromLayers(fontMapping, data.Layers);
 
-            progress.Report(new FigmaImportProgress("导入 Sprite 资源...", 0.38f));
+            progress.Report(new FigmaImportProgress(L("导入 Sprite 资源...", "Importing Sprite assets..."), 0.38f));
             string referenceAssetPath = settings.CreateReference ? data.ReferenceAssetPath : string.Empty;
             List<string> spritePaths = new List<string>();
             if (!string.IsNullOrEmpty(referenceAssetPath))
@@ -55,24 +56,24 @@ namespace FigmaUiImporter.Editor
 
             _spriteImporter.ImportSprites(spritePaths, settings.CompressionMode);
 
-            progress.Report(new FigmaImportProgress("生成场景对象...", 0.78f));
+            progress.Report(new FigmaImportProgress(L("生成场景对象...", "Building scene objects..."), 0.78f));
             GameObject rootObject = _sceneBuilder.BuildSceneObjects(
                 settings,
                 data.RootNode,
                 referenceAssetPath,
                 data.Layers);
 
-            progress.Report(new FigmaImportProgress("保存导入诊断报告...", 0.88f));
+            progress.Report(new FigmaImportProgress(L("保存导入诊断报告...", "Saving diagnostics..."), 0.88f));
             string diagnosticReportPath = _diagnosticService.SaveOfflineReport(settings, data);
 
             string prefabPath = string.Empty;
             if (settings.SavePrefab)
             {
-                progress.Report(new FigmaImportProgress("保存 Prefab...", 0.92f));
+                progress.Report(new FigmaImportProgress(L("保存 Prefab...", "Saving Prefab..."), 0.92f));
                 prefabPath = _prefabSaver.SavePrefab(settings, data.RootNode, rootObject);
             }
 
-            progress.Report(new FigmaImportProgress("离线重建完成。", 1f));
+            progress.Report(new FigmaImportProgress(L("离线重建完成。", "Offline rebuild complete."), 1f));
             return new FigmaImportResult
             {
                 OutputFolder = data.OutputFolder,

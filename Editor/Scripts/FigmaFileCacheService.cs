@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -16,7 +17,7 @@ namespace FigmaUiImporter.Editor
             string path = GetCachePath(fileKey);
             if (!File.Exists(path))
             {
-                message = "未找到本地缓存。";
+                message = L("未找到本地缓存。", "No local cache found.");
                 return false;
             }
 
@@ -24,11 +25,11 @@ namespace FigmaUiImporter.Editor
             TimeSpan age = DateTime.UtcNow - lastWriteTime;
             if (age.TotalHours > DefaultMaxAgeHours)
             {
-                message = string.Format("本地缓存已超过 {0} 小时，建议强制重新加载。", DefaultMaxAgeHours);
+                message = F("本地缓存已超过 {0} 小时，建议强制重新加载。", "Local cache is older than {0} hours; use Force Reload if you need the latest design.", DefaultMaxAgeHours);
             }
             else
             {
-                message = string.Format("已使用本地缓存，缓存时间：{0:g} 前。", age);
+                message = F("已使用本地缓存，缓存时间：{0:g} 前。", "Using local cache from {0:g} ago.", age);
             }
 
             json = File.ReadAllText(path);

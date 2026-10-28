@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -129,7 +130,7 @@ namespace FigmaUiImporter.Editor
         {
             get
             {
-                string name = string.IsNullOrEmpty(Name) ? "(未命名)" : Name;
+                string name = string.IsNullOrEmpty(Name) ? L("(未命名)", "(Unnamed)") : Name;
                 string id = string.IsNullOrEmpty(Id) ? "-" : Id;
                 string type = string.IsNullOrEmpty(Type) ? "UNKNOWN" : Type;
                 return string.Format("{0}  [{1}]  {2}", name, type, id);

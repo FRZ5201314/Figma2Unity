@@ -7,6 +7,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -23,25 +24,25 @@ namespace FigmaUiImporter.Editor
             reason = string.Empty;
             if (binding == null)
             {
-                reason = "缺少 FigmaLayerBinding。";
+                reason = L("缺少 FigmaLayerBinding。", "Missing FigmaLayerBinding.");
                 return false;
             }
 
             if (!IsTextNode(binding))
             {
-                reason = "当前节点不是 Figma TEXT。";
+                reason = L("当前节点不是 Figma TEXT。", "The current node is not a Figma TEXT node.");
                 return false;
             }
 
             if (binding.GetComponent<TextMeshProUGUI>() == null)
             {
-                reason = "当前节点没有 TextMeshProUGUI 组件。";
+                reason = L("当前节点没有 TextMeshProUGUI 组件。", "The current node has no TextMeshProUGUI component.");
                 return false;
             }
 
             if (!AssetFileExists(binding.AssetPath))
             {
-                reason = "找不到 fallback PNG：" + SafeAssetPath(binding.AssetPath);
+                reason = F("找不到 fallback PNG：{0}", "Fallback PNG not found: {0}", SafeAssetPath(binding.AssetPath));
                 return false;
             }
 
@@ -53,19 +54,19 @@ namespace FigmaUiImporter.Editor
             reason = string.Empty;
             if (binding == null)
             {
-                reason = "缺少 FigmaLayerBinding。";
+                reason = L("缺少 FigmaLayerBinding。", "Missing FigmaLayerBinding.");
                 return false;
             }
 
             if (!IsTextNode(binding))
             {
-                reason = "当前节点不是 Figma TEXT。";
+                reason = L("当前节点不是 Figma TEXT。", "The current node is not a Figma TEXT node.");
                 return false;
             }
 
             if (binding.GetComponent<Image>() == null)
             {
-                reason = "当前节点没有 Image 组件。";
+                reason = L("当前节点没有 Image 组件。", "The current node has no Image component.");
                 return false;
             }
 
@@ -77,7 +78,7 @@ namespace FigmaUiImporter.Editor
 
             if (!style.HasUsableStyle)
             {
-                reason = "文本样式缺少内容或字号，无法创建 TMP。";
+                reason = L("文本样式缺少内容或字号，无法创建 TMP。", "The text style has no characters or font size; TMP cannot be created.");
                 return false;
             }
 
@@ -94,7 +95,7 @@ namespace FigmaUiImporter.Editor
             Sprite sprite = LoadOrImportSprite(binding.AssetPath);
             if (sprite == null)
             {
-                message = "PNG 资源未能作为 Sprite 载入：" + SafeAssetPath(binding.AssetPath);
+                message = F("PNG 资源未能作为 Sprite 载入：{0}", "PNG asset could not be loaded as a Sprite: {0}", SafeAssetPath(binding.AssetPath));
                 return false;
             }
 
@@ -105,7 +106,7 @@ namespace FigmaUiImporter.Editor
 
             Undo.IncrementCurrentGroup();
             int undoGroup = Undo.GetCurrentGroup();
-            Undo.SetCurrentGroupName("Figma 文本转 PNG");
+            Undo.SetCurrentGroupName(L("Figma 文本转 PNG", "Figma text to PNG"));
 
             if (text != null)
             {
@@ -118,7 +119,7 @@ namespace FigmaUiImporter.Editor
             }
             else
             {
-                Undo.RecordObject(image, "Figma 文本转 PNG");
+                Undo.RecordObject(image, L("Figma 文本转 PNG", "Figma text to PNG"));
             }
 
             image.sprite = sprite;
@@ -129,7 +130,7 @@ namespace FigmaUiImporter.Editor
             MarkDirty(gameObject);
             Undo.CollapseUndoOperations(undoGroup);
 
-            message = "已转为 PNG 图片。";
+            message = L("已转为 PNG 图片。", "Converted to a PNG image.");
             return true;
         }
 
@@ -143,7 +144,7 @@ namespace FigmaUiImporter.Editor
 
             if (!style.HasUsableStyle)
             {
-                message = "文本样式缺少内容或字号，无法创建 TMP。";
+                message = L("文本样式缺少内容或字号，无法创建 TMP。", "The text style has no characters or font size; TMP cannot be created.");
                 return false;
             }
 
@@ -173,13 +174,13 @@ namespace FigmaUiImporter.Editor
 
             if (resolvedFont == null)
             {
-                message = "未找到可用 TMP 字体。请先在 Assets/FigmaImports/FigmaFontMapping.asset 的默认 TMP 字体或匹配条目中配置 FontAsset。";
+                message = L("未找到可用 TMP 字体。请先在 Assets/FigmaImports/FigmaFontMapping.asset 的默认 TMP 字体或匹配条目中配置 FontAsset。", "No usable TMP font found. Configure a DefaultFont or a matching FontAsset in Assets/FigmaImports/FigmaFontMapping.asset.");
                 return false;
             }
 
             Undo.IncrementCurrentGroup();
             int undoGroup = Undo.GetCurrentGroup();
-            Undo.SetCurrentGroupName("Figma PNG 转 TMP");
+            Undo.SetCurrentGroupName(L("Figma PNG 转 TMP", "Figma PNG to TMP"));
 
             if (image != null)
             {
@@ -199,14 +200,14 @@ namespace FigmaUiImporter.Editor
                 catch (Exception ex)
                 {
                     RestoreImage(gameObject, restoreSprite, restorePreserveAspect, raycastTarget);
-                    message = "创建 TMP 组件失败：" + ex.Message;
+                    message = F("创建 TMP 组件失败：{0}", "Failed to create the TMP component: {0}", ex.Message);
                     Undo.CollapseUndoOperations(undoGroup);
                     return false;
                 }
             }
             else
             {
-                Undo.RecordObject(text, "Figma PNG 转 TMP");
+                Undo.RecordObject(text, L("Figma PNG 转 TMP", "Figma PNG to TMP"));
                 text.font = resolvedFont;
             }
 
@@ -223,7 +224,7 @@ namespace FigmaUiImporter.Editor
                 }
 
                 RestoreImage(gameObject, restoreSprite, restorePreserveAspect, raycastTarget);
-                message = "应用 TMP 样式失败：" + ex.Message;
+                message = F("应用 TMP 样式失败：{0}", "Failed to apply the TMP style: {0}", ex.Message);
                 Undo.CollapseUndoOperations(undoGroup);
                 return false;
             }
@@ -232,7 +233,7 @@ namespace FigmaUiImporter.Editor
             MarkDirty(gameObject);
             Undo.CollapseUndoOperations(undoGroup);
 
-            message = "已转为 TMP 文本。";
+            message = L("已转为 TMP 文本。", "Converted to TMP text.");
             return true;
         }
 
@@ -263,7 +264,7 @@ namespace FigmaUiImporter.Editor
             reason = string.Empty;
             if (binding == null)
             {
-                reason = "缺少 FigmaLayerBinding。";
+                reason = L("缺少 FigmaLayerBinding。", "Missing FigmaLayerBinding.");
                 return false;
             }
 
@@ -281,11 +282,11 @@ namespace FigmaUiImporter.Editor
                             return true;
                         }
 
-                        manifestError = "manifest 中该节点的 text 元数据缺少内容或字号：" + binding.NodeId;
+                        manifestError = F("manifest 中该节点的 text 元数据缺少内容或字号：{0}", "The manifest text metadata for this node has no characters or font size: {0}", binding.NodeId);
                     }
                     else
                     {
-                        manifestError = "manifest 中没有找到该节点的 text 元数据：" + binding.NodeId;
+                        manifestError = F("manifest 中没有找到该节点的 text 元数据：{0}", "No text metadata found for this node in the manifest: {0}", binding.NodeId);
                     }
                 }
                 catch (Exception ex)
@@ -295,8 +296,8 @@ namespace FigmaUiImporter.Editor
             }
 
             reason = string.IsNullOrEmpty(manifestError)
-                ? "未找到可用的文本元数据。请确认 PNG 旁边仍有导入生成的 manifest.json。"
-                : "未能从 manifest 读取文本元数据：" + manifestError;
+                ? L("未找到可用的文本元数据。请确认 PNG 旁边仍有导入生成的 manifest.json。", "No usable text metadata found. Make sure the manifest.json generated by the import is still next to the PNG.")
+                : F("未能从 manifest 读取文本元数据：{0}", "Failed to read text metadata from the manifest: {0}", manifestError);
             return false;
         }
 
@@ -375,7 +376,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            ApplyResolvedRect(rectTransform, rootNode, rootCenteredPosition, sizeDelta, "Figma 文本转 PNG");
+            ApplyResolvedRect(rectTransform, rootNode, rootCenteredPosition, sizeDelta, L("Figma 文本转 PNG", "Figma text to PNG"));
         }
 
         private static void ApplyTextRect(FigmaLayerBinding binding)
@@ -408,7 +409,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            ApplyResolvedRect(rectTransform, data.RootNode, layer.AnchoredPosition, layer.SizeDelta, "Figma PNG 转 TMP");
+            ApplyResolvedRect(rectTransform, data.RootNode, layer.AnchoredPosition, layer.SizeDelta, L("Figma PNG 转 TMP", "Figma PNG to TMP"));
         }
 
         private static void ApplyResolvedRect(
@@ -574,7 +575,7 @@ namespace FigmaUiImporter.Editor
             }
             catch (Exception ex)
             {
-                reason = "读取或创建 FigmaFontMapping.asset 失败：" + ex.Message;
+                reason = F("读取或创建 FigmaFontMapping.asset 失败：{0}", "Failed to read or create FigmaFontMapping.asset: {0}", ex.Message);
                 return false;
             }
         }
@@ -611,7 +612,7 @@ namespace FigmaUiImporter.Editor
         private static string SafeAssetPath(string assetPath)
         {
             string normalized = NormalizeAssetPath(assetPath);
-            return string.IsNullOrEmpty(normalized) ? "(空路径)" : normalized;
+            return string.IsNullOrEmpty(normalized) ? L("(空路径)", "(empty path)") : normalized;
         }
 
         private static string GetAssetDirectory(string assetPath)

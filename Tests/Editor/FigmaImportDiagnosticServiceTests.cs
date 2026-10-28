@@ -9,10 +9,13 @@ namespace FigmaUiImporter.Editor.Tests
     public sealed class FigmaImportDiagnosticServiceTests
     {
         private const string TestFolder = "Assets/FigmaUiImporterDiagnosticTests";
+        private FigmaLanguage _previousLanguage;
 
         [SetUp]
         public void SetUp()
         {
+            _previousLanguage = FigmaLocalization.CurrentLanguage;
+            FigmaLocalization.SetLanguage(FigmaLanguage.Chinese);
             Cleanup();
         }
 
@@ -20,6 +23,7 @@ namespace FigmaUiImporter.Editor.Tests
         public void TearDown()
         {
             Cleanup();
+            FigmaLocalization.SetLanguage(_previousLanguage);
         }
 
         [Test]

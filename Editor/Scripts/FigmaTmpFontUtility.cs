@@ -1,6 +1,7 @@
 using FigmaUiImporter;
 using TMPro;
 using UnityEditor;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -174,7 +175,7 @@ namespace FigmaUiImporter.Editor
                 return true;
             }
 
-            reason = "未找到可用 TMP 字体。请先导入 TextMeshPro Essential Resources，并在 FigmaFontMapping.asset 中配置默认 TMP 字体或对应 FontAsset。";
+            reason = L("未找到可用 TMP 字体。请先导入 TextMeshPro Essential Resources，并在 FigmaFontMapping.asset 中配置默认 TMP 字体或对应 FontAsset。", "No usable TMP font found. Import TextMeshPro Essential Resources and configure a DefaultFont or matching FontAsset in FigmaFontMapping.asset.");
             return false;
         }
 

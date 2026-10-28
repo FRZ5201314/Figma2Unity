@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -26,9 +27,7 @@ namespace FigmaUiImporter.Editor
             int overlapCount = FigmaDocumentParser.CountNodesWithSelectedAncestor(plan.Nodes);
             if (overlapCount > 0)
             {
-                report.warnings.Add(
-                    "REST 图片接口无法隐藏已单独导出的子级，检测到 " + overlapCount
-                    + " 个切图的祖先容器也会导出，半透明/阴影区域可能出现重复叠加。");
+                report.warnings.Add(F("REST 图片接口无法隐藏已单独导出的子级，检测到 {0} 个切图的祖先容器也会导出，半透明/阴影区域可能出现重复叠加。", "The REST image endpoint cannot hide separately exported descendants. {0} slices have exported ancestor containers; semi-transparent or shadowed areas may overdraw.", overlapCount));
             }
 
             Dictionary<string, ImportedLayerInfo> layerMap = ToLayerMap(layers);
@@ -81,8 +80,8 @@ namespace FigmaUiImporter.Editor
                 node.nodeId = layer.NodeId;
                 node.nodeName = layer.NodeName;
                 node.type = layer.NodeType;
-                node.action = "导出";
-                node.reason = "来自 manifest 的切图记录。";
+                node.action = L("导出", "Export");
+                node.reason = L("来自 manifest 的切图记录。", "Slice record from the manifest.");
                 node.kind = layer.IsTextLayer ? "text" : "image";
                 node.assetPath = layer.AssetPath;
                 node.unityObjectPath = layer.UnityObjectPath;

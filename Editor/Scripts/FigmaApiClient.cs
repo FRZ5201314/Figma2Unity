@@ -5,6 +5,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine.Networking;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -32,27 +33,27 @@ namespace FigmaUiImporter.Editor
         public async Task<FigmaNodeInfo> LoadFileAsync(string fileKey, CancellationToken cancellationToken)
         {
             string json = await LoadFileJsonAsync(fileKey, cancellationToken);
-            ReportStatus("Figma 文件结构读取完成，正在解析...");
+            ReportStatus(L("Figma 文件结构读取完成，正在解析...", "Figma file structure loaded; parsing..."));
             return FigmaDocumentParser.ParseFile(json);
         }
 
         public async Task<string> LoadFileJsonAsync(string fileKey, CancellationToken cancellationToken)
         {
-            ReportStatus("正在请求 Figma 文件结构...");
+            ReportStatus(L("正在请求 Figma 文件结构...", "Requesting Figma file structure..."));
             string url = ApiBaseUrl + "/files/" + Uri.EscapeDataString(fileKey);
             return await SendTextWithRetryAsync(url, true, cancellationToken);
         }
 
         public async Task<FigmaNodeInfo> LoadNodeTreeAsync(string fileKey, string nodeId, CancellationToken cancellationToken)
         {
-            ReportStatus("正在读取所选节点结构...");
+            ReportStatus(L("正在读取所选节点结构...", "Reading selected node structure..."));
             string url = ApiBaseUrl
                 + "/files/"
                 + Uri.EscapeDataString(fileKey)
                 + "/nodes?ids="
                 + Uri.EscapeDataString(nodeId);
             string json = await SendTextWithRetryAsync(url, true, cancellationToken);
-            ReportStatus("所选节点结构读取完成，正在解析...");
+            ReportStatus(L("所选节点结构读取完成，正在解析...", "Selected node structure loaded; parsing..."));
             return FigmaDocumentParser.ParseNodeResponse(json, nodeId);
         }
 
@@ -78,7 +79,7 @@ namespace FigmaUiImporter.Editor
             float scale,
             CancellationToken cancellationToken)
         {
-            ReportStatus("正在请求 Figma 图片地址：" + nodeIds.Count + " 个节点...");
+            ReportStatus(F("正在请求 Figma 图片地址：{0} 个节点...", "Requesting Figma image URLs for {0} node(s)...", nodeIds.Count));
             string joinedIds = string.Join(",", nodeIds);
             string scaleText = Math.Max(0.01f, Math.Min(4f, scale)).ToString("0.###", CultureInfo.InvariantCulture);
             string url = ApiBaseUrl
@@ -94,7 +95,7 @@ namespace FigmaUiImporter.Editor
             try
             {
                 string json = await SendTextWithRetryAsync(url, true, cancellationToken);
-                ReportStatus("Figma 图片地址读取完成。");
+                ReportStatus(L("Figma 图片地址读取完成。", "Figma image URLs loaded."));
                 return ParseImageUrls(json);
             }
             catch (FigmaApiException exception)
@@ -108,14 +109,15 @@ namespace FigmaUiImporter.Editor
                 {
                     throw new FigmaApiException(
                         exception.StatusCode,
-                        exception.RawMessage + "。该节点在 Figma 服务端渲染超时，可尝试降低图片倍率、拆小节点或改用本地 Figma 插件包导入。",
+                        exception.RawMessage + L("。该节点在 Figma 服务端渲染超时，可尝试降低图片倍率、拆小节点或改用本地 Figma 插件包导入。", ". The node timed out while rendering on Figma's servers. Try a lower image scale, smaller nodes, or the local Figma plugin package."),
                         exception.RetryAfter);
                 }
 
                 int firstCount = Math.Max(1, nodeIds.Count / 2);
                 int secondCount = nodeIds.Count - firstCount;
-                ReportStatus(string.Format(
+                ReportStatus(F(
                     "Figma 图片渲染超时，正在拆分为 {0}+{1} 个节点重试...",
+                    "Figma image render timed out; retrying as {0}+{1} nodes...",
                     firstCount,
                     secondCount));
 
@@ -173,8 +175,9 @@ namespace FigmaUiImporter.Editor
                     }
 
                     int delayMs = 1000 * attempt;
-                    ReportStatus(string.Format(
+                    ReportStatus(F(
                         "图片下载失败，等待 {0} 秒后重试（第 {1}/{2} 次）：{3}",
+                        "Image download failed; retrying in {0}s (attempt {1}/{2}): {3}",
                         delayMs / 1000,
                         attempt,
                         maxAttempts,
@@ -183,7 +186,7 @@ namespace FigmaUiImporter.Editor
                 }
             }
 
-            throw lastException ?? new InvalidOperationException("图片下载失败。");
+            throw lastException ?? new InvalidOperationException(L("图片下载失败。", "Image download failed."));
         }
 
         private static bool ShouldRetryDownload(Exception exception)
@@ -208,7 +211,7 @@ namespace FigmaUiImporter.Editor
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ReportStatus(string.Format("正在连接 Figma API（第 {0}/{1} 次）...", attempt, maxAttempts));
+                ReportStatus(F("正在连接 Figma API（第 {0}/{1} 次）...", "Connecting to Figma API (attempt {0}/{1})...", attempt, maxAttempts));
 
                 try
                 {
@@ -239,7 +242,7 @@ namespace FigmaUiImporter.Editor
                         {
                             throw new FigmaApiException(
                                 exception.StatusCode,
-                                exception.RawMessage + "。Figma API 已限流，请等待一段时间后重试；插件已自动重试但仍未恢复。");
+                                exception.RawMessage + L("。Figma API 已限流，请等待一段时间后重试；插件已自动重试但仍未恢复。", ". Figma API is rate-limited; wait before retrying. Automatic retries did not recover."));
                         }
 
                         throw;
@@ -257,13 +260,13 @@ namespace FigmaUiImporter.Editor
                     }
 
                     retryDelayMs = 1000 * attempt;
-                    ReportStatus(string.Format("Figma 请求异常，等待 {0} 秒后重试（第 {1}/{2} 次）：{3}", retryDelayMs / 1000, attempt, maxAttempts, exception.Message));
+                    ReportStatus(F("Figma 请求异常，等待 {0} 秒后重试（第 {1}/{2} 次）：{3}", "Figma request failed; retrying in {0}s (attempt {1}/{2}): {3}", retryDelayMs / 1000, attempt, maxAttempts, exception.Message));
                 }
 
                 await Task.Delay(retryDelayMs, cancellationToken);
             }
 
-            throw lastException ?? new InvalidOperationException("Figma 请求失败。");
+            throw lastException ?? new InvalidOperationException(L("Figma 请求失败。", "Figma request failed."));
         }
 
         private void ConfigureRequest(UnityWebRequest request, int timeoutSeconds)
@@ -281,11 +284,11 @@ namespace FigmaUiImporter.Editor
             int seconds = Math.Max(1, (retryDelayMs + 999) / 1000);
             if (exception.StatusCode == 429)
             {
-                ReportStatus(string.Format("Figma API 已限流，等待 {0} 秒后自动重试（第 {1}/{2} 次）。", seconds, attempt, maxAttempts));
+                ReportStatus(F("Figma API 已限流，等待 {0} 秒后自动重试（第 {1}/{2} 次）。", "Figma API is rate-limited; retrying in {0}s (attempt {1}/{2}).", seconds, attempt, maxAttempts));
                 return;
             }
 
-            ReportStatus(string.Format("Figma API 请求失败，等待 {0} 秒后自动重试（第 {1}/{2} 次）：{3}", seconds, attempt, maxAttempts, exception.RawMessage));
+            ReportStatus(F("Figma API 请求失败，等待 {0} 秒后自动重试（第 {1}/{2} 次）：{3}", "Figma API request failed; retrying in {0}s (attempt {1}/{2}): {3}", seconds, attempt, maxAttempts, exception.RawMessage));
         }
 
         private void ReportStatus(string message)
@@ -323,7 +326,7 @@ namespace FigmaUiImporter.Editor
                 if (!string.IsNullOrEmpty(message)
                     && message.IndexOf("SSL", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    message += "。如果当前网络需要代理或自签证书，可在插件窗口勾选“忽略 SSL 证书错误”后重试。";
+                    message += L("。如果当前网络需要代理或自签证书，可在插件窗口勾选“忽略 SSL 证书错误”后重试。", ". If the network requires a proxy or a self-signed certificate, enable \"Ignore SSL certificate errors\" in the importer window and retry.");
                 }
 
                 string retryAfter = request.GetResponseHeader("Retry-After");
@@ -356,10 +359,10 @@ namespace FigmaUiImporter.Editor
             string contentType = request.GetResponseHeader("Content-Type");
             if (!string.IsNullOrWhiteSpace(contentType))
             {
-                return "请求失败，HTTP 状态码 " + request.responseCode + "，响应类型：" + contentType;
+                return F("请求失败，HTTP 状态码 {0}，响应类型：{1}", "Request failed with HTTP {0}, content type: {1}", request.responseCode, contentType);
             }
 
-            return "请求失败，HTTP 状态码 " + request.responseCode + "。";
+            return F("请求失败，HTTP 状态码 {0}。", "Request failed with HTTP {0}.", request.responseCode);
         }
 
         private static bool IsTextResponse(UnityWebRequest request)
@@ -402,7 +405,7 @@ namespace FigmaUiImporter.Editor
             Dictionary<string, object> root = MiniJson.Deserialize(json) as Dictionary<string, object>;
             if (root == null)
             {
-                throw new InvalidOperationException("Figma 图片接口返回内容无法解析。");
+                throw new InvalidOperationException(L("Figma 图片接口返回内容无法解析。", "The Figma image API response could not be parsed."));
             }
 
             object error;
@@ -506,10 +509,10 @@ namespace FigmaUiImporter.Editor
         {
             return new FigmaApiException(
                 exception.StatusCode,
-                exception.RawMessage
-                    + "。Figma REST API 已限流，服务端要求等待约 "
-                    + FormatDelay(retryAfterDelayMs)
-                    + "。加载文件、读取节点和请求图片地址都会使用 REST；如果当前正在导入，通常是图片地址请求触发。插件已停止长时间自动等待，请稍后重试；也可以减少一次导入的节点数量，或改用 Figma 插件包本地导入。",
+                exception.RawMessage + F(
+                    "。Figma REST API 已限流，服务端要求等待约 {0}。加载文件、读取节点和请求图片地址都会使用 REST；如果当前正在导入，通常是图片地址请求触发。插件已停止长时间自动等待，请稍后重试；也可以减少一次导入的节点数量，或改用 Figma 插件包本地导入。",
+                    ". Figma REST API is rate-limited; the server asks to wait about {0}. Loading files, reading nodes, and requesting image URLs all use REST. If an import is running, image URL requests usually trigger this. Automatic long waits have been stopped; retry later, import fewer nodes at once, or use the local Figma plugin package.",
+                    FormatDelay(retryAfterDelayMs)),
                 exception.RetryAfter);
         }
 
@@ -523,20 +526,20 @@ namespace FigmaUiImporter.Editor
 
             if (days > 0)
             {
-                return string.Format("{0} 天 {1} 小时", days, hours);
+                return F("{0} 天 {1} 小时", "{0}d {1}h", days, hours);
             }
 
             if (hours > 0)
             {
-                return string.Format("{0} 小时 {1} 分钟", hours, minutes);
+                return F("{0} 小时 {1} 分钟", "{0}h {1}m", hours, minutes);
             }
 
             if (minutes > 0)
             {
-                return string.Format("{0} 分钟 {1} 秒", minutes, seconds);
+                return F("{0} 分钟 {1} 秒", "{0}m {1}s", minutes, seconds);
             }
 
-            return seconds + " 秒";
+            return F("{0} 秒", "{0}s", seconds);
         }
 
         private static bool TryGetRetryAfterDelayMs(string retryAfter, out int delayMs)
@@ -576,7 +579,7 @@ namespace FigmaUiImporter.Editor
         public string RetryAfter { get; private set; }
 
         public FigmaApiException(int statusCode, string message, string retryAfter = null)
-            : base(string.Format("Figma API 请求失败 ({0})：{1}", statusCode, message))
+            : base(F("Figma API 请求失败 ({0})：{1}", "Figma API request failed ({0}): {1}", statusCode, message))
         {
             StatusCode = statusCode;
             RawMessage = message;

@@ -10,10 +10,13 @@ namespace FigmaUiImporter.Editor.Tests
         private const string TestFolder = "Assets/FigmaUiImporterPluginPackageTests";
         private const string PngBase64 =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+        private FigmaLanguage _previousLanguage;
 
         [SetUp]
         public void SetUp()
         {
+            _previousLanguage = FigmaLocalization.CurrentLanguage;
+            FigmaLocalization.SetLanguage(FigmaLanguage.Chinese);
             Cleanup();
         }
 
@@ -21,6 +24,7 @@ namespace FigmaUiImporter.Editor.Tests
         public void TearDown()
         {
             Cleanup();
+            FigmaLocalization.SetLanguage(_previousLanguage);
         }
 
         [Test]

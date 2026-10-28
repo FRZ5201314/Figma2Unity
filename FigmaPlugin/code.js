@@ -1,6 +1,38 @@
 var PACKAGE_SCHEMA_VERSION = 1;
 var DEFAULT_SCALE = 1;
 var MAX_SCALE = 4;
+var currentLanguage = "en";
+var STRINGS = {
+  en: {
+    selectOne: "Select a Frame / Component / Instance.",
+    selectExport: "Select a Frame / Component / Instance to export.",
+    noBounds: "The selected node has no usable size and cannot be exported.",
+    exportingReference: "Exporting the full reference image...",
+    exportingSlice: "Exporting slice {0}/{1}...",
+    generatingPackage: "Generating offline package...",
+    unsupportedPng: "This node does not support PNG export: {0}",
+    unknown: "Unknown"
+  },
+  zh: {
+    selectOne: "请选择一个 Frame / Component / Instance。",
+    selectExport: "请选择一个要导出的 Frame / Component / Instance。",
+    noBounds: "所选节点没有可用尺寸，无法导出。",
+    exportingReference: "正在导出整张参考图...",
+    exportingSlice: "正在导出切图 {0}/{1}...",
+    generatingPackage: "正在生成离线包...",
+    unsupportedPng: "节点不支持导出 PNG：{0}",
+    unknown: "未知"
+  }
+};
+
+function t(key) {
+  var table = STRINGS[currentLanguage] || STRINGS.en;
+  return table[key] || STRINGS.en[key] || key;
+}
+
+function tf(key, first, second) {
+  return t(key).replace("{0}", String(first)).replace("{1}", String(second));
+}
 
 figma.showUI(__html__, {
   width: 380,
@@ -12,7 +44,22 @@ postSelection();
 figma.on("selectionchange", postSelection);
 
 figma.ui.onmessage = function (message) {
-  if (!message || message.type !== "export-package") {
+  if (!message) {
+    return;
+  }
+
+  if (message.type === "set-language") {
+    currentLanguage = message.language === "zh" ? "zh" : "en";
+    postSelection();
+    return;
+  }
+
+  if (message.type === "refresh-selection") {
+    postSelection();
+    return;
+  }
+
+  if (message.type !== "export-package") {
     return;
   }
 
@@ -34,7 +81,7 @@ function postSelection() {
     figma.ui.postMessage({
       type: "selection",
       ok: false,
-      message: "请选择一个 Frame / Component / Instance。"
+      message: t("selectOne")
     });
     return;
   }
@@ -52,13 +99,13 @@ function postSelection() {
 async function exportSelectedNode(options) {
   var selection = figma.currentPage.selection;
   if (!selection || selection.length !== 1) {
-    throw new Error("请选择一个要导出的 Frame / Component / Instance。");
+    throw new Error(t("selectExport"));
   }
 
   var root = selection[0];
   var rootBounds = getRootBounds(root);
   if (!rootBounds) {
-    throw new Error("所选节点没有可用尺寸，无法导出。");
+    throw new Error(t("noBounds"));
   }
 
   var scale = clampNumber(options.scale, DEFAULT_SCALE, 0.01, MAX_SCALE);
@@ -70,7 +117,7 @@ async function exportSelectedNode(options) {
   var layers = [];
 
   if (mode !== "noReference") {
-    postProgress("正在导出整张参考图...", 0.1);
+    postProgress(t("exportingReference"), 0.1);
     var referenceBytes = await exportNodePng(root, scale);
     assets.push({
       path: "reference.png",
@@ -91,7 +138,7 @@ async function exportSelectedNode(options) {
       continue;
     }
 
-    postProgress("正在导出切图 " + (i + 1) + "/" + nodes.length + "...", 0.25 + 0.65 * (i + 1) / Math.max(1, nodes.length));
+    postProgress(tf("exportingSlice", i + 1, nodes.length), 0.25 + 0.65 * (i + 1) / Math.max(1, nodes.length));
     var hiddenDescendantPaths = collectNearestSelectedDescendantPaths(node, selectedMap);
     var bytes = hiddenDescendantPaths.length > 0
       ? await exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, scale)
@@ -105,7 +152,7 @@ async function exportSelectedNode(options) {
     layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length));
   }
 
-  postProgress("正在生成离线包...", 0.95);
+  postProgress(t("generatingPackage"), 0.95);
   return {
     schemaVersion: PACKAGE_SCHEMA_VERSION,
     exportedAt: now,
@@ -135,7 +182,7 @@ async function exportSelectedNode(options) {
 
 async function exportNodePng(node, scale) {
   if (!node || typeof node.exportAsync !== "function") {
-    throw new Error("节点不支持导出 PNG：" + (node && node.name ? node.name : "Unknown"));
+    throw new Error(t("unsupportedPng").replace("{0}", node && node.name ? node.name : t("unknown")));
   }
 
   return await node.exportAsync({

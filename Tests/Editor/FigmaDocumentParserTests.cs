@@ -6,6 +6,21 @@ namespace FigmaUiImporter.Editor.Tests
 {
     public sealed class FigmaDocumentParserTests
     {
+        private FigmaLanguage _previousLanguage;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _previousLanguage = FigmaLocalization.CurrentLanguage;
+            FigmaLocalization.SetLanguage(FigmaLanguage.Chinese);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            FigmaLocalization.SetLanguage(_previousLanguage);
+        }
+
         [Test]
         public void ParseFileReadsLayoutMode()
         {

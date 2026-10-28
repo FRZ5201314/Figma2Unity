@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -25,7 +26,7 @@ namespace FigmaUiImporter.Editor
             IProgress<FigmaImportProgress> progress,
             CancellationToken cancellationToken)
         {
-            progress.Report(new FigmaImportProgress("请求参考图地址...", 0.24f));
+            progress.Report(new FigmaImportProgress(L("请求参考图地址...", "Requesting reference image URL..."), 0.24f));
             Dictionary<string, string> urls = await _client.GetImageUrlsAsync(
                 settings.FileKey,
                 new List<string> { nodeId },
@@ -36,10 +37,10 @@ namespace FigmaUiImporter.Editor
             string url;
             if (!urls.TryGetValue(nodeId, out url) || string.IsNullOrEmpty(url))
             {
-                throw new System.InvalidOperationException("Figma 没有返回参考图地址。");
+                throw new System.InvalidOperationException(L("Figma 没有返回参考图地址。", "Figma did not return a reference image URL."));
             }
 
-            progress.Report(new FigmaImportProgress("下载参考图...", 0.32f));
+            progress.Report(new FigmaImportProgress(L("下载参考图...", "Downloading reference image..."), 0.32f));
             await DownloadToAssetPathAsync(url, assetPath, cancellationToken);
 
             _spriteImporter.ImportSprites(new List<string> { assetPath }, settings.CompressionMode);
@@ -74,7 +75,7 @@ namespace FigmaUiImporter.Editor
                 }
 
                 float batchStartProgress = 0.42f + 0.38f * start / nodes.Count;
-                progress.Report(new FigmaImportProgress("请求切图地址 " + (start + count) + "/" + nodes.Count + "...", batchStartProgress));
+                progress.Report(new FigmaImportProgress(F("请求切图地址 {0}/{1}...", "Requesting slice URLs {0}/{1}...", start + count, nodes.Count), batchStartProgress));
 
                 Dictionary<string, string> urls = await _client.GetImageUrlsAsync(
                     settings.FileKey,
@@ -98,7 +99,7 @@ namespace FigmaUiImporter.Editor
                         layersFolder,
                         FigmaPathUtility.SafeFileName(node.Id) + ".png");
                     float downloadProgress = 0.42f + 0.38f * (start + i + 1) / nodes.Count;
-                    progress.Report(new FigmaImportProgress("下载切图 " + (start + i + 1) + "/" + nodes.Count + "...", downloadProgress));
+                    progress.Report(new FigmaImportProgress(F("下载切图 {0}/{1}...", "Downloading slices {0}/{1}...", start + i + 1, nodes.Count), downloadProgress));
 
                     await DownloadToAssetPathAsync(url, assetPath, cancellationToken);
                     exported[node.Id] = assetPath;
@@ -106,7 +107,7 @@ namespace FigmaUiImporter.Editor
                 }
             }
 
-            progress.Report(new FigmaImportProgress("导入 Sprite 资源...", 0.84f));
+            progress.Report(new FigmaImportProgress(L("导入 Sprite 资源...", "Importing Sprite assets..."), 0.84f));
             _spriteImporter.ImportSprites(importedAssetPaths, settings.CompressionMode);
             return exported;
         }

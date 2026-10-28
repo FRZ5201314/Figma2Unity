@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -39,47 +40,47 @@ namespace FigmaUiImporter.Editor
                 true);
 
             row.y += line + spacing;
-            DrawFullField(row, fontAssetProperty, "TMP 字体");
+            DrawFullField(row, fontAssetProperty, L("TMP 字体", "TMP Font"));
 
             if (property.isExpanded)
             {
                 row.y += line + spacing;
                 Rect contentRow = new Rect(row.x + DetailIndent, row.y, row.width - DetailIndent, line);
-                DrawFullField(contentRow, fontStyleProperty, "TMP 样式");
+                DrawFullField(contentRow, fontStyleProperty, L("TMP 样式", "TMP Style"));
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                DrawFullField(contentRow, familyProperty, "Figma 字体族");
+                DrawFullField(contentRow, familyProperty, L("Figma 字体族", "Figma Family"));
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                DrawFullField(contentRow, styleProperty, "Figma 样式");
+                DrawFullField(contentRow, styleProperty, L("Figma 样式", "Figma Style"));
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                DrawFullField(contentRow, postScriptProperty, "PostScript 名称");
+                DrawFullField(contentRow, postScriptProperty, L("PostScript 名称", "PostScript Name"));
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
                 DrawTwoFields(
                     contentRow,
                     minWeightProperty,
-                    "最小字重",
+                    L("最小字重", "Min Weight"),
                     maxWeightProperty,
-                    "最大字重",
+                    L("最大字重", "Max Weight"),
                     0.5f);
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                DrawFullField(contentRow, usageCountProperty, "使用次数");
+                DrawFullField(contentRow, usageCountProperty, L("使用次数", "Usage"));
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                DrawFullField(contentRow, lastSeenAtProperty, "最后发现");
+                DrawFullField(contentRow, lastSeenAtProperty, L("最后发现", "Last Seen"));
 
                 row.y += line + spacing;
                 contentRow.y = row.y;
-                DrawFullField(contentRow, sampleTextProperty, "文本样本");
+                DrawFullField(contentRow, sampleTextProperty, L("文本样本", "Sample Text"));
             }
 
             EditorGUI.EndProperty();
@@ -126,19 +127,17 @@ namespace FigmaUiImporter.Editor
             SerializedProperty usageCountProperty,
             SerializedProperty fontAssetProperty)
         {
-            string prefix = fontAssetProperty.objectReferenceValue == null ? "未配置" : "已映射";
-            return prefix
-                + " | 使用 "
-                + Mathf.Max(0, usageCountProperty.intValue)
-                + " | "
-                + BuildFigmaName(familyProperty, styleProperty);
+            string prefix = fontAssetProperty.objectReferenceValue == null
+                ? L("未配置", "Unmapped")
+                : L("已映射", "Mapped");
+            return F("{0} | 使用 {1} | {2}", "{0} | Used {1} | {2}", prefix, Mathf.Max(0, usageCountProperty.intValue), BuildFigmaName(familyProperty, styleProperty));
         }
 
         private static string BuildFigmaName(
             SerializedProperty familyProperty,
             SerializedProperty styleProperty)
         {
-            string family = string.IsNullOrWhiteSpace(familyProperty.stringValue) ? "(未知字体族)" : familyProperty.stringValue;
+            string family = string.IsNullOrWhiteSpace(familyProperty.stringValue) ? L("(未知字体族)", "(Unknown family)") : familyProperty.stringValue;
             string style = string.IsNullOrWhiteSpace(styleProperty.stringValue) ? string.Empty : " " + styleProperty.stringValue;
             return family + style;
         }

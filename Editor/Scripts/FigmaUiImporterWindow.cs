@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -31,13 +32,16 @@ namespace FigmaUiImporter.Editor
         private const int SliceWarningThreshold = 80;
         private const int LargePluginPackageAssetThreshold = 120;
         private const long LargePluginPackageSizeBytes = 80L * 1024L * 1024L;
-        private const float WindowWidth = 1160f;
-        private const float WindowHeight = 620f;
-        private const float ColumnContentHeight = WindowHeight;
+        private const float DefaultWindowWidth = 1180f;
+        private const float DefaultWindowHeight = 640f;
+        private const float MinWindowWidth = 1180f;
+        private const float MinWindowHeight = 560f;
+        private const float MaxWindowSize = 10000f;
         private const float LeftColumnWidth = 360f;
         private const float CenterColumnWidth = 410f;
         private const float FontColumnWidth = LeftColumnWidth;
-        private const float ColumnSpacing = 8f;
+        private const float ColumnSpacing = 4f;
+        private const string PrefWindowSized = "FigmaUiImporter.WindowSized";
         private const float SectionSpacing = 8f;
         private const float PageTreeHeight = 160f;
         private const float ImportedManifestListHeight = 150f;
@@ -46,33 +50,57 @@ namespace FigmaUiImporter.Editor
         private const float ErrorMessageMaxHeight = 56f;
         private const float StatusMessageContentWidth = CenterColumnWidth - 36f;
 
-        private static readonly string[] SliceModeLabels =
+        private static string[] SliceModeLabels
         {
-            "ExportSettings 优先，并补齐自动切片",
-            "只导入已设置 Export 的节点",
-            "自动切片可见图层",
-            "仅导入整张参考图"
-        };
+            get
+            {
+                return new[]
+                {
+                    L("ExportSettings 优先，并补齐自动切片", "ExportSettings first, then auto slices"),
+                    L("只导入已设置 Export 的节点", "Export-marked nodes only"),
+                    L("自动切片可见图层", "Auto-slice visible layers"),
+                    L("仅导入整张参考图", "Reference image only")
+                };
+            }
+        }
 
-        private static readonly string[] ContainerSliceStrategyLabels =
+        private static string[] ContainerSliceStrategyLabels
         {
-            "自动：保留容器底图并展开组件实例",
-            "严格 ExportSettings：标记容器优先",
-            "强制展开容器：尽量拆到子级"
-        };
+            get
+            {
+                return new[]
+                {
+                    L("自动：保留容器底图并展开组件实例", "Auto: keep background, expand instances"),
+                    L("严格 ExportSettings：标记容器优先", "Strict: marked containers first"),
+                    L("强制展开容器：尽量拆到子级", "Force expand containers")
+                };
+            }
+        }
 
-        private static readonly string[] TextImportModeLabels =
+        private static string[] TextImportModeLabels
         {
-            "图片：文字也按 PNG 导入",
-            "TextMeshPro：尽量转为可编辑文本",
-            "智能：普通文本转 TMP，复杂文本用图片"
-        };
+            get
+            {
+                return new[]
+                {
+                    L("图片：文字也按 PNG 导入", "Image: import text as PNG"),
+                    L("TextMeshPro：尽量转为可编辑文本", "TextMeshPro: editable when possible"),
+                    L("智能：普通文本转 TMP，复杂文本用图片", "Smart: TMP for simple text, PNG for complex")
+                };
+            }
+        }
 
-        private static readonly string[] CompressionModeLabels =
+        private static string[] CompressionModeLabels
         {
-            "不压缩（质量优先）",
-            "压缩（体积优先）"
-        };
+            get
+            {
+                return new[]
+                {
+                    L("不压缩（质量优先）", "Uncompressed (quality)"),
+                    L("压缩（体积优先）", "Compressed (size)")
+                };
+            }
+        }
 
         private string _accessToken;
         private string _fileInput;
@@ -124,13 +152,13 @@ namespace FigmaUiImporter.Editor
         {
             FigmaUiImporterWindow window = GetWindow<FigmaUiImporterWindow>();
             window.titleContent = new GUIContent("Figma2Unity");
-            window.ApplyFixedWindowSize();
+            window.ConfigureWindowSize();
             window.Show();
         }
 
         private void OnEnable()
         {
-            ApplyFixedWindowSize();
+            ConfigureWindowSize();
             _accessToken = EditorPrefs.GetString(PrefToken, string.Empty);
             _fileInput = EditorPrefs.GetString(PrefFileInput, string.Empty);
             _outputFolder = EditorPrefs.GetString(PrefOutputFolder, "Assets/FigmaImports");
@@ -154,20 +182,28 @@ namespace FigmaUiImporter.Editor
             _prefabFolder = EditorPrefs.GetString(PrefPrefabFolder, "Assets/FigmaImports/Prefabs");
             _ignoreSslCertificateErrors = EditorPrefs.GetBool(PrefIgnoreSslCertificateErrors, false);
             _preferCachedFile = EditorPrefs.GetBool(PrefPreferCachedFile, true);
-            _status = "等待加载 Figma 文件。";
+            _status = L("等待加载 Figma 文件。", "Waiting to load a Figma file.");
             BindFontMappingAsset();
             RefreshImportedManifests(false);
         }
 
-        private void ApplyFixedWindowSize()
+        private void ConfigureWindowSize()
         {
-            Vector2 fixedSize = new Vector2(WindowWidth, WindowHeight);
-            minSize = fixedSize;
-            maxSize = fixedSize;
-            Rect currentPosition = position;
-            currentPosition.width = WindowWidth;
-            currentPosition.height = WindowHeight;
-            position = currentPosition;
+            minSize = new Vector2(MinWindowWidth, MinWindowHeight);
+            maxSize = new Vector2(MaxWindowSize, MaxWindowSize);
+
+            // Apply the comfortable default once, or when the saved layout is below the usable minimum.
+            bool needsDefault = !EditorPrefs.GetBool(PrefWindowSized, false)
+                || position.width < MinWindowWidth
+                || position.height < MinWindowHeight;
+            if (needsDefault)
+            {
+                Rect currentPosition = position;
+                currentPosition.width = DefaultWindowWidth;
+                currentPosition.height = DefaultWindowHeight;
+                position = currentPosition;
+                EditorPrefs.SetBool(PrefWindowSized, true);
+            }
         }
 
         private void OnDisable()
@@ -193,18 +229,21 @@ namespace FigmaUiImporter.Editor
         {
             BindFontMappingAsset();
 
-            EditorGUILayout.BeginHorizontal(GUILayout.Height(ColumnContentHeight), GUILayout.ExpandHeight(true));
-            EditorGUILayout.BeginVertical(GUILayout.Width(LeftColumnWidth), GUILayout.Height(ColumnContentHeight), GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginHorizontal(GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(GUILayout.Width(LeftColumnWidth), GUILayout.ExpandHeight(true));
             DrawNetworkColumn();
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space(ColumnSpacing);
-            EditorGUILayout.BeginVertical(GUILayout.Width(CenterColumnWidth), GUILayout.Height(ColumnContentHeight), GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(
+                GUILayout.MinWidth(CenterColumnWidth),
+                GUILayout.ExpandWidth(true),
+                GUILayout.ExpandHeight(true));
             DrawLocalColumn();
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space(ColumnSpacing);
-            EditorGUILayout.BeginVertical(GUILayout.Width(FontColumnWidth), GUILayout.Height(ColumnContentHeight), GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(GUILayout.Width(FontColumnWidth), GUILayout.ExpandHeight(true));
             DrawFontMappingPanel();
             EditorGUILayout.EndVertical();
             EditorGUILayout.EndHorizontal();
@@ -271,14 +310,14 @@ namespace FigmaUiImporter.Editor
         {
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                BeginSection("REST 连接");
+                BeginSection(L("REST 连接", "REST Connection"));
                 _accessToken = EditorGUILayout.PasswordField("Figma Token", _accessToken);
-                _fileInput = EditorGUILayout.TextField("File Key 或 URL", _fileInput);
-                _preferCachedFile = EditorGUILayout.Toggle("优先使用本地缓存", _preferCachedFile);
-                _ignoreSslCertificateErrors = EditorGUILayout.Toggle("忽略 SSL 证书错误", _ignoreSslCertificateErrors);
+                _fileInput = EditorGUILayout.TextField(L("File Key 或 URL", "File Key or URL"), _fileInput);
+                _preferCachedFile = EditorGUILayout.Toggle(L("优先使用本地缓存", "Prefer local cache"), _preferCachedFile);
+                _ignoreSslCertificateErrors = EditorGUILayout.Toggle(L("忽略 SSL 证书错误", "Ignore SSL certificate errors"), _ignoreSslCertificateErrors);
                 if (_ignoreSslCertificateErrors)
                 {
-                    EditorGUILayout.HelpBox("仅在 Unity 报 Unable to complete SSL connection 时使用。该选项会跳过 HTTPS 证书校验。", MessageType.Warning);
+                    EditorGUILayout.HelpBox(L("仅在 Unity 报 Unable to complete SSL connection 时使用。该选项会跳过 HTTPS 证书校验。", "Use only when Unity reports \"Unable to complete SSL connection\". This skips HTTPS certificate validation."), MessageType.Warning);
                 }
                 EndSection();
             }
@@ -288,55 +327,55 @@ namespace FigmaUiImporter.Editor
         {
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                BeginSection("通用输出");
+                BeginSection(L("通用输出", "Output"));
                 EditorGUILayout.BeginHorizontal();
-                _outputFolder = EditorGUILayout.TextField("输出资源目录", _outputFolder);
-                if (GUILayout.Button("选择", GUILayout.Width(56f)))
+                _outputFolder = EditorGUILayout.TextField(L("输出资源目录", "Output Folder"), _outputFolder);
+                if (GUILayout.Button(L("选择", "Select"), GUILayout.Width(56f)))
                 {
                     PickOutputFolder();
                 }
                 EditorGUILayout.EndHorizontal();
 
-                _targetCanvas = (Canvas)EditorGUILayout.ObjectField("目标 Canvas", _targetCanvas, typeof(Canvas), true);
+                _targetCanvas = (Canvas)EditorGUILayout.ObjectField(L("目标 Canvas", "Target Canvas"), _targetCanvas, typeof(Canvas), true);
                 EndSection();
 
                 AddSectionSpacing();
-                BeginSection("通用导入设置");
-                _sliceMode = (FigmaSliceMode)EditorGUILayout.Popup("切图模式", (int)_sliceMode, SliceModeLabels);
+                BeginSection(L("通用导入设置", "Import Settings"));
+                _sliceMode = (FigmaSliceMode)EditorGUILayout.Popup(L("切图模式", "Slice Mode"), (int)_sliceMode, SliceModeLabels);
                 using (new EditorGUI.DisabledScope(_sliceMode != FigmaSliceMode.ExportSettingsThenAutoSlice))
                 {
-                    _containerSliceStrategy = (FigmaContainerSliceStrategy)EditorGUILayout.Popup("容器处理策略", (int)_containerSliceStrategy, ContainerSliceStrategyLabels);
+                    _containerSliceStrategy = (FigmaContainerSliceStrategy)EditorGUILayout.Popup(L("容器处理策略", "Container Strategy"), (int)_containerSliceStrategy, ContainerSliceStrategyLabels);
                 }
 
-                _textImportMode = (FigmaTextImportMode)EditorGUILayout.Popup("文本导入模式", (int)_textImportMode, TextImportModeLabels);
+                _textImportMode = (FigmaTextImportMode)EditorGUILayout.Popup(L("文本导入模式", "Text Mode"), (int)_textImportMode, TextImportModeLabels);
                 _fontMapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>(FigmaFontMappingService.GlobalMappingAssetPath);
                 using (new EditorGUI.DisabledScope(true))
                 {
-                    EditorGUILayout.ObjectField("全局字体映射", _fontMapping, typeof(FigmaFontMappingAsset), false);
+                    EditorGUILayout.ObjectField(L("全局字体映射", "Global Font Mapping"), _fontMapping, typeof(FigmaFontMappingAsset), false);
                 }
-                _imageScale = Mathf.Clamp(EditorGUILayout.FloatField("图片倍率", _imageScale), 0.01f, 4f);
+                _imageScale = Mathf.Clamp(EditorGUILayout.FloatField(L("图片倍率", "Image Scale"), _imageScale), 0.01f, 4f);
                 _compressionMode = (TextureImporterCompressionMode)EditorGUILayout.Popup(
-                    "纹理压缩",
+                    L("纹理压缩", "Texture Compression"),
                     (int)_compressionMode,
                     CompressionModeLabels);
-                _createReference = EditorGUILayout.Toggle("创建参考图", _createReference);
+                _createReference = EditorGUILayout.Toggle(L("创建参考图", "Create Reference Image"), _createReference);
                 using (new EditorGUI.DisabledScope(!_createReference))
                 {
-                    _referenceAlpha = EditorGUILayout.Slider("参考图透明度", _referenceAlpha, 0f, 1f);
+                    _referenceAlpha = EditorGUILayout.Slider(L("参考图透明度", "Reference Alpha"), _referenceAlpha, 0f, 1f);
                 }
 
-                _disableRaycastTarget = EditorGUILayout.Toggle("关闭图片射线检测", _disableRaycastTarget);
+                _disableRaycastTarget = EditorGUILayout.Toggle(L("关闭图片射线检测", "Disable Raycast Target"), _disableRaycastTarget);
                 EndSection();
 
                 AddSectionSpacing();
-                BeginSection("输出选项");
-                _overwriteExisting = EditorGUILayout.Toggle("覆盖同名场景根节点 / Prefab", _overwriteExisting);
-                _savePrefab = EditorGUILayout.Toggle("保存为 Prefab", _savePrefab);
+                BeginSection(L("输出选项", "Output Options"));
+                _overwriteExisting = EditorGUILayout.Toggle(L("覆盖同名场景根节点 / Prefab", "Overwrite scene root / Prefab"), _overwriteExisting);
+                _savePrefab = EditorGUILayout.Toggle(L("保存为 Prefab", "Save as Prefab"), _savePrefab);
                 using (new EditorGUI.DisabledScope(!_savePrefab))
                 {
                     EditorGUILayout.BeginHorizontal();
-                    _prefabFolder = EditorGUILayout.TextField("Prefab 输出目录", _prefabFolder);
-                    if (GUILayout.Button("选择", GUILayout.Width(56f)))
+                    _prefabFolder = EditorGUILayout.TextField(L("Prefab 输出目录", "Prefab Output Folder"), _prefabFolder);
+                    if (GUILayout.Button(L("选择", "Select"), GUILayout.Width(56f)))
                     {
                         PickPrefabFolder();
                     }
@@ -348,16 +387,16 @@ namespace FigmaUiImporter.Editor
 
         private void DrawNetworkImportActions()
         {
-            BeginSection("网络导入（Figma REST API）");
+            BeginSection(L("网络导入（Figma REST API）", "Network Import (Figma REST API)"));
             EditorGUILayout.BeginHorizontal();
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                if (GUILayout.Button("加载 Figma 文件", GUILayout.Height(30f)))
+                if (GUILayout.Button(L("加载 Figma 文件", "Load Figma File"), GUILayout.Height(30f)))
                 {
                     _ = LoadFileAsync(false);
                 }
 
-                if (GUILayout.Button("强制重新加载", GUILayout.Width(110f), GUILayout.Height(30f)))
+                if (GUILayout.Button(L("强制重新加载", "Force Reload"), GUILayout.Width(110f), GUILayout.Height(30f)))
                 {
                     _ = LoadFileAsync(true);
                 }
@@ -365,7 +404,7 @@ namespace FigmaUiImporter.Editor
 
             using (new EditorGUI.DisabledScope(!_isBusy))
             {
-                if (GUILayout.Button("取消", GUILayout.Width(72f), GUILayout.Height(30f)))
+                if (GUILayout.Button(L("取消", "Cancel"), GUILayout.Width(72f), GUILayout.Height(30f)))
                 {
                     if (_cancellation != null)
                     {
@@ -380,10 +419,10 @@ namespace FigmaUiImporter.Editor
 
         private void DrawLocalImportActions()
         {
-            BeginSection("本地导入（Figma 插件包）");
+            BeginSection(L("本地导入（Figma 插件包）", "Local Import (Figma Plugin Package)"));
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                if (GUILayout.Button("导入 .figma2unity.json", GUILayout.Height(30f)))
+                if (GUILayout.Button(L("导入 .figma2unity.json", "Import .figma2unity.json"), GUILayout.Height(30f)))
                 {
                     ImportFromPluginPackage();
                 }
@@ -393,12 +432,12 @@ namespace FigmaUiImporter.Editor
 
         private void DrawImportedManifestsPanel()
         {
-            BeginSection("本地重建（已导入项目）", GUILayout.ExpandHeight(true));
+            BeginSection(L("本地重建（已导入项目）", "Local Rebuild (Imported Projects)"), GUILayout.ExpandHeight(true));
             EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("点击项目从 manifest 重建场景", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField(L("点击项目从 manifest 重建场景", "Click a project to rebuild from its manifest"), EditorStyles.miniLabel);
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                if (GUILayout.Button("刷新", GUILayout.Width(52f)))
+                if (GUILayout.Button(L("刷新", "Refresh"), GUILayout.Width(52f)))
                 {
                     RefreshImportedManifests(true);
                 }
@@ -416,7 +455,7 @@ namespace FigmaUiImporter.Editor
                 GUILayout.ExpandHeight(true));
             if (_importedManifests.Count == 0)
             {
-                EditorGUILayout.LabelField("暂无已导入项目。导入后会在这里显示。", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField(L("暂无已导入项目。导入后会在这里显示。", "No imported projects yet. Imports will appear here."), EditorStyles.miniLabel);
             }
             else
             {
@@ -477,17 +516,17 @@ namespace FigmaUiImporter.Editor
                 _importedManifests.Sort(CompareImportedManifestEntries);
                 if (skipped > 0)
                 {
-                    _importedManifestMessage = "已跳过 " + skipped + " 个无法读取的 manifest。";
+                    _importedManifestMessage = F("已跳过 {0} 个无法读取的 manifest。", "{0} unreadable manifest(s) skipped.", skipped);
                 }
 
                 if (addLog)
                 {
-                    AddLog("已刷新导入项目列表：找到 " + _importedManifests.Count + " 个 manifest。");
+                    AddLog(F("已刷新导入项目列表：找到 {0} 个 manifest。", "Imported project list refreshed: {0} manifest(s) found.", _importedManifests.Count));
                 }
             }
             catch (Exception exception)
             {
-                _importedManifestMessage = "扫描已导入项目失败：" + exception.Message;
+                _importedManifestMessage = F("扫描已导入项目失败：{0}", "Failed to scan imported projects: {0}", exception.Message);
                 if (addLog)
                 {
                     AddLog(_importedManifestMessage);
@@ -558,7 +597,7 @@ namespace FigmaUiImporter.Editor
             ImportedManifestSummaryDto manifest = JsonUtility.FromJson<ImportedManifestSummaryDto>(File.ReadAllText(fullPath));
             if (manifest == null || string.IsNullOrEmpty(manifest.selectedNodeId))
             {
-                throw new InvalidOperationException("manifest 内容无效：" + manifestPath);
+                throw new InvalidOperationException(F("manifest 内容无效：{0}", "Invalid manifest: {0}", manifestPath));
             }
 
             DateTime sortTime = File.GetLastWriteTimeUtc(fullPath);
@@ -574,7 +613,7 @@ namespace FigmaUiImporter.Editor
             }
 
             string nodeName = string.IsNullOrWhiteSpace(manifest.selectedNodeName)
-                ? "(未命名项目)"
+                ? L("(未命名项目)", "(Unnamed project)")
                 : manifest.selectedNodeName.Trim();
             nodeName = ShortenText(nodeName, 26);
             string nodeType = string.IsNullOrWhiteSpace(manifest.selectedNodeType)
@@ -582,7 +621,7 @@ namespace FigmaUiImporter.Editor
                 : manifest.selectedNodeType.Trim();
             int layerCount = manifest.layers == null ? 0 : manifest.layers.Count;
             string importedTime = sortTime.ToLocalTime().ToString("MM-dd HH:mm");
-            string detail = importedTime + " | " + layerCount + " 图层 | " + ShortenAssetPath(manifestPath, 42);
+            string detail = F("{0} | {1} 图层 | {2}", "{0} | {1} layers | {2}", importedTime, layerCount, ShortenAssetPath(manifestPath, 42));
 
             ImportedManifestEntry entry = new ImportedManifestEntry();
             entry.ManifestPath = manifestPath;
@@ -625,12 +664,28 @@ namespace FigmaUiImporter.Editor
 
         private void DrawFontMappingPanel()
         {
-            BeginSection("字体映射", GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox, GUILayout.ExpandHeight(true));
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(L("字体映射", "Font Mapping"), EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+            GUIContent languageButton = new GUIContent(
+                FigmaLocalization.IsEnglish ? "中文" : "English",
+                L("切换界面语言", "Switch interface language"));
+            using (new EditorGUI.DisabledScope(_isBusy))
+            {
+                if (GUILayout.Button(languageButton, EditorStyles.miniButton, GUILayout.Width(64f)))
+                {
+                    FigmaLocalization.ToggleLanguage();
+                    Repaint();
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
 
             if (_fontMapping == null || _fontMappingSerializedObject == null)
             {
-                EditorGUILayout.HelpBox("未找到全局字体映射。", MessageType.Warning);
-                if (GUILayout.Button("创建字体映射", GUILayout.Height(28f)))
+                EditorGUILayout.HelpBox(L("未找到全局字体映射。", "Global font mapping not found."), MessageType.Warning);
+                if (GUILayout.Button(L("创建字体映射", "Create Font Mapping"), GUILayout.Height(28f)))
                 {
                     OpenGlobalFontMapping();
                     BindFontMappingAsset();
@@ -645,37 +700,37 @@ namespace FigmaUiImporter.Editor
             EditorGUILayout.BeginHorizontal();
             using (new EditorGUI.DisabledScope(true))
             {
-                EditorGUILayout.ObjectField("映射资产", _fontMapping, typeof(FigmaFontMappingAsset), false);
+                EditorGUILayout.ObjectField(L("映射资产", "Mapping Asset"), _fontMapping, typeof(FigmaFontMappingAsset), false);
             }
 
-            if (GUILayout.Button("定位", GUILayout.Width(52f)))
+            if (GUILayout.Button(L("定位", "Locate"), GUILayout.Width(52f)))
             {
                 Selection.activeObject = _fontMapping;
                 EditorGUIUtility.PingObject(_fontMapping);
             }
             EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.PropertyField(_fontDefaultFontProperty, new GUIContent("默认 TMP 字体"));
+            EditorGUILayout.PropertyField(_fontDefaultFontProperty, new GUIContent(L("默认 TMP 字体", "Default TMP Font")));
 
-            EditorGUILayout.BeginHorizontal();
             using (new EditorGUI.DisabledScope(_isBusy))
             {
-                if (GUILayout.Button("更新已导入页面", GUILayout.Height(28f)))
+                if (GUILayout.Button(L("更新已导入页面", "Update Imported Pages"), GUILayout.Height(28f)))
                 {
                     UpdateFontMappingFromImportedManifests();
                 }
 
-                if (GUILayout.Button("应用到选中项", GUILayout.Height(28f)))
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button(L("应用到选中项", "Apply to Selection"), GUILayout.Height(28f)))
                 {
                     ApplyFontMappingToSelection();
                 }
 
-                if (GUILayout.Button("应用到打开场景", GUILayout.Height(28f)))
+                if (GUILayout.Button(L("应用到打开场景", "Apply to Open Scenes"), GUILayout.Height(28f)))
                 {
                     ApplyFontMappingToOpenScenes();
                 }
+                EditorGUILayout.EndHorizontal();
             }
-            EditorGUILayout.EndHorizontal();
 
             AddSectionSpacing();
             DrawFontMappingEntries();
@@ -690,7 +745,7 @@ namespace FigmaUiImporter.Editor
             _fontEntriesScroll = EditorGUILayout.BeginScrollView(_fontEntriesScroll, GUILayout.ExpandHeight(true));
             EditorGUILayout.PropertyField(
                 _fontEntriesProperty,
-                new GUIContent("映射条目 (" + _fontEntriesProperty.arraySize + ")"),
+                new GUIContent(F("映射条目 ({0})", "Mapping Entries ({0})", _fontEntriesProperty.arraySize)),
                 true);
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -698,12 +753,12 @@ namespace FigmaUiImporter.Editor
 
         private void DrawSelectionTree()
         {
-            BeginSection("页面 / Frame");
+            BeginSection(L("页面 / Frame", "Page / Frame"));
 
             if (_documentRoot != null)
             {
                 EditorGUILayout.LabelField(
-                    string.Format("已加载：{0} 个 Page，{1} 个 Frame / Component / Instance", _loadedPageCount, _loadedFrameCount),
+                    string.Format(L("已加载：{0} 个 Page，{1} 个 Frame / Component / Instance", "Loaded: {0} pages, {1} frames / components / instances"), _loadedPageCount, _loadedFrameCount),
                     EditorStyles.miniLabel);
             }
 
@@ -712,7 +767,7 @@ namespace FigmaUiImporter.Editor
 
             if (_documentRoot == null)
             {
-                EditorGUILayout.HelpBox("加载 Figma 文件后，这里会显示 Page 和 Frame。", MessageType.Info);
+                EditorGUILayout.HelpBox(L("加载 Figma 文件后，这里会显示 Page 和 Frame。", "Load a Figma file to see pages and frames."), MessageType.Info);
             }
             else
             {
@@ -721,12 +776,12 @@ namespace FigmaUiImporter.Editor
 
                 if (pages.Count == 0 && roots.Count > 0)
                 {
-                    EditorGUILayout.HelpBox("没有读取到标准 CANVAS 类型 Page，已改为显示 document 的一级节点。", MessageType.Warning);
+                    EditorGUILayout.HelpBox(L("没有读取到标准 CANVAS 类型 Page，已改为显示 document 的一级节点。", "No standard CANVAS page found; showing top-level document nodes instead."), MessageType.Warning);
                 }
 
                 if (roots.Count == 0)
                 {
-                    EditorGUILayout.HelpBox("Figma 返回的 document 没有可显示的子节点。请确认 token 有权限访问该文件，且文件不是空文件。", MessageType.Warning);
+                    EditorGUILayout.HelpBox(L("Figma 返回的 document 没有可显示的子节点。请确认 token 有权限访问该文件，且文件不是空文件。", "The Figma document has no visible child nodes. Check token access and that the file is not empty."), MessageType.Warning);
                 }
 
                 for (int i = 0; i < roots.Count; i++)
@@ -742,7 +797,7 @@ namespace FigmaUiImporter.Editor
             {
                 using (new EditorGUI.DisabledScope(_selectedNode == null))
                 {
-                    if (GUILayout.Button("导入选中项", GUILayout.Height(28f)))
+                    if (GUILayout.Button(L("导入选中项", "Import Selected"), GUILayout.Height(28f)))
                     {
                         _ = ImportSelectedAsync();
                     }
@@ -815,7 +870,7 @@ namespace FigmaUiImporter.Editor
                 if (toggled && !selected)
                 {
                     _selectedNode = node;
-                    _status = "已选择：" + node.DisplayName;
+                    _status = F("已选择：{0}", "Selected: {0}", node.DisplayName);
                     Repaint();
                 }
             }
@@ -827,7 +882,7 @@ namespace FigmaUiImporter.Editor
 
         private void DrawStatus()
         {
-            BeginSection("状态", GUILayout.ExpandHeight(true));
+            BeginSection(L("状态", "Status"), GUILayout.ExpandHeight(true));
             if (_progress >= 0f)
             {
                 Rect rect = GUILayoutUtility.GetRect(1f, 20f, GUILayout.ExpandWidth(true));
@@ -847,14 +902,14 @@ namespace FigmaUiImporter.Editor
                 DrawBoundedHelpBox(ref _errorMessageScroll, _error, MessageType.Error, ErrorMessageMaxHeight);
             }
 
-            EditorGUILayout.LabelField("日志", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(L("日志", "Log"), EditorStyles.boldLabel);
             EditorGUILayout.BeginVertical(
                 EditorStyles.helpBox,
                 GUILayout.MinHeight(LogPanelMinHeight),
                 GUILayout.ExpandHeight(true));
             if (_logs.Count == 0)
             {
-                EditorGUILayout.LabelField("暂无日志。执行加载、导入或离线重建后会显示记录。", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField(L("暂无日志。执行加载、导入或离线重建后会显示记录。", "No logs yet. Load, import, or rebuild to see activity."), EditorStyles.miniLabel);
             }
             else
             {
@@ -901,7 +956,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            BeginBusy("正在加载 Figma 文件...");
+            BeginBusy(L("正在加载 Figma 文件...", "Loading Figma file..."));
             SavePrefs();
 
             try
@@ -913,12 +968,12 @@ namespace FigmaUiImporter.Editor
                     try
                     {
                         AddLog(cacheMessage);
-                        ApplyLoadedDocument(fileKey, FigmaDocumentParser.ParseFile(json), "从本地缓存加载完成。");
+                        ApplyLoadedDocument(fileKey, FigmaDocumentParser.ParseFile(json), L("从本地缓存加载完成。", "Loaded from local cache."));
                         return;
                     }
                     catch (Exception cacheException)
                     {
-                        AddLog("本地缓存解析失败，将改为远程加载：" + cacheException.Message);
+                        AddLog(F("本地缓存解析失败，将改为远程加载：{0}", "Failed to parse the local cache; loading remotely: {0}", cacheException.Message));
                     }
                 }
 
@@ -930,18 +985,18 @@ namespace FigmaUiImporter.Editor
                 FigmaApiClient client = new FigmaApiClient(_accessToken, _ignoreSslCertificateErrors, OnClientStatus);
                 json = await client.LoadFileJsonAsync(fileKey, _cancellation.Token);
                 _fileCache.Save(fileKey, json);
-                ApplyLoadedDocument(fileKey, FigmaDocumentParser.ParseFile(json), forceRemote ? "强制重新加载完成。" : "远程加载完成并已写入本地缓存。");
+                ApplyLoadedDocument(fileKey, FigmaDocumentParser.ParseFile(json), forceRemote ? L("强制重新加载完成。", "Force reload complete.") : L("远程加载完成并已写入本地缓存。", "Remote load complete and cached locally."));
             }
             catch (OperationCanceledException)
             {
-                _status = "已取消加载。";
-                AddLog("加载已取消。");
+                _status = L("已取消加载。", "Load canceled.");
+                AddLog(L("加载已取消。", "Load canceled."));
             }
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "加载失败。";
-                AddLog("加载失败：" + exception.Message);
+                _status = L("加载失败。", "Load failed.");
+                AddLog(F("加载失败：{0}", "Load failed: {0}", exception.Message));
             }
             finally
             {
@@ -976,15 +1031,15 @@ namespace FigmaUiImporter.Editor
                 }
             }
 
-            _status = string.Format("{0} 读取到 {1} 个 Page，{2} 个 Frame。请选择 Page 或 Frame。", sourceMessage, _loadedPageCount, _loadedFrameCount);
-            AddLog(string.Format("{0} {1} 个 Page，{2} 个 Frame，document 一级节点 {3} 个。", sourceMessage, _loadedPageCount, _loadedFrameCount, _documentRoot.Children.Count));
+            _status = F("{0} 读取到 {1} 个 Page，{2} 个 Frame。请选择 Page 或 Frame。", "{0} Loaded {1} pages and {2} frames. Select a Page or Frame.", sourceMessage, _loadedPageCount, _loadedFrameCount);
+            AddLog(F("{0} {1} 个 Page，{2} 个 Frame，document 一级节点 {3} 个。", "{0} {1} pages, {2} frames, {3} top-level document nodes.", sourceMessage, _loadedPageCount, _loadedFrameCount, _documentRoot.Children.Count));
         }
 
         private async Task ImportSelectedAsync()
         {
             if (_selectedNode == null)
             {
-                _error = "请先选择一个 Page 或 Frame。";
+                _error = L("请先选择一个 Page 或 Frame。", "Select a Page or Frame first.");
                 return;
             }
 
@@ -996,17 +1051,17 @@ namespace FigmaUiImporter.Editor
 
             if (string.IsNullOrEmpty(_loadedFileKey) || !string.Equals(_loadedFileKey, fileKey, StringComparison.Ordinal))
             {
-                _error = "当前选择来自上一次加载的文件。请先重新加载 Figma 文件，再导入。";
+                _error = L("当前选择来自上一次加载的文件。请先重新加载 Figma 文件，再导入。", "The current selection belongs to a previously loaded file. Reload the Figma file before importing.");
                 return;
             }
 
             if (_selectedNode.IsPage)
             {
                 bool confirmed = EditorUtility.DisplayDialog(
-                    "确认导入 Page",
-                    "Page 可能包含多个界面，导入范围可能很大。建议优先选择具体 Frame。\n\n确定继续导入这个 Page 吗？",
-                    "继续导入",
-                    "取消");
+                    L("确认导入 Page", "Import Page?"),
+                    L("Page 可能包含多个界面，导入范围可能很大。建议优先选择具体 Frame。\n\n确定继续导入这个 Page 吗？", "A Page may contain multiple screens and produce a very large import. Prefer selecting a specific Frame.\n\nContinue importing this Page?"),
+                    L("继续导入", "Continue"),
+                    L("取消", "Cancel"));
                 if (!confirmed)
                 {
                     return;
@@ -1018,7 +1073,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            BeginBusy("准备导入...");
+            BeginBusy(L("准备导入...", "Preparing import..."));
             SavePrefs();
 
             try
@@ -1029,38 +1084,38 @@ namespace FigmaUiImporter.Editor
                 Progress<FigmaImportProgress> progress = new Progress<FigmaImportProgress>(OnProgress);
                 FigmaImportResult result = await importer.ImportAsync(settings, _selectedNode, progress, _cancellation.Token);
 
-                _status = "导入完成：" + result.LayerCount + " 个切图图层。";
+                _status = F("导入完成：{0} 个切图图层。", "Import complete: {0} layers.", result.LayerCount);
                 _progress = 1f;
-                AddLog("输出目录：" + result.OutputFolder);
-                AddLog("Manifest：" + result.ManifestPath);
+                AddLog(F("输出目录：{0}", "Output folder: {0}", result.OutputFolder));
+                AddLog(F("Manifest：{0}", "Manifest: {0}", result.ManifestPath));
                 AddFontMappingLog(result);
                 if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
                 {
-                    AddLog("诊断报告：" + result.DiagnosticReportPath);
+                    AddLog(F("诊断报告：{0}", "Diagnostics: {0}", result.DiagnosticReportPath));
                 }
 
                 if (!string.IsNullOrEmpty(result.PrefabPath))
                 {
-                    AddLog("Prefab：" + result.PrefabPath);
+                    AddLog(F("Prefab：{0}", "Prefab: {0}", result.PrefabPath));
                 }
 
                 if (result.RootObject != null)
                 {
-                    AddLog("场景根节点：" + result.RootObject.name);
+                    AddLog(F("场景根节点：{0}", "Scene root: {0}", result.RootObject.name));
                 }
 
                 RefreshImportedManifests(false);
             }
             catch (OperationCanceledException)
             {
-                _status = "已取消导入。";
-                AddLog("导入已取消。");
+                _status = L("已取消导入。", "Import canceled.");
+                AddLog(L("导入已取消。", "Import canceled."));
             }
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "导入失败。";
-                AddLog("导入失败：" + exception.Message);
+                _status = L("导入失败。", "Import failed.");
+                AddLog(F("导入失败：{0}", "Import failed: {0}", exception.Message));
             }
             finally
             {
@@ -1075,7 +1130,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            BeginBusy("准备从 manifest 重建场景...");
+            BeginBusy(L("准备从 manifest 重建场景...", "Preparing to rebuild from manifest..."));
             SavePrefs();
 
             try
@@ -1084,24 +1139,24 @@ namespace FigmaUiImporter.Editor
                 FigmaOfflineSceneRebuilder rebuilder = new FigmaOfflineSceneRebuilder();
                 FigmaImportResult result = rebuilder.Rebuild(settings, manifestPath, new ImmediateProgress(OnProgress));
 
-                _status = "离线重建完成：" + result.LayerCount + " 个切图图层。";
+                _status = F("离线重建完成：{0} 个切图图层。", "Offline rebuild complete: {0} layers.", result.LayerCount);
                 _progress = 1f;
-                AddLog("离线重建输出目录：" + result.OutputFolder);
-                AddLog("Manifest：" + result.ManifestPath);
+                AddLog(F("离线重建输出目录：{0}", "Offline rebuild output folder: {0}", result.OutputFolder));
+                AddLog(F("Manifest：{0}", "Manifest: {0}", result.ManifestPath));
                 AddFontMappingLog(result);
                 if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
                 {
-                    AddLog("诊断报告：" + result.DiagnosticReportPath);
+                    AddLog(F("诊断报告：{0}", "Diagnostics: {0}", result.DiagnosticReportPath));
                 }
 
                 if (!string.IsNullOrEmpty(result.PrefabPath))
                 {
-                    AddLog("Prefab：" + result.PrefabPath);
+                    AddLog(F("Prefab：{0}", "Prefab: {0}", result.PrefabPath));
                 }
 
                 if (result.RootObject != null)
                 {
-                    AddLog("场景根节点：" + result.RootObject.name);
+                    AddLog(F("场景根节点：{0}", "Scene root: {0}", result.RootObject.name));
                 }
 
                 RefreshImportedManifests(false);
@@ -1109,8 +1164,8 @@ namespace FigmaUiImporter.Editor
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "离线重建失败。";
-                AddLog("离线重建失败：" + exception.Message);
+                _status = L("离线重建失败。", "Offline rebuild failed.");
+                AddLog(F("离线重建失败：{0}", "Offline rebuild failed: {0}", exception.Message));
             }
             finally
             {
@@ -1120,7 +1175,7 @@ namespace FigmaUiImporter.Editor
 
         private void ImportFromPluginPackage()
         {
-            string pickedPackage = EditorUtility.OpenFilePanel("选择 Figma 插件导出包", string.Empty, "json");
+            string pickedPackage = EditorUtility.OpenFilePanel(L("选择 Figma 插件导出包", "Select Figma Plugin Package"), string.Empty, "json");
             if (string.IsNullOrEmpty(pickedPackage))
             {
                 return;
@@ -1135,8 +1190,8 @@ namespace FigmaUiImporter.Editor
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "Figma 插件包无效。";
-                AddLog("Figma 插件包无效：" + exception.Message);
+                _status = L("Figma 插件包无效。", "Invalid Figma plugin package.");
+                AddLog(F("Figma 插件包无效：{0}", "Invalid Figma plugin package: {0}", exception.Message));
                 Repaint();
                 return;
             }
@@ -1147,7 +1202,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            BeginBusy("准备导入 Figma 插件包...");
+            BeginBusy(L("准备导入 Figma 插件包...", "Preparing to import Figma plugin package..."));
             SavePrefs();
 
             try
@@ -1164,27 +1219,27 @@ namespace FigmaUiImporter.Editor
                     _fileInput = settings.FileKey;
                 }
 
-                _status = "Figma 插件包导入完成：" + result.LayerCount + " 个切图图层。";
+                _status = F("Figma 插件包导入完成：{0} 个切图图层。", "Figma plugin package import complete: {0} layers.", result.LayerCount);
                 _progress = 1f;
-                AddLog("插件包：" + pickedPackage);
-                AddLog("插件包节点：" + FormatPluginPackageNode(packageInfo));
-                AddLog("插件包资源：" + packageInfo.AssetCount + " 个图片资源，" + packageInfo.LayerCount + " 个切图图层，大小 " + FormatFileSize(packageInfo.PackageSizeBytes));
-                AddLog("导入输出目录：" + result.OutputFolder);
-                AddLog("Manifest：" + result.ManifestPath);
+                AddLog(F("插件包：{0}", "Package: {0}", pickedPackage));
+                AddLog(F("插件包节点：{0}", "Package node: {0}", FormatPluginPackageNode(packageInfo)));
+                AddLog(F("插件包资源：{0} 个图片资源，{1} 个切图图层，大小 {2}", "Package assets: {0} images, {1} layers, size {2}", packageInfo.AssetCount, packageInfo.LayerCount, FormatFileSize(packageInfo.PackageSizeBytes)));
+                AddLog(F("导入输出目录：{0}", "Import output folder: {0}", result.OutputFolder));
+                AddLog(F("Manifest：{0}", "Manifest: {0}", result.ManifestPath));
                 AddFontMappingLog(result);
                 if (!string.IsNullOrEmpty(result.DiagnosticReportPath))
                 {
-                    AddLog("诊断报告：" + result.DiagnosticReportPath);
+                    AddLog(F("诊断报告：{0}", "Diagnostics: {0}", result.DiagnosticReportPath));
                 }
 
                 if (!string.IsNullOrEmpty(result.PrefabPath))
                 {
-                    AddLog("Prefab：" + result.PrefabPath);
+                    AddLog(F("Prefab：{0}", "Prefab: {0}", result.PrefabPath));
                 }
 
                 if (result.RootObject != null)
                 {
-                    AddLog("场景根节点：" + result.RootObject.name);
+                    AddLog(F("场景根节点：{0}", "Scene root: {0}", result.RootObject.name));
                 }
 
                 RefreshImportedManifests(false);
@@ -1192,8 +1247,8 @@ namespace FigmaUiImporter.Editor
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "Figma 插件包导入失败。";
-                AddLog("Figma 插件包导入失败：" + exception.Message);
+                _status = L("Figma 插件包导入失败。", "Figma plugin package import failed.");
+                AddLog(F("Figma 插件包导入失败：{0}", "Figma plugin package import failed: {0}", exception.Message));
             }
             finally
             {
@@ -1209,14 +1264,14 @@ namespace FigmaUiImporter.Editor
                 SavePrefs();
                 Selection.activeObject = _fontMapping;
                 EditorGUIUtility.PingObject(_fontMapping);
-                _status = "已打开全局字体映射。";
-                AddLog("全局字体映射：" + AssetDatabase.GetAssetPath(_fontMapping));
+                _status = L("已打开全局字体映射。", "Opened global font mapping.");
+                AddLog(F("全局字体映射：{0}", "Global font mapping: {0}", AssetDatabase.GetAssetPath(_fontMapping)));
             }
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "打开全局字体映射失败。";
-                AddLog("打开全局字体映射失败：" + exception.Message);
+                _status = L("打开全局字体映射失败。", "Failed to open global font mapping.");
+                AddLog(F("打开全局字体映射失败：{0}", "Failed to open global font mapping: {0}", exception.Message));
             }
 
             Repaint();
@@ -1231,7 +1286,7 @@ namespace FigmaUiImporter.Editor
                     _fontMappingSerializedObject.ApplyModifiedProperties();
                 }
 
-                Undo.RecordObject(_fontMapping, "更新 Figma 字体映射");
+                Undo.RecordObject(_fontMapping, L("更新 Figma 字体映射", "Update Figma font mapping"));
                 FontMappingUpdateResult result = FigmaFontMappingService.UpdateFromImportedManifests(
                     _fontMapping,
                     new[] { FigmaPathUtility.NormalizeAssetFolder(_outputFolder) });
@@ -1240,18 +1295,14 @@ namespace FigmaUiImporter.Editor
                     _fontMappingSerializedObject.Update();
                 }
 
-                _status = "字体映射更新完成。";
-                AddLog("字体映射更新：扫描 manifest " + result.SourceFileCount
-                    + " 个，文本样式 " + result.TextStyleCount
-                    + " 个，新增 " + result.AddedEntries
-                    + " 个，更新 " + result.UpdatedEntries
-                    + " 个，总计 " + result.TotalEntries + " 个。");
+                _status = L("字体映射更新完成。", "Font mapping updated.");
+                AddLog(F("字体映射更新：扫描 manifest {0} 个，文本样式 {1} 个，新增 {2} 个，更新 {3} 个，总计 {4} 个。", "Font mapping update: {0} manifests, {1} text styles, {2} added, {3} updated, {4} total.", result.SourceFileCount, result.TextStyleCount, result.AddedEntries, result.UpdatedEntries, result.TotalEntries));
             }
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "字体映射更新失败。";
-                AddLog("字体映射更新失败：" + exception.Message);
+                _status = L("字体映射更新失败。", "Font mapping update failed.");
+                AddLog(F("字体映射更新失败：{0}", "Font mapping update failed: {0}", exception.Message));
             }
 
             Repaint();
@@ -1267,14 +1318,14 @@ namespace FigmaUiImporter.Editor
                 }
 
                 int count = FigmaFontMappingService.ApplyMappingToSelection(_fontMapping);
-                _status = "已更新选中项文字字体：" + count + " 个。";
-                AddLog("已应用字体映射到选中项：" + count + " 个 TMP 文字。");
+                _status = F("已更新选中项文字字体：{0} 个。", "Updated fonts on {0} selected text objects.", count);
+                AddLog(F("已应用字体映射到选中项：{0} 个 TMP 文字。", "Applied font mapping to {0} TMP text objects in the selection.", count));
             }
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "应用字体映射失败。";
-                AddLog("应用字体映射失败：" + exception.Message);
+                _status = L("应用字体映射失败。", "Failed to apply font mapping.");
+                AddLog(F("应用字体映射失败：{0}", "Failed to apply font mapping: {0}", exception.Message));
             }
 
             Repaint();
@@ -1290,14 +1341,14 @@ namespace FigmaUiImporter.Editor
                 }
 
                 int count = FigmaFontMappingService.ApplyMappingToOpenScenes(_fontMapping);
-                _status = "已更新打开场景文字字体：" + count + " 个。";
-                AddLog("已应用字体映射到打开场景：" + count + " 个 TMP 文字。");
+                _status = F("已更新打开场景文字字体：{0} 个。", "Updated fonts on {0} text objects in open scenes.", count);
+                AddLog(F("已应用字体映射到打开场景：{0} 个 TMP 文字。", "Applied font mapping to {0} TMP text objects in open scenes.", count));
             }
             catch (Exception exception)
             {
                 _error = exception.Message;
-                _status = "应用字体映射失败。";
-                AddLog("应用字体映射失败：" + exception.Message);
+                _status = L("应用字体映射失败。", "Failed to apply font mapping.");
+                AddLog(F("应用字体映射失败：{0}", "Failed to apply font mapping: {0}", exception.Message));
             }
 
             Repaint();
@@ -1310,10 +1361,7 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            AddLog("字体映射：" + result.FontMappingPath
-                + "，文本样式 " + result.FontMappingTextStyleCount
-                + " 个，新增 " + result.FontMappingAddedEntries
-                + " 个，更新 " + result.FontMappingUpdatedEntries + " 个。");
+            AddLog(F("字体映射：{0}，文本样式 {1} 个，新增 {2} 个，更新 {3} 个。", "Font mapping: {0}, {1} text styles, {2} added, {3} updated.", result.FontMappingPath, result.FontMappingTextStyleCount, result.FontMappingAddedEntries, result.FontMappingUpdatedEntries));
             NotifyNewUnmappedFontEntries(result);
         }
 
@@ -1330,12 +1378,10 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
-            string message = "本次新增 " + result.FontMappingAddedEntries
-                + " 个字体映射条目，当前共有 " + unmappedCount
-                + " 个条目未配置 TMP 字体。\n\n请在右侧“字体映射”的映射条目中为“未配置 TMP 字体”的项目指定 FontAsset。";
-            AddLog("需要配置字体映射：新增 " + result.FontMappingAddedEntries + " 个，当前未配置 " + unmappedCount + " 个。");
+            string message = F("本次新增 {0} 个字体映射条目，当前共有 {1} 个条目未配置 TMP 字体。\n\n请在右侧“字体映射”的映射条目中为“未配置 TMP 字体”的项目指定 FontAsset。", "{0} new font mapping entries were added; {1} entries still have no TMP font.\n\nAssign a FontAsset to the \"Unmapped\" entries in the Font Mapping panel.", result.FontMappingAddedEntries, unmappedCount);
+            AddLog(F("需要配置字体映射：新增 {0} 个，当前未配置 {1} 个。", "Font mapping action needed: {0} new entries, {1} still unmapped.", result.FontMappingAddedEntries, unmappedCount));
 
-            if (EditorUtility.DisplayDialog("发现新的 Figma 字体", message, "定位字体映射", "稍后"))
+            if (EditorUtility.DisplayDialog(L("发现新的 Figma 字体", "New Figma Fonts Found"), message, L("定位字体映射", "Open Font Mapping"), L("稍后", "Later")))
             {
                 SelectGlobalFontMapping();
             }
@@ -1381,35 +1427,40 @@ namespace FigmaUiImporter.Editor
                 settings.OutputFolder,
                 packageInfo.FileKey,
                 packageInfo.SelectedNodeId);
-            string message =
-                "即将导入 Figma 插件离线包：\n\n"
-                + "包文件：" + packageInfo.PackageFileName + "\n"
-                + "包大小：" + FormatFileSize(packageInfo.PackageSizeBytes) + "\n"
-                + "节点：" + FormatPluginPackageNode(packageInfo) + "\n"
-                + "File Key：" + packageInfo.FileKey + "\n"
-                + "根尺寸：" + FormatNumber(packageInfo.RootWidth) + " x " + FormatNumber(packageInfo.RootHeight) + "\n"
-                + "图片倍率：" + FormatNumber(packageInfo.ImageScale) + "\n"
-                + "容器策略：" + FormatPluginContainerStrategy(packageInfo.ContainerSliceStrategy) + "\n"
-                + "包文本数据：" + FormatPluginTextMode(packageInfo.TextImportMode) + "\n"
-                + "Unity 文本模式：" + FormatSettingsTextMode(settings.TextImportMode) + "\n"
-                + "字体映射：" + (settings.FontMapping == null ? FigmaFontMappingService.GlobalMappingAssetPath : AssetDatabase.GetAssetPath(settings.FontMapping)) + "\n"
-                + "图片资源：" + packageInfo.AssetCount + " 个"
-                + (packageInfo.HasReferenceImage ? "（包含参考图）" : "（不包含参考图）") + "\n"
-                + "切图图层：" + packageInfo.LayerCount + " 个\n"
-                + "输出目录：" + outputFolder;
+            string referenceLabel = packageInfo.HasReferenceImage
+                ? L("（包含参考图）", " (includes reference image)")
+                : L("（不包含参考图）", " (no reference image)");
+            string message = F(
+                "即将导入 Figma 插件离线包：\n\n包文件：{0}\n包大小：{1}\n节点：{2}\nFile Key：{3}\n根尺寸：{4} x {5}\n图片倍率：{6}\n容器策略：{7}\n包文本数据：{8}\nUnity 文本模式：{9}\n字体映射：{10}\n图片资源：{11}{12}\n切图图层：{13} 个\n输出目录：{14}",
+                "Import Figma plugin package:\n\nPackage: {0}\nSize: {1}\nNode: {2}\nFile Key: {3}\nRoot size: {4} x {5}\nImage scale: {6}\nContainer strategy: {7}\nPackage text data: {8}\nUnity text mode: {9}\nFont mapping: {10}\nImage assets: {11}{12}\nLayers: {13}\nOutput folder: {14}",
+                packageInfo.PackageFileName,
+                FormatFileSize(packageInfo.PackageSizeBytes),
+                FormatPluginPackageNode(packageInfo),
+                packageInfo.FileKey,
+                FormatNumber(packageInfo.RootWidth),
+                FormatNumber(packageInfo.RootHeight),
+                FormatNumber(packageInfo.ImageScale),
+                FormatPluginContainerStrategy(packageInfo.ContainerSliceStrategy),
+                FormatPluginTextMode(packageInfo.TextImportMode),
+                FormatSettingsTextMode(settings.TextImportMode),
+                settings.FontMapping == null ? FigmaFontMappingService.GlobalMappingAssetPath : AssetDatabase.GetAssetPath(settings.FontMapping),
+                packageInfo.AssetCount,
+                referenceLabel,
+                packageInfo.LayerCount,
+                outputFolder);
 
             if (settings.SavePrefab)
             {
-                message += "\nPrefab 目录：" + settings.PrefabFolder;
+                message += "\n" + F("Prefab 目录：{0}", "Prefab folder: {0}", settings.PrefabFolder);
             }
 
             if (largePackage)
             {
-                message += "\n\n这个离线包较大，导入会写入较多 PNG，Unity 可能短暂卡顿。建议确认当前场景已保存。";
+                message += "\n\n" + L("这个离线包较大，导入会写入较多 PNG，Unity 可能短暂卡顿。建议确认当前场景已保存。", "This package is large; importing writes many PNGs and Unity may freeze briefly. Make sure the current scene is saved.");
             }
 
-            string title = largePackage ? "确认导入大型 Figma 插件包" : "确认导入 Figma 插件包";
-            return EditorUtility.DisplayDialog(title, message, "导入", "取消");
+            string title = largePackage ? L("确认导入大型 Figma 插件包", "Import Large Figma Plugin Package?") : L("确认导入 Figma 插件包", "Import Figma Plugin Package?");
+            return EditorUtility.DisplayDialog(title, message, L("导入", "Import"), L("取消", "Cancel"));
         }
 
         private static bool IsLargePluginPackage(FigmaPluginPackageInfo packageInfo)
@@ -1421,7 +1472,7 @@ namespace FigmaUiImporter.Editor
         private static string FormatPluginPackageNode(FigmaPluginPackageInfo packageInfo)
         {
             string nodeName = string.IsNullOrWhiteSpace(packageInfo.SelectedNodeName)
-                ? "(未命名)"
+                ? L("(未命名)", "(Unnamed)")
                 : packageInfo.SelectedNodeName;
             string nodeType = string.IsNullOrWhiteSpace(packageInfo.SelectedNodeType)
                 ? "UNKNOWN"
@@ -1450,18 +1501,18 @@ namespace FigmaUiImporter.Editor
         {
             if (string.Equals(value, "strict", StringComparison.OrdinalIgnoreCase))
             {
-                return "严格 ExportSettings";
+                return L("严格 ExportSettings", "Strict ExportSettings");
             }
 
             if (string.Equals(value, "expand", StringComparison.OrdinalIgnoreCase))
             {
-                return "强制展开容器";
+                return L("强制展开容器", "Force expand containers");
             }
 
             if (string.Equals(value, "auto", StringComparison.OrdinalIgnoreCase)
                 || string.IsNullOrWhiteSpace(value))
             {
-                return "自动";
+                return L("自动", "Auto");
             }
 
             return value;
@@ -1471,7 +1522,7 @@ namespace FigmaUiImporter.Editor
         {
             if (string.Equals(value, "metadata", StringComparison.OrdinalIgnoreCase))
             {
-                return "仅导出文本元数据";
+                return L("仅导出文本元数据", "Metadata only");
             }
 
             if (string.Equals(value, "tmp", StringComparison.OrdinalIgnoreCase))
@@ -1481,13 +1532,13 @@ namespace FigmaUiImporter.Editor
 
             if (string.Equals(value, "image", StringComparison.OrdinalIgnoreCase))
             {
-                return "图片";
+                return L("图片", "Image");
             }
 
             if (string.Equals(value, "smart", StringComparison.OrdinalIgnoreCase)
                 || string.IsNullOrWhiteSpace(value))
             {
-                return "智能";
+                return L("智能", "Smart");
             }
 
             return value;
@@ -1498,11 +1549,11 @@ namespace FigmaUiImporter.Editor
             switch (mode)
             {
                 case FigmaTextImportMode.Image:
-                    return "图片";
+                    return L("图片", "Image");
                 case FigmaTextImportMode.TextMeshPro:
                     return "TextMeshPro";
                 default:
-                    return "智能";
+                    return L("智能", "Smart");
             }
         }
 
@@ -1521,13 +1572,12 @@ namespace FigmaUiImporter.Editor
             FigmaDocumentParser.EnsureBoundsFromChildren(_selectedNode);
             List<FigmaNodeInfo> importableNodes = FigmaDocumentParser.CollectImportableNodes(_selectedNode, _sliceMode, _containerSliceStrategy);
             int sliceCount = importableNodes.Count;
-            AddLog("预计切图数量：" + sliceCount);
+            AddLog(F("预计切图数量：{0}", "Estimated slices: {0}", sliceCount));
 
             int overlapCount = FigmaDocumentParser.CountNodesWithSelectedAncestor(importableNodes);
             if (overlapCount > 0)
             {
-                AddLog("REST 导入提示：" + overlapCount
-                    + " 个切图的祖先容器也会导出，半透明/阴影区域可能出现重复叠加；需要严格避免时请改用 Figma 插件离线包。");
+                AddLog(F("REST 导入提示：{0} 个切图的祖先容器也会导出，半透明/阴影区域可能出现重复叠加；需要严格避免时请改用 Figma 插件离线包。", "REST import warning: the ancestor containers of {0} slices are also exported; semi-transparent or shadowed areas may overdraw. Use the offline Figma plugin package when this matters.", overlapCount));
             }
 
             if (sliceCount <= SliceWarningThreshold)
@@ -1535,10 +1585,11 @@ namespace FigmaUiImporter.Editor
                 return true;
             }
 
-            string message = string.Format(
+            string message = F(
                 "预计将导出 {0} 个切图。\n\n这会请求 Figma 图片地址并下载大量 PNG，可能再次触发 429 限流。\n\n建议先改用“仅导入整张参考图”或“只导入已设置 Export 的节点”。\n\n是否继续导入？",
+                "This import will export {0} slices.\n\nIt requests Figma image URLs and downloads many PNGs, which may trigger 429 rate limits.\n\nConsider using \"Reference image only\" or \"Export-marked nodes only\" first.\n\nContinue?",
                 sliceCount);
-            return EditorUtility.DisplayDialog("切图数量较多", message, "继续导入", "取消");
+            return EditorUtility.DisplayDialog(L("切图数量较多", "Many Slices"), message, L("继续导入", "Continue"), L("取消", "Cancel"));
         }
 
         private FigmaImportSettings BuildSettings(string fileKey)
@@ -1579,13 +1630,13 @@ namespace FigmaUiImporter.Editor
 
             if (string.IsNullOrWhiteSpace(_accessToken))
             {
-                _error = "请填写 Figma Personal Access Token。";
+                _error = L("请填写 Figma Personal Access Token。", "Enter a Figma Personal Access Token.");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(fileKey))
             {
-                _error = "请填写 Figma File Key 或文件 URL。";
+                _error = L("请填写 Figma File Key 或文件 URL。", "Enter a Figma File Key or file URL.");
                 return false;
             }
 
@@ -1674,7 +1725,7 @@ namespace FigmaUiImporter.Editor
         private void PickOutputFolder()
         {
             string projectRoot = System.IO.Directory.GetParent(Application.dataPath).FullName.Replace('\\', '/');
-            string picked = EditorUtility.OpenFolderPanel("选择输出资源目录", Application.dataPath, string.Empty);
+            string picked = EditorUtility.OpenFolderPanel(L("选择输出资源目录", "Select Output Folder"), Application.dataPath, string.Empty);
             if (string.IsNullOrEmpty(picked))
             {
                 return;
@@ -1683,7 +1734,7 @@ namespace FigmaUiImporter.Editor
             picked = picked.Replace('\\', '/');
             if (!picked.StartsWith(projectRoot + "/", StringComparison.Ordinal))
             {
-                _error = "输出目录必须位于当前 Unity 项目内。";
+                _error = L("输出目录必须位于当前 Unity 项目内。", "The output folder must be inside the current Unity project.");
                 return;
             }
 
@@ -1695,7 +1746,7 @@ namespace FigmaUiImporter.Editor
         private void PickPrefabFolder()
         {
             string projectRoot = System.IO.Directory.GetParent(Application.dataPath).FullName.Replace('\\', '/');
-            string picked = EditorUtility.OpenFolderPanel("选择 Prefab 输出目录", Application.dataPath, string.Empty);
+            string picked = EditorUtility.OpenFolderPanel(L("选择 Prefab 输出目录", "Select Prefab Output Folder"), Application.dataPath, string.Empty);
             if (string.IsNullOrEmpty(picked))
             {
                 return;
@@ -1704,7 +1755,7 @@ namespace FigmaUiImporter.Editor
             picked = picked.Replace('\\', '/');
             if (!picked.StartsWith(projectRoot + "/", StringComparison.Ordinal))
             {
-                _error = "Prefab 输出目录必须位于当前 Unity 项目内。";
+                _error = L("Prefab 输出目录必须位于当前 Unity 项目内。", "The Prefab folder must be inside the current Unity project.");
                 return;
             }
 

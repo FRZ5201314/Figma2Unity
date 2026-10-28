@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using static FigmaUiImporter.Editor.FigmaLocalization;
 
 namespace FigmaUiImporter.Editor
 {
@@ -30,10 +31,10 @@ namespace FigmaUiImporter.Editor
 
             if (string.IsNullOrWhiteSpace(packagePath) || !File.Exists(packagePath))
             {
-                throw new FileNotFoundException("未找到 Figma 插件导出包：" + packagePath);
+                throw new FileNotFoundException(F("未找到 Figma 插件导出包：{0}", "Figma plugin package not found: {0}", packagePath));
             }
 
-            progress.Report(new FigmaImportProgress("读取 Figma 插件包...", 0.06f));
+            progress.Report(new FigmaImportProgress(L("读取 Figma 插件包...", "Reading Figma plugin package..."), 0.06f));
             FigmaPluginPackageDto package = LoadPackage(packagePath);
             ValidatePackage(package);
             ValidateAssetReferences(package);
@@ -50,17 +51,15 @@ namespace FigmaUiImporter.Editor
                 package.manifest.selectedNodeId);
             if (!settings.OverwriteExisting && FigmaPathUtility.AssetFolderHasContents(outputFolder))
             {
-                throw new InvalidOperationException(
-                    "输出目录已存在导入内容：" + outputFolder
-                    + "。请勾选“覆盖同名场景根节点 / Prefab”，或更换输出资源目录后再导入。");
+                throw new InvalidOperationException(F("输出目录已存在导入内容：{0}。请勾选“覆盖同名场景根节点 / Prefab”，或更换输出资源目录后再导入。", "The output folder already contains imported content: {0}. Enable \"Overwrite scene root / Prefab\" or choose another output folder.", outputFolder));
             }
 
             FigmaPathUtility.EnsureAssetFolder(outputFolder);
 
-            progress.Report(new FigmaImportProgress("写入插件包图片资源...", 0.22f));
+            progress.Report(new FigmaImportProgress(L("写入插件包图片资源...", "Writing package image assets..."), 0.22f));
             WriteAssets(package.assets, outputFolder);
 
-            progress.Report(new FigmaImportProgress("写入 manifest...", 0.32f));
+            progress.Report(new FigmaImportProgress(L("写入 manifest...", "Writing manifest..."), 0.32f));
             string manifestPath = FigmaPathUtility.CombineAssetPath(outputFolder, "manifest.json");
             string manifestFullPath = FigmaPathUtility.ToFullPath(manifestPath);
             string manifestDirectory = Path.GetDirectoryName(manifestFullPath);
@@ -78,13 +77,13 @@ namespace FigmaUiImporter.Editor
         {
             if (string.IsNullOrWhiteSpace(packagePath) || !File.Exists(packagePath))
             {
-                throw new FileNotFoundException("未找到 Figma 插件导出包：" + packagePath);
+                throw new FileNotFoundException(F("未找到 Figma 插件导出包：{0}", "Figma plugin package not found: {0}", packagePath));
             }
 
             string json = File.ReadAllText(packagePath);
             if (string.IsNullOrWhiteSpace(json))
             {
-                throw new InvalidOperationException("Figma 插件包为空，无法导入。");
+                throw new InvalidOperationException(L("Figma 插件包为空，无法导入。", "The Figma plugin package is empty and cannot be imported."));
             }
 
             try
@@ -93,7 +92,7 @@ namespace FigmaUiImporter.Editor
             }
             catch (Exception exception)
             {
-                throw new InvalidOperationException("Figma 插件包 JSON 无法解析，请确认选择的是 .figma2unity.json 文件。", exception);
+                throw new InvalidOperationException(L("Figma 插件包 JSON 无法解析，请确认选择的是 .figma2unity.json 文件。", "The Figma plugin package JSON could not be parsed. Make sure you selected a .figma2unity.json file."), exception);
             }
         }
 
@@ -101,35 +100,35 @@ namespace FigmaUiImporter.Editor
         {
             if (package == null)
             {
-                throw new InvalidOperationException("Figma 插件包内容无效，无法解析 JSON。");
+                throw new InvalidOperationException(L("Figma 插件包内容无效，无法解析 JSON。", "The Figma plugin package is invalid; JSON parsing failed."));
             }
 
             if (package.schemaVersion != SupportedSchemaVersion)
             {
                 throw new InvalidOperationException(
-                    "不支持的 Figma 插件包版本：" + package.schemaVersion + "。当前支持版本：" + SupportedSchemaVersion + "。");
+                    F("不支持的 Figma 插件包版本：{0}。当前支持版本：{1}。", "Unsupported Figma plugin package version: {0}. Supported version: {1}.", package.schemaVersion, SupportedSchemaVersion));
             }
 
             if (package.manifest == null)
             {
-                throw new InvalidOperationException("Figma 插件包缺少 manifest。");
+                throw new InvalidOperationException(L("Figma 插件包缺少 manifest。", "The Figma plugin package is missing its manifest."));
             }
 
             if (string.IsNullOrWhiteSpace(package.manifest.selectedNodeId))
             {
-                throw new InvalidOperationException("Figma 插件包 manifest 缺少 selectedNodeId。");
+                throw new InvalidOperationException(L("Figma 插件包 manifest 缺少 selectedNodeId。", "The Figma plugin package manifest is missing selectedNodeId."));
             }
 
             if (package.manifest.rootBounds == null
                 || package.manifest.rootBounds.width <= 0.01f
                 || package.manifest.rootBounds.height <= 0.01f)
             {
-                throw new InvalidOperationException("Figma 插件包 manifest 中的根节点尺寸无效。");
+                throw new InvalidOperationException(L("Figma 插件包 manifest 中的根节点尺寸无效。", "The Figma plugin package manifest has an invalid root size."));
             }
 
             if (package.assets == null || package.assets.Count == 0)
             {
-                throw new InvalidOperationException("Figma 插件包没有包含任何图片资源。");
+                throw new InvalidOperationException(L("Figma 插件包没有包含任何图片资源。", "The Figma plugin package contains no image assets."));
             }
 
             if (package.manifest.layers != null)
@@ -144,12 +143,12 @@ namespace FigmaUiImporter.Editor
 
                     if (string.IsNullOrWhiteSpace(layer.image))
                     {
-                        throw new InvalidOperationException("Figma 插件包 manifest 中的图层缺少 image：" + GetLayerLabel(layer));
+                        throw new InvalidOperationException(F("Figma 插件包 manifest 中的图层缺少 image：{0}", "Figma plugin package layer is missing its image: {0}", GetLayerLabel(layer)));
                     }
 
                     if (layer.bounds == null || layer.bounds.width <= 0.01f || layer.bounds.height <= 0.01f)
                     {
-                        throw new InvalidOperationException("Figma 插件包 manifest 中的图层尺寸无效：" + GetLayerLabel(layer));
+                        throw new InvalidOperationException(F("Figma 插件包 manifest 中的图层尺寸无效：{0}", "Figma plugin package layer has an invalid size: {0}", GetLayerLabel(layer)));
                     }
                 }
             }
@@ -169,7 +168,7 @@ namespace FigmaUiImporter.Editor
                 string relativePath = NormalizePackageRelativePath(asset.path);
                 if (string.IsNullOrWhiteSpace(asset.dataBase64))
                 {
-                    throw new InvalidOperationException("插件包图片缺少 base64 数据：" + relativePath);
+                    throw new InvalidOperationException(F("插件包图片缺少 base64 数据：{0}", "Package image is missing base64 data: {0}", relativePath));
                 }
 
                 assetPaths.Add(relativePath);
@@ -180,7 +179,7 @@ namespace FigmaUiImporter.Editor
                 string referencePath = NormalizePackageRelativePath(package.manifest.referenceImage);
                 if (!assetPaths.Contains(referencePath))
                 {
-                    throw new InvalidOperationException("Figma 插件包 manifest 引用的参考图资源不存在：" + referencePath);
+                    throw new InvalidOperationException(F("Figma 插件包 manifest 引用的参考图资源不存在：{0}", "The reference image referenced by the Figma plugin package manifest does not exist: {0}", referencePath));
                 }
             }
 
@@ -200,7 +199,7 @@ namespace FigmaUiImporter.Editor
                 string layerPath = NormalizePackageRelativePath(layer.image);
                 if (!assetPaths.Contains(layerPath))
                 {
-                    throw new InvalidOperationException("Figma 插件包 manifest 引用的切图资源不存在：" + layerPath + "（" + GetLayerLabel(layer) + "）");
+                    throw new InvalidOperationException(F("Figma 插件包 manifest 引用的切图资源不存在：{0}（{1}）", "The slice asset referenced by the Figma plugin package manifest does not exist: {0} ({1})", layerPath, GetLayerLabel(layer)));
                 }
             }
         }
@@ -224,7 +223,7 @@ namespace FigmaUiImporter.Editor
 
                 if (string.IsNullOrWhiteSpace(asset.dataBase64))
                 {
-                    throw new InvalidOperationException("插件包图片缺少 base64 数据：" + relativePath);
+                    throw new InvalidOperationException(F("插件包图片缺少 base64 数据：{0}", "Package image is missing base64 data: {0}", relativePath));
                 }
 
                 byte[] bytes;
@@ -234,7 +233,7 @@ namespace FigmaUiImporter.Editor
                 }
                 catch (FormatException exception)
                 {
-                    throw new InvalidOperationException("插件包图片 base64 数据损坏：" + relativePath, exception);
+                    throw new InvalidOperationException(F("插件包图片 base64 数据损坏：{0}", "Package image has corrupted base64 data: {0}", relativePath), exception);
                 }
 
                 string assetPath = FigmaPathUtility.CombineAssetPath(outputFolder, relativePath);
@@ -309,7 +308,7 @@ namespace FigmaUiImporter.Editor
         {
             if (layer == null)
             {
-                return "(空图层)";
+                return L("(空图层)", "(empty layer)");
             }
 
             if (!string.IsNullOrEmpty(layer.nodeName) && !string.IsNullOrEmpty(layer.nodeId))
@@ -322,14 +321,14 @@ namespace FigmaUiImporter.Editor
                 return layer.nodeName;
             }
 
-            return string.IsNullOrEmpty(layer.nodeId) ? "(未命名图层)" : layer.nodeId;
+            return string.IsNullOrEmpty(layer.nodeId) ? L("(未命名图层)", "(unnamed layer)") : layer.nodeId;
         }
 
         private static string NormalizePackageRelativePath(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
-                throw new InvalidOperationException("插件包图片路径为空。");
+                throw new InvalidOperationException(L("插件包图片路径为空。", "The package image path is empty."));
             }
 
             string normalized = path.Trim().Replace('\\', '/').Trim('/');
@@ -341,7 +340,7 @@ namespace FigmaUiImporter.Editor
                 || normalized.IndexOf("/..", StringComparison.Ordinal) >= 0
                 || string.Equals(normalized, "..", StringComparison.Ordinal))
             {
-                throw new InvalidOperationException("插件包图片路径无效：" + path);
+                throw new InvalidOperationException(F("插件包图片路径无效：{0}", "Invalid package image path: {0}", path));
             }
 
             return normalized;

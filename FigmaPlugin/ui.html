@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <style>
@@ -16,8 +16,16 @@
       color: var(--figma-color-text);
     }
 
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
     h1 {
-      margin: 0 0 12px;
+      margin: 0;
       font-size: 15px;
       line-height: 20px;
       font-weight: 600;
@@ -58,6 +66,18 @@
       cursor: default;
     }
 
+    button.language {
+      width: auto;
+      height: 26px;
+      margin: 0;
+      padding: 0 10px;
+      border: 1px solid var(--figma-color-border);
+      background: var(--figma-color-bg-secondary);
+      color: var(--figma-color-text);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
     .panel {
       padding: 10px;
       border: 1px solid var(--figma-color-border);
@@ -84,36 +104,78 @@
   </style>
 </head>
 <body>
-  <h1>Figma2Unity Offline Exporter</h1>
-
-  <div class="panel">
-    <div id="selection" class="muted">正在读取当前选择...</div>
+  <div class="header">
+    <h1>Figma2Unity Offline Exporter</h1>
+    <button id="language" class="language" type="button">中文</button>
   </div>
 
-  <label for="mode">导出模式</label>
+  <div class="panel">
+    <div id="selection" class="muted" data-i18n="selection.loading">Reading current selection...</div>
+  </div>
+
+  <label for="mode" data-i18n="mode.label">Export Mode</label>
   <select id="mode">
-    <option value="markedThenAuto">ExportSettings 优先，并补齐可见图层</option>
-    <option value="markedOnly">只导出已设置 Export 的节点</option>
-    <option value="autoOnly">自动导出可见图层</option>
-    <option value="referenceOnly">仅导出整张参考图</option>
+    <option value="markedThenAuto" data-i18n="mode.markedThenAuto">ExportSettings first, then visible layers</option>
+    <option value="markedOnly" data-i18n="mode.markedOnly">Export marked nodes only</option>
+    <option value="autoOnly" data-i18n="mode.autoOnly">Auto export visible layers</option>
+    <option value="referenceOnly" data-i18n="mode.referenceOnly">Reference image only</option>
   </select>
 
-  <label for="containerStrategy">容器处理策略</label>
+  <label for="containerStrategy" data-i18n="container.label">Container Strategy</label>
   <select id="containerStrategy">
-    <option value="auto">自动：保留容器底图并展开组件实例</option>
-    <option value="strict">严格 ExportSettings：标记容器优先</option>
-    <option value="expand">强制展开容器：尽量拆到子级</option>
+    <option value="auto" data-i18n="container.auto">Auto: keep container background, expand instances</option>
+    <option value="strict" data-i18n="container.strict">Strict ExportSettings: marked containers first</option>
+    <option value="expand" data-i18n="container.expand">Force expand containers</option>
   </select>
 
-  <label for="scale">图片倍率</label>
+  <label for="scale" data-i18n="scale.label">Image Scale</label>
   <input id="scale" type="number" min="0.01" max="4" step="0.25" value="1">
 
-  <button id="export" disabled>导出 .figma2unity.json</button>
+  <button id="export" type="button" disabled data-i18n="export.button">Export .figma2unity.json</button>
 
   <div id="status" class="status muted"></div>
   <progress id="progress" min="0" max="1" value="0" hidden></progress>
 
   <script>
+    const I18N = {
+      en: {
+        "selection.loading": "Reading current selection...",
+        "mode.label": "Export Mode",
+        "mode.markedThenAuto": "ExportSettings first, then visible layers",
+        "mode.markedOnly": "Export marked nodes only",
+        "mode.autoOnly": "Auto export visible layers",
+        "mode.referenceOnly": "Reference image only",
+        "container.label": "Container Strategy",
+        "container.auto": "Auto: keep container background, expand instances",
+        "container.strict": "Strict ExportSettings: marked containers first",
+        "container.expand": "Force expand containers",
+        "scale.label": "Image Scale",
+        "export.button": "Export .figma2unity.json",
+        "status.start": "Starting export...",
+        "status.done": "Export complete, downloading...",
+        "status.downloaded": "Offline package downloaded. Import it in Unity via the local plugin package importer.",
+        "status.error": "Export failed."
+      },
+      zh: {
+        "selection.loading": "正在读取当前选择...",
+        "mode.label": "导出模式",
+        "mode.markedThenAuto": "ExportSettings 优先，并补齐可见图层",
+        "mode.markedOnly": "只导出已设置 Export 的节点",
+        "mode.autoOnly": "自动导出可见图层",
+        "mode.referenceOnly": "仅导出整张参考图",
+        "container.label": "容器处理策略",
+        "container.auto": "自动：保留容器底图并展开组件实例",
+        "container.strict": "严格 ExportSettings：标记容器优先",
+        "container.expand": "强制展开容器：尽量拆到子级",
+        "scale.label": "图片倍率",
+        "export.button": "导出 .figma2unity.json",
+        "status.start": "开始导出...",
+        "status.done": "导出完成，正在下载...",
+        "status.downloaded": "已下载离线包，可在 Unity 中通过本地插件包导入。",
+        "status.error": "导出失败。"
+      }
+    };
+
     const exportButton = document.getElementById("export");
     const selectionBox = document.getElementById("selection");
     const statusBox = document.getElementById("status");
@@ -121,21 +183,61 @@
     const modeInput = document.getElementById("mode");
     const containerStrategyInput = document.getElementById("containerStrategy");
     const scaleInput = document.getElementById("scale");
+    const languageButton = document.getElementById("language");
     let selectionOk = false;
+    let isBusy = false;
+    let language = "en";
+    try {
+      language = localStorage.getItem("figma2unity.language") || "en";
+    } catch (error) {
+      language = "en";
+    }
+
+    function t(key) {
+      const table = I18N[language] || I18N.en;
+      return table[key] || I18N.en[key] || key;
+    }
+
+    function sendPluginMessage(message) {
+      parent.postMessage({ pluginMessage: message }, "*");
+    }
+
+    function applyLanguage(nextLanguage) {
+      language = nextLanguage === "zh" ? "zh" : "en";
+      try {
+        localStorage.setItem("figma2unity.language", language);
+      } catch (error) {
+        // Ignore storage failures; the language still applies for this session.
+      }
+      document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+      document.querySelectorAll("[data-i18n]").forEach((element) => {
+        element.textContent = t(element.getAttribute("data-i18n"));
+      });
+      languageButton.textContent = language === "en" ? "中文" : "English";
+      languageButton.title = language === "en" ? "Switch to Chinese" : "切换为英文";
+      selectionBox.textContent = t("selection.loading");
+      sendPluginMessage({ type: "set-language", language });
+      sendPluginMessage({ type: "refresh-selection" });
+    }
 
     exportButton.addEventListener("click", () => {
       setBusy(true);
-      statusBox.textContent = "开始导出...";
+      statusBox.textContent = t("status.start");
       progress.hidden = false;
       progress.value = 0;
-      parent.postMessage({
-        pluginMessage: {
-          type: "export-package",
-          mode: modeInput.value,
-          containerStrategy: containerStrategyInput.value,
-          scale: Number(scaleInput.value)
-        }
-      }, "*");
+      sendPluginMessage({
+        type: "export-package",
+        mode: modeInput.value,
+        containerStrategy: containerStrategyInput.value,
+        scale: Number(scaleInput.value)
+      });
+    });
+
+    languageButton.addEventListener("click", () => {
+      if (isBusy) {
+        return;
+      }
+      applyLanguage(language === "en" ? "zh" : "en");
     });
 
     window.onmessage = (event) => {
@@ -146,7 +248,7 @@
 
       if (message.type === "selection") {
         selectionOk = !!message.ok;
-        exportButton.disabled = !selectionOk;
+        exportButton.disabled = isBusy || !selectionOk;
         selectionBox.textContent = message.ok
           ? `${message.name}  [${message.nodeType}]  ${message.id}`
           : message.message;
@@ -160,21 +262,23 @@
 
       if (message.type === "done") {
         progress.value = 1;
-        statusBox.textContent = "导出完成，正在下载...";
+        statusBox.textContent = t("status.done");
         downloadPackage(message.package);
         setBusy(false);
-        statusBox.textContent = "已下载离线包，可在 Unity 中点击“从 Figma 插件包导入”。";
+        statusBox.textContent = t("status.downloaded");
       }
 
       if (message.type === "error") {
         setBusy(false);
         progress.hidden = true;
-        statusBox.textContent = message.message || "导出失败。";
+        statusBox.textContent = message.message || t("status.error");
       }
     };
 
-    function setBusy(isBusy) {
+    function setBusy(nextBusy) {
+      isBusy = !!nextBusy;
       exportButton.disabled = isBusy || !selectionOk;
+      languageButton.disabled = isBusy;
       modeInput.disabled = isBusy;
       containerStrategyInput.disabled = isBusy;
       scaleInput.disabled = isBusy;
@@ -197,6 +301,8 @@
     function safeFileName(value) {
       return String(value).replace(/[\\/:*?"<>|]/g, "_");
     }
+
+    applyLanguage(language);
   </script>
 </body>
 </html>
