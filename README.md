@@ -46,6 +46,11 @@ Plugins / Development / Import plugin from manifest...
 
 Select the extracted `manifest.json`. For a source install, select `FigmaPlugin/manifest.json` in this repository.
 
+**Tips**
+
+- If a shared Figma file does not allow plugins, copy the page you need into a new Figma project of your own, then run the exporter there.
+- If a layer you need is not exported normally, select it in Figma, add it as an export item manually, then run the Figma2Unity Offline Exporter again.
+
 ## ⚡ Quick Start
 
 > The offline package is recommended: no Figma token, no REST quota, and imports are easy to archive and reproduce.

@@ -48,6 +48,11 @@ Plugins / Development / Import plugin from manifest...
 
 选择解压目录里的 `manifest.json`。从源码安装时选择本仓库的 `FigmaPlugin/manifest.json`。
 
+**技巧**
+
+- 如果设计师分享的 Figma 项目没有开放插件权限，可以把要导出的设计页面复制到自己的新建 Figma 项目中，再运行导出插件。
+- 如果想要的图层没有正常导出，可以在 Figma 中选中该图层，手动添加为导出项，再使用 Figma 离线导出插件。
+
 ## ⚡ 快速开始
 
 > 推荐离线包：不需要 Figma Token，不占 REST 额度，方便保存、复现和排查。
