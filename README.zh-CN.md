@@ -2,7 +2,7 @@
 
 # 🚀 Figma2Unity
 
-将 Figma 的 Frame 导入 Unity Canvas：参考图、切图、TextMeshPro、字体映射、Manifest 和 Prefab。
+一键还原 Figma 设计到 Unity Canvas：参考图、切图、TextMeshPro、字体映射、Manifest 和 Prefab。
 
 > 依赖 UGUI、TextMeshPro。
 
