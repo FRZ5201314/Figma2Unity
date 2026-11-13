@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.16
+
+- Fixed the Figma offline exporter's default mode dropping nested nodes that have ExportSettings; all explicitly marked nodes are now exported, including those inside collapsed containers and component instances.
+- Fixed zero-height/zero-width nodes (lines, dividers) being skipped even when marked for export; bounds now fall back to `absoluteRenderBounds` so stroke thickness is included.
+- Rebuilt the Figma offline exporter package as `Figma2Unity-Offline-Exporter-v0.7.16.zip`.
+
 ## 0.7.15
 
 - Added English/Chinese language switching to the Unity editor UI and the Figma offline exporter. English is the default; the language button switches languages and persists the choice.
