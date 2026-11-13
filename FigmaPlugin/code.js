@@ -541,11 +541,13 @@ function mergeMarkedAndAutoNodes(root, markedNodes, autoNodes, containerStrategy
     merged.push(autoMap[root.id]);
   }
 
-  collectMergedNodesInDrawOrder(root, markedMap, autoMap, containerStrategy, merged);
+  collectMergedNodesInDrawOrder(root, markedMap, autoMap, containerStrategy, merged, true);
   return merged;
 }
 
-function collectMergedNodesInDrawOrder(node, markedMap, autoMap, containerStrategy, results) {
+// includeAuto 为 false 时只继续收集显式标记 ExportSettings 的节点：
+// 已折叠的容器/实例不再补齐普通子层，避免父子切图重复叠图。
+function collectMergedNodesInDrawOrder(node, markedMap, autoMap, containerStrategy, results, includeAuto) {
   if (!node) {
     return;
   }
@@ -554,31 +556,30 @@ function collectMergedNodesInDrawOrder(node, markedMap, autoMap, containerStrate
   for (var i = 0; i < children.length; i++) {
     var child = children[i];
     if (markedMap[child.id]) {
-      if (shouldExpandMarkedContainer(child, autoMap, containerStrategy)) {
-        if (hasVisualSelf(child)) {
-          results.push(markedMap[child.id]);
-        }
-
-        collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results);
-        continue;
-      }
-
+      // 显式标记的节点始终导出，即使它位于已折叠的容器内部。
       results.push(markedMap[child.id]);
+      var expand = includeAuto && shouldExpandMarkedContainer(child, autoMap, containerStrategy);
+      collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results, expand);
       continue;
     }
 
-    if (autoMap[child.id] && (isAtomicContainerNode(child) || !hasMappedDescendant(child, markedMap))) {
+    if (includeAuto && autoMap[child.id] && (isAtomicContainerNode(child) || !hasMappedDescendant(child, markedMap))) {
+      var hasMarkedChild = hasMappedDescendant(child, markedMap);
       if (!isAtomicContainerNode(child) && hasVisualSelf(child) && hasMappedDescendant(child, autoMap)) {
         results.push(autoMap[child.id]);
-        collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results);
+        collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results, includeAuto);
         continue;
       }
 
       results.push(autoMap[child.id]);
+      // 整体折叠的实例/容器仍要保留内部显式标记的节点。
+      if (hasMarkedChild) {
+        collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results, false);
+      }
       continue;
     }
 
-    collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results);
+    collectMergedNodesInDrawOrder(child, markedMap, autoMap, containerStrategy, results, includeAuto);
   }
 }
 
@@ -785,11 +786,22 @@ function hasUsableBounds(node) {
 }
 
 function getRootBounds(node) {
-  return normalizeBounds(node && (node.absoluteBoundingBox || node.absoluteRenderBounds));
+  if (!node) {
+    return null;
+  }
+
+  // 零高度/零宽度节点（如 LINE、分割线）的 absoluteBoundingBox 不可用，
+  // 需回退到包含描边和效果的 absoluteRenderBounds，否则会被误判为无尺寸而跳过。
+  return normalizeBounds(node.absoluteBoundingBox) || normalizeBounds(node.absoluteRenderBounds);
 }
 
 function getSliceBounds(node) {
-  return normalizeBounds(node && (node.absoluteRenderBounds || node.absoluteBoundingBox));
+  if (!node) {
+    return null;
+  }
+
+  // 切图尺寸优先取渲染边界，保证与 exportAsync 输出的 PNG 尺寸一致。
+  return normalizeBounds(node.absoluteRenderBounds) || normalizeBounds(node.absoluteBoundingBox);
 }
 
 function normalizeBounds(bounds) {
