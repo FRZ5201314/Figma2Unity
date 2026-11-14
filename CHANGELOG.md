@@ -8,6 +8,8 @@
 - Added diagnostics for missing or estimated export bounds and a warning when a manifest must fall back to legacy geometry inference.
 - Detect Figma `BACKGROUND_BLUR` effects and export those layers separately with the blur disabled, plus `layoutBounds`/`backgroundBlur` metadata.
 - Generate a blurred backdrop and rounded-rect mask at import, and add a `FigmaBackgroundBlur` runtime component driven by a ComputeShader. This keeps background-blur nodes as independent layers and works with both Built-in and URP without pipeline-specific shaders.
+- Added per-layer blur switching on `FigmaLayerBinding` (No Blur / Baked / Dynamic); blur assets and Blur Group nodes are generated only when needed, and Dynamic uses `Camera.main` by default.
+- Rebuilt the Figma offline exporter package as `Figma2Unity-Offline-Exporter-v0.7.17.zip`.
 
 ## 0.7.16
 
