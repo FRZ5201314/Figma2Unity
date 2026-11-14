@@ -61,7 +61,8 @@ namespace FigmaUiImporter.Editor
                 settings,
                 data.RootNode,
                 referenceAssetPath,
-                data.Layers);
+                data.Layers,
+                data.ReferenceGeometry);
 
             progress.Report(new FigmaImportProgress(L("保存导入诊断报告...", "Saving diagnostics..."), 0.88f));
             string diagnosticReportPath = _diagnosticService.SaveOfflineReport(settings, data);

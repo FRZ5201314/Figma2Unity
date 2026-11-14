@@ -124,6 +124,51 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void LoadForRebuildReadsExportBounds()
+        {
+            string referencePath = FigmaPathUtility.CombineAssetPath(TestFolder, "reference.png");
+            string layerPath = FigmaPathUtility.CombineAssetPath(TestFolder, "layers", "3_4.png");
+            WriteEmptyAsset(referencePath);
+            WriteEmptyAsset(layerPath);
+
+            string manifestPath = FigmaPathUtility.CombineAssetPath(TestFolder, "manifest.json");
+            WriteTextAsset(
+                manifestPath,
+                "{"
+                + "\"imageScale\":1,\"selectedNodeId\":\"1:2\",\"selectedNodeName\":\"Root\",\"selectedNodeType\":\"SECTION\","
+                + "\"rootBounds\":{\"x\":-3331,\"y\":42,\"width\":1920,\"height\":1080},"
+                + "\"rootExportBounds\":{\"x\":-3382,\"y\":2,\"width\":2011,\"height\":1161},"
+                + "\"rootExportBoundsExact\":true,"
+                + "\"referenceTextureWidth\":2011,\"referenceTextureHeight\":1161,"
+                + "\"referenceImage\":\"reference.png\","
+                + "\"layers\":[{"
+                + "\"nodeId\":\"3:4\",\"nodeName\":\"Frame\",\"type\":\"FRAME\",\"kind\":\"image\","
+                + "\"image\":\"layers/3_4.png\","
+                + "\"bounds\":{\"x\":-2977,\"y\":179,\"width\":1258,\"height\":798},"
+                + "\"exportBounds\":{\"x\":-2977,\"y\":179,\"width\":1258,\"height\":798},"
+                + "\"exportBoundsExact\":true,"
+                + "\"textureWidth\":1258,\"textureHeight\":798,"
+                + "\"unity\":{\"anchoredPosition\":{\"x\":23,\"y\":4},\"sizeDelta\":{\"x\":1258,\"y\":798}},"
+                + "\"siblingIndex\":0,\"unityObjectPath\":\"\""
+                + "}]"
+                + "}");
+
+            FigmaManifestRebuildData data = new FigmaImportManifestService().LoadForRebuild(manifestPath);
+
+            Assert.IsTrue(data.ReferenceGeometry.HasUsableExportBounds);
+            Assert.AreEqual(new Rect(-3382f, 2f, 2011f, 1161f), data.ReferenceGeometry.ExportBounds);
+            Assert.IsTrue(data.ReferenceGeometry.ExportBoundsExact);
+            Assert.AreEqual(new Vector2Int(2011, 1161), data.ReferenceGeometry.TextureSize);
+            Assert.AreEqual(1, data.Layers.Count);
+            Assert.IsTrue(data.Layers[0].HasUsableExportBounds);
+            Assert.AreEqual(new Rect(-2977f, 179f, 1258f, 798f), data.Layers[0].ExportBounds);
+            Assert.IsTrue(data.Layers[0].ExportBoundsExact);
+            // 解析阶段仍保留 manifest 的布局尺寸/位置，由几何解析器在图片模式下改用 exportBounds。
+            Assert.AreEqual(new Vector2(1258f, 798f), data.Layers[0].SizeDelta);
+            Assert.AreEqual(new Vector2(23f, 4f), data.Layers[0].AnchoredPosition);
+        }
+
+        [Test]
         public void TryLoadTextStyleForLayerDoesNotRequireLayerAssets()
         {
             string manifestPath = FigmaPathUtility.CombineAssetPath(TestFolder, "manifest.json");

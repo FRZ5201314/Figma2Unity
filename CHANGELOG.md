@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.17
+
+- Added export-bounds metadata to the offline plugin package (schema version 2): `rootExportBounds`, per-layer `exportBounds`, and texture sizes.
+- The Unity importer now places image layers directly from the recorded export canvas instead of inferring a pixel scale from the reference image. This fixes the whole layout shrinking by ~4.5%/7% when Figma's `exportAsync` adds transparent effect padding around the root/reference PNG.
+- The reference image overlay now uses `RawImage.uvRect` to sample the root-bounds region from the exported reference, instead of stretching the padded PNG into the root rectangle.
+- Added diagnostics for missing or estimated export bounds and a warning when a manifest must fall back to legacy geometry inference.
+
 ## 0.7.16
 
 - Fixed the Figma offline exporter's default mode dropping nested nodes that have ExportSettings; all explicitly marked nodes are now exported, including those inside collapsed containers and component instances.

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine;
 
 namespace FigmaUiImporter.Editor.Tests
 {
@@ -198,16 +199,64 @@ namespace FigmaUiImporter.Editor.Tests
             }
         }
 
+        [Test]
+        public void ImportPackageAcceptsSchemaVersion2WithExportBounds()
+        {
+            string packagePath = WritePackage(CreateExportBoundsPackageJson());
+
+            try
+            {
+                FigmaPluginPackageImporter importer = new FigmaPluginPackageImporter();
+                FigmaPluginPackageInfo info = importer.ReadPackageInfo(packagePath);
+                Assert.AreEqual(2, info.SchemaVersion);
+
+                string manifestPath = importer.ImportPackage(
+                    packagePath,
+                    new FigmaImportSettings { OutputFolder = TestFolder },
+                    new NullProgress());
+
+                FigmaManifestRebuildData data = new FigmaImportManifestService().LoadForRebuild(manifestPath);
+                Assert.IsTrue(data.ReferenceGeometry.HasUsableExportBounds);
+                Assert.AreEqual(new Rect(-3382f, 2f, 2011f, 1161f), data.ReferenceGeometry.ExportBounds);
+                Assert.AreEqual(new Vector2Int(2011, 1161), data.ReferenceGeometry.TextureSize);
+                Assert.IsTrue(data.Layers[0].HasUsableExportBounds);
+                Assert.AreEqual(new Rect(-2977f, 179f, 1258f, 798f), data.Layers[0].ExportBounds);
+            }
+            finally
+            {
+                File.Delete(packagePath);
+            }
+        }
+
+        [Test]
+        public void ReadPackageInfoRejectsUnsupportedSchemaVersion()
+        {
+            string packagePath = WritePackage(CreatePackageJson(schemaVersion: 3));
+
+            try
+            {
+                FigmaPluginPackageImporter importer = new FigmaPluginPackageImporter();
+                InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                    () => importer.ReadPackageInfo(packagePath));
+                StringAssert.Contains("不支持", exception.Message);
+            }
+            finally
+            {
+                File.Delete(packagePath);
+            }
+        }
+
         private static string CreatePackageJson(
             string referenceManifestPath = "reference.png",
             string referenceAssetPath = "reference.png",
             string layerManifestPath = "layers/3_4.png",
             string layerAssetPath = "layers/3_4.png",
             string referenceBase64 = PngBase64,
-            string layerBase64 = PngBase64)
+            string layerBase64 = PngBase64,
+            int schemaVersion = 1)
         {
             return "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":" + schemaVersion + ","
                 + "\"exportedAt\":\"2026-07-01T00:00:00Z\","
                 + "\"fileKey\":\"localFile\","
                 + "\"imageScale\":1,"
@@ -234,6 +283,47 @@ namespace FigmaUiImporter.Editor.Tests
                 + "\"assets\":["
                 + "{\"path\":\"" + referenceAssetPath + "\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + referenceBase64 + "\"},"
                 + "{\"path\":\"" + layerAssetPath + "\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + layerBase64 + "\"}"
+                + "]"
+                + "}";
+        }
+
+        private static string CreateExportBoundsPackageJson()
+        {
+            return "{"
+                + "\"schemaVersion\":2,"
+                + "\"exportedAt\":\"2026-07-01T00:00:00Z\","
+                + "\"fileKey\":\"localFile\","
+                + "\"imageScale\":1,"
+                + "\"manifest\":{"
+                + "\"fileKey\":\"\","
+                + "\"imageScale\":1,"
+                + "\"selectedNodeId\":\"1:2\","
+                + "\"selectedNodeName\":\"Root\","
+                + "\"selectedNodeType\":\"SECTION\","
+                + "\"importedAt\":\"2026-07-01T00:00:00Z\","
+                + "\"rootBounds\":{\"x\":-3331,\"y\":42,\"width\":1920,\"height\":1080},"
+                + "\"rootExportBounds\":{\"x\":-3382,\"y\":2,\"width\":2011,\"height\":1161},"
+                + "\"rootExportBoundsExact\":true,"
+                + "\"referenceTextureWidth\":2011,\"referenceTextureHeight\":1161,"
+                + "\"referenceImage\":\"reference.png\","
+                + "\"layers\":[{"
+                + "\"nodeId\":\"3:4\","
+                + "\"nodeName\":\"Frame\","
+                + "\"type\":\"FRAME\","
+                + "\"kind\":\"image\","
+                + "\"image\":\"layers/3_4.png\","
+                + "\"bounds\":{\"x\":-2977,\"y\":179,\"width\":1258,\"height\":798},"
+                + "\"exportBounds\":{\"x\":-2977,\"y\":179,\"width\":1258,\"height\":798},"
+                + "\"exportBoundsExact\":true,"
+                + "\"textureWidth\":1258,\"textureHeight\":798,"
+                + "\"unity\":{\"anchoredPosition\":{\"x\":23,\"y\":4},\"sizeDelta\":{\"x\":1258,\"y\":798}},"
+                + "\"siblingIndex\":0,"
+                + "\"unityObjectPath\":\"\""
+                + "}]"
+                + "},"
+                + "\"assets\":["
+                + "{\"path\":\"reference.png\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + PngBase64 + "\"},"
+                + "{\"path\":\"layers/3_4.png\",\"mimeType\":\"image/png\",\"dataBase64\":\"" + PngBase64 + "\"}"
                 + "]"
                 + "}";
         }

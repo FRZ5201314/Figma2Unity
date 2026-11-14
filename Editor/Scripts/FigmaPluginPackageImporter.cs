@@ -9,7 +9,8 @@ namespace FigmaUiImporter.Editor
 {
     internal sealed class FigmaPluginPackageImporter
     {
-        private const int SupportedSchemaVersion = 1;
+        private const int MinimumSupportedSchemaVersion = 1;
+        private const int SupportedSchemaVersion = 2;
 
         public FigmaPluginPackageInfo ReadPackageInfo(string packagePath)
         {
@@ -103,10 +104,11 @@ namespace FigmaUiImporter.Editor
                 throw new InvalidOperationException(L("Figma 插件包内容无效，无法解析 JSON。", "The Figma plugin package is invalid; JSON parsing failed."));
             }
 
-            if (package.schemaVersion != SupportedSchemaVersion)
+            if (package.schemaVersion < MinimumSupportedSchemaVersion
+                || package.schemaVersion > SupportedSchemaVersion)
             {
                 throw new InvalidOperationException(
-                    F("不支持的 Figma 插件包版本：{0}。当前支持版本：{1}。", "Unsupported Figma plugin package version: {0}. Supported version: {1}.", package.schemaVersion, SupportedSchemaVersion));
+                    F("不支持的 Figma 插件包版本：{0}。当前支持版本：{1}-{2}。", "Unsupported Figma plugin package version: {0}. Supported versions: {1}-{2}.", package.schemaVersion, MinimumSupportedSchemaVersion, SupportedSchemaVersion));
             }
 
             if (package.manifest == null)
@@ -379,6 +381,10 @@ namespace FigmaUiImporter.Editor
             public string textImportMode;
             public string importedAt;
             public BoundsDto rootBounds;
+            public BoundsDto rootExportBounds;
+            public bool rootExportBoundsExact;
+            public int referenceTextureWidth;
+            public int referenceTextureHeight;
             public string referenceImage;
             public List<LayerDto> layers;
         }
@@ -393,6 +399,10 @@ namespace FigmaUiImporter.Editor
             public string image;
             public TextDto text;
             public BoundsDto bounds;
+            public BoundsDto exportBounds;
+            public bool exportBoundsExact;
+            public int textureWidth;
+            public int textureHeight;
             public UnityRectDto unity;
             public int siblingIndex;
             public string unityObjectPath;

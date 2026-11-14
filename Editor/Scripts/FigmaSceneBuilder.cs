@@ -15,7 +15,8 @@ namespace FigmaUiImporter.Editor
             FigmaImportSettings settings,
             FigmaNodeInfo selectedRoot,
             string referenceAssetPath,
-            IList<ImportedLayerInfo> layers)
+            IList<ImportedLayerInfo> layers,
+            FigmaReferenceGeometry referenceGeometry = null)
         {
             Canvas canvas = GetOrCreateCanvas(settings.TargetCanvas);
             string baseName = "FigmaImport_"
@@ -50,7 +51,7 @@ namespace FigmaUiImporter.Editor
 
             if (!string.IsNullOrEmpty(referenceAssetPath))
             {
-                CreateReference(settings, rootObject.transform, selectedRoot, referenceAssetPath);
+                CreateReference(settings, rootObject.transform, selectedRoot, referenceAssetPath, referenceGeometry);
             }
 
             GameObject layersRoot = CreateRectObject("Layers", rootObject.transform);
@@ -150,7 +151,8 @@ namespace FigmaUiImporter.Editor
             FigmaImportSettings settings,
             Transform root,
             FigmaNodeInfo selectedRoot,
-            string referenceAssetPath)
+            string referenceAssetPath,
+            FigmaReferenceGeometry referenceGeometry)
         {
             GameObject referenceRoot = CreateRectObject("Reference", root);
             MatchRootRect(referenceRoot.GetComponent<RectTransform>(), selectedRoot);
@@ -158,11 +160,77 @@ namespace FigmaUiImporter.Editor
             GameObject designReference = CreateRectObject("DesignReference", referenceRoot.transform);
             MatchRootRect(designReference.GetComponent<RectTransform>(), selectedRoot);
 
+            // v2 manifest 记录了参考图实际导出画布，用 uvRect 只采样 rootBounds 对应区域，
+            // 避免把带透明边距的整张 PNG 拉伸进 root 尺寸。
+            if (CreateReferenceFromExportBounds(designReference, selectedRoot, referenceAssetPath, referenceGeometry))
+            {
+                AddReferenceCanvasGroup(settings, designReference);
+                return;
+            }
+
             Image image = designReference.AddComponent<Image>();
             image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(referenceAssetPath);
             image.preserveAspect = false;
             image.raycastTarget = false;
 
+            AddReferenceCanvasGroup(settings, designReference);
+        }
+
+        private static bool CreateReferenceFromExportBounds(
+            GameObject designReference,
+            FigmaNodeInfo selectedRoot,
+            string referenceAssetPath,
+            FigmaReferenceGeometry referenceGeometry)
+        {
+            if (designReference == null
+                || selectedRoot == null
+                || referenceGeometry == null
+                || !referenceGeometry.HasUsableExportBounds)
+            {
+                return false;
+            }
+
+            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(referenceAssetPath);
+            if (texture == null)
+            {
+                return false;
+            }
+
+            Rect rootBounds = selectedRoot.AbsoluteBounds;
+            Rect exportBounds = referenceGeometry.ExportBounds;
+            // 用 Unity 里实际导入的纹理尺寸计算 UV；即使纹理被 maxTextureSize 缩小也能对齐。
+            float scaleX = texture.width / exportBounds.width;
+            float scaleY = texture.height / exportBounds.height;
+
+            // rootBounds 在参考图像素坐标中的内容区
+            float pixelX = (rootBounds.x - exportBounds.x) * scaleX;
+            float pixelY = (rootBounds.y - exportBounds.y) * scaleY;
+            float pixelWidth = rootBounds.width * scaleX;
+            float pixelHeight = rootBounds.height * scaleY;
+
+            // 导出边界可能是估算值，或内容区有 1px 抗锯齿，做一次夹取避免 UV 越界。
+            pixelX = Mathf.Clamp(pixelX, 0f, texture.width);
+            pixelY = Mathf.Clamp(pixelY, 0f, texture.height);
+            pixelWidth = Mathf.Clamp(pixelWidth, 0f, texture.width - pixelX);
+            pixelHeight = Mathf.Clamp(pixelHeight, 0f, texture.height - pixelY);
+            if (pixelWidth <= 0.01f || pixelHeight <= 0.01f)
+            {
+                return false;
+            }
+
+            RawImage rawImage = designReference.AddComponent<RawImage>();
+            rawImage.texture = texture;
+            rawImage.uvRect = new Rect(
+                pixelX / texture.width,
+                (texture.height - pixelY - pixelHeight) / texture.height,
+                pixelWidth / texture.width,
+                pixelHeight / texture.height);
+            rawImage.raycastTarget = false;
+            return true;
+        }
+
+        private static void AddReferenceCanvasGroup(FigmaImportSettings settings, GameObject designReference)
+        {
             CanvasGroup canvasGroup = designReference.AddComponent<CanvasGroup>();
             canvasGroup.alpha = Mathf.Clamp01(settings.ReferenceAlpha);
             canvasGroup.blocksRaycasts = false;

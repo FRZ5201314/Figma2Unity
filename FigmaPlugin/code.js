@@ -1,4 +1,5 @@
-var PACKAGE_SCHEMA_VERSION = 1;
+// schema 2：manifest 增加 exportBounds / 纹理尺寸，导入端不再靠参考图尺寸反推倍率。
+var PACKAGE_SCHEMA_VERSION = 2;
 var DEFAULT_SCALE = 1;
 var MAX_SCALE = 4;
 var currentLanguage = "en";
@@ -115,10 +116,15 @@ async function exportSelectedNode(options) {
   var fileKey = getFileKey();
   var assets = [];
   var layers = [];
+  var referencePngSize = null;
+  var referenceExportInfo = null;
 
   if (mode !== "noReference") {
     postProgress(t("exportingReference"), 0.1);
     var referenceBytes = await exportNodePng(root, scale);
+    referencePngSize = readPngSize(referenceBytes);
+    // 参考图不隐藏任何子节点，导出边界即整张参考图的实际画布。
+    referenceExportInfo = resolveExportBounds(root, {}, referencePngSize, scale);
     assets.push({
       path: "reference.png",
       mimeType: "image/png",
@@ -149,33 +155,51 @@ async function exportSelectedNode(options) {
       mimeType: "image/png",
       dataBase64: bytesToBase64(bytes)
     });
-    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length));
+
+    // 切图可能因为子级溢出/阴影而比节点 bounds 大；记录实际导出画布，
+    // 导入端直接按画布放置，避免再用参考图尺寸反推倍率。
+    var pngSize = readPngSize(bytes);
+    var hiddenIds = collectHiddenNodeIds(node, hiddenDescendantPaths);
+    var exportInfo = resolveExportBounds(node, hiddenIds, pngSize, scale);
+    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length, exportInfo, pngSize));
   }
 
   postProgress(t("generatingPackage"), 0.95);
+  var manifest = {
+    fileKey: fileKey,
+    imageScale: scale,
+    selectedNodeId: root.id,
+    selectedNodeName: root.name || "Selection",
+    selectedNodeType: root.type || "FRAME",
+    // 只有 Frame 类节点会显式提供 clipsContent；GROUP 默认不裁剪。
+    clipsContent: root.clipsContent === undefined
+      ? (root.type === "FRAME" || root.type === "COMPONENT" || root.type === "INSTANCE")
+      : root.clipsContent === true,
+    clipsContentVersion: 1,
+    containerSliceStrategy: containerStrategy,
+    textImportMode: "metadata",
+    importedAt: now,
+    rootBounds: rootBounds,
+    referenceImage: mode === "noReference" ? "" : "reference.png",
+    layers: layers
+  };
+
+  if (referenceExportInfo) {
+    manifest.rootExportBounds = referenceExportInfo.bounds;
+    manifest.rootExportBoundsExact = referenceExportInfo.exact;
+  }
+
+  if (referencePngSize) {
+    manifest.referenceTextureWidth = referencePngSize.width;
+    manifest.referenceTextureHeight = referencePngSize.height;
+  }
+
   return {
     schemaVersion: PACKAGE_SCHEMA_VERSION,
     exportedAt: now,
     fileKey: fileKey,
     imageScale: scale,
-    manifest: {
-      fileKey: fileKey,
-      imageScale: scale,
-      selectedNodeId: root.id,
-      selectedNodeName: root.name || "Selection",
-      selectedNodeType: root.type || "FRAME",
-      // 只有 Frame 类节点会显式提供 clipsContent；GROUP 默认不裁剪。
-      clipsContent: root.clipsContent === undefined
-        ? (root.type === "FRAME" || root.type === "COMPONENT" || root.type === "INSTANCE")
-        : root.clipsContent === true,
-      clipsContentVersion: 1,
-      containerSliceStrategy: containerStrategy,
-      textImportMode: "metadata",
-      importedAt: now,
-      rootBounds: rootBounds,
-      referenceImage: mode === "noReference" ? "" : "reference.png",
-      layers: layers
-    },
+    manifest: manifest,
     assets: assets
   };
 }
@@ -213,11 +237,11 @@ async function exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, s
   }
 }
 
-function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex) {
+function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, exportInfo, pngSize) {
   var text = createTextDto(node);
   var layoutBounds = text ? getTextLayoutBounds(node, bounds) : bounds;
   var anchoredPosition = toUnityAnchoredPosition(rootBounds, layoutBounds);
-  return {
+  var result = {
     nodeId: node.id,
     nodeName: node.name || "Layer",
     type: node.type || "UNKNOWN",
@@ -235,6 +259,19 @@ function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex) {
     siblingIndex: siblingIndex,
     unityObjectPath: ""
   };
+
+  // layout bounds 用于 TMP 文本；exportBounds 是 PNG 实际画布，用于图片放置。
+  if (exportInfo) {
+    result.exportBounds = exportInfo.bounds;
+    result.exportBoundsExact = exportInfo.exact;
+  }
+
+  if (pngSize) {
+    result.textureWidth = pngSize.width;
+    result.textureHeight = pngSize.height;
+  }
+
+  return result;
 }
 
 function createTextDto(node) {
@@ -802,6 +839,139 @@ function getSliceBounds(node) {
 
   // 切图尺寸优先取渲染边界，保证与 exportAsync 输出的 PNG 尺寸一致。
   return normalizeBounds(node.absoluteRenderBounds) || normalizeBounds(node.absoluteBoundingBox);
+}
+
+// 读取 PNG IHDR 中的像素尺寸。exportAsync 的实际画布可能包含 effects/子级溢出，
+// 不能仅用 node bounds 代替。
+function readPngSize(bytes) {
+  if (!bytes || bytes.length < 24) {
+    return null;
+  }
+
+  if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47) {
+    return null;
+  }
+
+  var width = ((bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19]) >>> 0;
+  var height = ((bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23]) >>> 0;
+  return width > 0 && height > 0 ? { width: width, height: height } : null;
+}
+
+function unionBounds(a, b) {
+  if (!a) {
+    return b;
+  }
+
+  if (!b) {
+    return a;
+  }
+
+  var left = Math.min(a.x, b.x);
+  var top = Math.min(a.y, b.y);
+  var right = Math.max(a.x + a.width, b.x + b.width);
+  var bottom = Math.max(a.y + a.height, b.y + b.height);
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function shouldIncludeChildrenInExportBounds(node) {
+  if (!node) {
+    return false;
+  }
+
+  // SECTION 不裁剪；Frame/Component 只有 clipsContent=false 时才把子级溢出算进画布。
+  // GROUP/INSTANCE 的 render bounds 已经覆盖其内容，递归反而可能把被裁剪的子级算大。
+  if (node.type === "SECTION") {
+    return true;
+  }
+
+  if (node.type === "FRAME" || node.type === "COMPONENT") {
+    return node.clipsContent === false;
+  }
+
+  return false;
+}
+
+function computeExportBounds(node, hiddenIds) {
+  if (!node
+    || node.visible === false
+    || node.opacity === 0
+    || (hiddenIds && hiddenIds[node.id])) {
+    return null;
+  }
+
+  var bounds = getSliceBounds(node);
+  if (!shouldIncludeChildrenInExportBounds(node)) {
+    return bounds;
+  }
+
+  var children = getChildren(node);
+  for (var i = 0; i < children.length; i++) {
+    var child = children[i];
+    if (!child
+      || child.visible === false
+      || child.opacity === 0
+      || (hiddenIds && hiddenIds[child.id])) {
+      continue;
+    }
+
+    var childBounds = computeExportBounds(child, hiddenIds);
+    if (childBounds) {
+      bounds = unionBounds(bounds, childBounds);
+    }
+  }
+
+  return bounds;
+}
+
+function collectHiddenNodeIds(node, hiddenDescendantPaths) {
+  var ids = {};
+  if (!node || !hiddenDescendantPaths) {
+    return ids;
+  }
+
+  for (var i = 0; i < hiddenDescendantPaths.length; i++) {
+    var target = findNodeByChildPath(node, hiddenDescendantPaths[i]);
+    if (target && target.id) {
+      ids[target.id] = true;
+    }
+  }
+
+  return ids;
+}
+
+function resolveExportBounds(node, hiddenIds, pngSize, scale) {
+  var computed = computeExportBounds(node, hiddenIds);
+  if (!computed) {
+    return null;
+  }
+
+  if (!pngSize || !(scale > 0)) {
+    return { bounds: computed, exact: false };
+  }
+
+  var tolerance = 2 * Math.max(1, scale);
+  var expectedWidth = computed.width * scale;
+  var expectedHeight = computed.height * scale;
+  if (Math.abs(pngSize.width - expectedWidth) <= tolerance
+    && Math.abs(pngSize.height - expectedHeight) <= tolerance) {
+    return { bounds: computed, exact: true };
+  }
+
+  // 计算范围与 PNG 不一致时，围绕已计算的可见内容范围对称补齐/收缩。
+  // 阴影偏移不对称时会有几像素误差，用 exportBoundsExact=false 标记。
+  var targetWidth = pngSize.width / scale;
+  var targetHeight = pngSize.height / scale;
+  var extraWidth = targetWidth - computed.width;
+  var extraHeight = targetHeight - computed.height;
+  return {
+    bounds: {
+      x: computed.x - extraWidth * 0.5,
+      y: computed.y - extraHeight * 0.5,
+      width: targetWidth,
+      height: targetHeight
+    },
+    exact: false
+  };
 }
 
 function normalizeBounds(bounds) {

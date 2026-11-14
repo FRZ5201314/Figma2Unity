@@ -72,7 +72,23 @@ namespace FigmaUiImporter.Editor
             }
 
             report.exportedLayerCount = data.Layers.Count;
+            report.hasReferenceExportBounds = data.ReferenceGeometry.HasUsableExportBounds;
+            report.rootExportBoundsExact = data.ReferenceGeometry.ExportBoundsExact;
+            report.referenceTextureWidth = data.ReferenceGeometry.TextureSize.x;
+            report.referenceTextureHeight = data.ReferenceGeometry.TextureSize.y;
+            if (data.ReferenceGeometry.HasUsableExportBounds)
+            {
+                report.rootExportBounds = ToBoundsDto(data.ReferenceGeometry.ExportBounds);
+            }
+            else if (settings.CreateReference)
+            {
+                report.warnings.Add(L(
+                    "manifest 未包含参考图导出画布，将回退到旧版几何推断；请使用新版插件重新导出。",
+                    "The manifest has no reference export bounds; legacy geometry inference will be used. Re-export with the newer plugin."));
+            }
 
+            int layersWithoutExportBounds = 0;
+            int estimatedExportBounds = 0;
             for (int i = 0; i < data.Layers.Count; i++)
             {
                 ImportedLayerInfo layer = data.Layers[i];
@@ -85,7 +101,37 @@ namespace FigmaUiImporter.Editor
                 node.kind = layer.IsTextLayer ? "text" : "image";
                 node.assetPath = layer.AssetPath;
                 node.unityObjectPath = layer.UnityObjectPath;
+                if (layer.HasUsableExportBounds)
+                {
+                    node.exportBounds = ToBoundsDto(layer.ExportBounds);
+                    node.exportBoundsExact = layer.ExportBoundsExact;
+                    if (!layer.ExportBoundsExact)
+                    {
+                        estimatedExportBounds++;
+                    }
+                }
+                else if (!layer.IsTextLayer)
+                {
+                    layersWithoutExportBounds++;
+                }
+
                 report.nodes.Add(node);
+            }
+
+            if (layersWithoutExportBounds > 0)
+            {
+                report.warnings.Add(F(
+                    "{0} 个图片图层缺少 exportBounds，将回退到旧版几何推断。",
+                    "{0} image layers have no exportBounds and will use legacy geometry inference.",
+                    layersWithoutExportBounds));
+            }
+
+            if (estimatedExportBounds > 0)
+            {
+                report.warnings.Add(F(
+                    "{0} 个图层的导出画布由 PNG 尺寸对称估算，阴影偏移时可能有几像素误差。",
+                    "{0} layers have estimated export bounds; asymmetric shadows may cause a few pixels of offset.",
+                    estimatedExportBounds));
             }
 
             return WriteReport(data.OutputFolder, report);
@@ -140,6 +186,16 @@ namespace FigmaUiImporter.Editor
             return map;
         }
 
+        private static BoundsDto ToBoundsDto(Rect rect)
+        {
+            BoundsDto dto = new BoundsDto();
+            dto.x = rect.x;
+            dto.y = rect.y;
+            dto.width = rect.width;
+            dto.height = rect.height;
+            return dto;
+        }
+
         [Serializable]
         private sealed class ReportDto
         {
@@ -153,6 +209,11 @@ namespace FigmaUiImporter.Editor
             public string containerSliceStrategy;
             public string textImportMode;
             public int exportedLayerCount;
+            public bool hasReferenceExportBounds;
+            public BoundsDto rootExportBounds;
+            public bool rootExportBoundsExact;
+            public int referenceTextureWidth;
+            public int referenceTextureHeight;
             public List<string> warnings = new List<string>();
             public List<NodeDto> nodes = new List<NodeDto>();
         }
@@ -169,6 +230,17 @@ namespace FigmaUiImporter.Editor
             public string kind;
             public string assetPath;
             public string unityObjectPath;
+            public BoundsDto exportBounds;
+            public bool exportBoundsExact;
+        }
+
+        [Serializable]
+        private sealed class BoundsDto
+        {
+            public float x;
+            public float y;
+            public float width;
+            public float height;
         }
     }
 }

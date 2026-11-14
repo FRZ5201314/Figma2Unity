@@ -152,6 +152,17 @@ namespace FigmaUiImporter.Editor
         public string UnityObjectPath;
         public FigmaTextStyleInfo TextStyle;
 
+        /// <summary>PNG 实际导出画布在 Figma 绝对坐标中的矩形；v2 离线包提供。</summary>
+        public Rect ExportBounds;
+        public bool HasExportBounds;
+        /// <summary>false 表示导出边界由 PNG 尺寸对称估算，阴影偏移时可能有几像素误差。</summary>
+        public bool ExportBoundsExact;
+
+        public bool HasUsableExportBounds
+        {
+            get { return HasExportBounds && ExportBounds.width > 0.01f && ExportBounds.height > 0.01f; }
+        }
+
         public bool HasTextStyle
         {
             get { return TextStyle != null && string.Equals(NodeType, "TEXT", StringComparison.OrdinalIgnoreCase); }
@@ -242,6 +253,25 @@ namespace FigmaUiImporter.Editor
         public bool HasReferenceImage;
     }
 
+    /// <summary>参考图（reference.png）的实际导出画布与纹理尺寸，用于精确对齐和裁剪。</summary>
+    internal sealed class FigmaReferenceGeometry
+    {
+        public Rect ExportBounds;
+        public bool HasExportBounds;
+        public bool ExportBoundsExact;
+        public Vector2Int TextureSize;
+
+        public bool HasUsableExportBounds
+        {
+            get { return HasExportBounds && ExportBounds.width > 0.01f && ExportBounds.height > 0.01f; }
+        }
+
+        public bool HasUsableTextureSize
+        {
+            get { return TextureSize.x > 0 && TextureSize.y > 0; }
+        }
+    }
+
     internal sealed class FigmaManifestRebuildData
     {
         public string FileKey;
@@ -252,6 +282,7 @@ namespace FigmaUiImporter.Editor
         public string OutputFolder;
         public FigmaNodeInfo RootNode;
         public string ReferenceAssetPath;
+        public readonly FigmaReferenceGeometry ReferenceGeometry = new FigmaReferenceGeometry();
         public readonly List<ImportedLayerInfo> Layers = new List<ImportedLayerInfo>();
     }
 

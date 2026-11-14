@@ -46,6 +46,15 @@ namespace FigmaUiImporter.Editor
                 return;
             }
 
+            // v2 离线包已经记录 PNG 的实际导出画布。直接按画布尺寸/位置放置，
+            // 不再根据参考图纹理尺寸反推倍率，避免把 effects 透明边距当成缩放。
+            if (layer.HasUsableExportBounds)
+            {
+                layer.SizeDelta = new Vector2(layer.ExportBounds.width, layer.ExportBounds.height);
+                layer.AnchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(_rootBounds, layer.ExportBounds);
+                return;
+            }
+
             using (TextureData layerTexture = TextureData.Load(layer.AssetPath))
             {
                 if (layerTexture == null)

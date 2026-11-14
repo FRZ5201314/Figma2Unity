@@ -44,6 +44,11 @@ namespace FigmaUiImporter.Editor
                 dto.image = MakeRelativeAssetPath(outputFolder, layer.AssetPath);
                 dto.text = layer.HasTextStyle ? ToTextDto(layer.TextStyle) : null;
                 dto.bounds = ToBoundsDto(layer.FigmaBounds);
+                if (layer.HasUsableExportBounds)
+                {
+                    dto.exportBounds = ToBoundsDto(layer.ExportBounds);
+                    dto.exportBoundsExact = layer.ExportBoundsExact;
+                }
                 dto.unity = new UnityRectDto();
                 dto.unity.anchoredPosition = ToVectorDto(layer.AnchoredPosition);
                 dto.unity.sizeDelta = ToVectorDto(layer.SizeDelta);
@@ -91,6 +96,17 @@ namespace FigmaUiImporter.Editor
             data.OutputFolder = outputFolder;
             data.RootNode = CreateRootNode(manifest);
             data.ReferenceAssetPath = ResolveAssetPath(outputFolder, manifest.referenceImage);
+
+            Rect rootExportBounds;
+            data.ReferenceGeometry.HasExportBounds = TryToRect(manifest.rootExportBounds, out rootExportBounds);
+            data.ReferenceGeometry.ExportBounds = rootExportBounds;
+            data.ReferenceGeometry.ExportBoundsExact = manifest.rootExportBoundsExact;
+            if (manifest.referenceTextureWidth > 0 && manifest.referenceTextureHeight > 0)
+            {
+                data.ReferenceGeometry.TextureSize = new Vector2Int(
+                    manifest.referenceTextureWidth,
+                    manifest.referenceTextureHeight);
+            }
 
             if (!string.IsNullOrEmpty(data.ReferenceAssetPath))
             {
@@ -265,6 +281,15 @@ namespace FigmaUiImporter.Editor
             layer.AssetPath = ResolveAssetPath(outputFolder, dto.image);
             layer.TextStyle = dto.text != null ? ToTextStyle(dto.text) : null;
             layer.FigmaBounds = ToRect(dto.bounds);
+
+            Rect exportBounds;
+            if (TryToRect(dto.exportBounds, out exportBounds))
+            {
+                layer.ExportBounds = exportBounds;
+                layer.HasExportBounds = true;
+                layer.ExportBoundsExact = dto.exportBoundsExact;
+            }
+
             layer.SiblingIndex = dto.siblingIndex;
 
             if (layer.SiblingIndex < 0)
@@ -377,6 +402,18 @@ namespace FigmaUiImporter.Editor
             return new Rect(dto.x, dto.y, dto.width, dto.height);
         }
 
+        private static bool TryToRect(BoundsDto dto, out Rect rect)
+        {
+            rect = new Rect();
+            if (dto == null || dto.width <= 0.01f || dto.height <= 0.01f)
+            {
+                return false;
+            }
+
+            rect = new Rect(dto.x, dto.y, dto.width, dto.height);
+            return true;
+        }
+
         private static Vector2 ToVector(VectorDto dto)
         {
             if (dto == null)
@@ -466,6 +503,10 @@ namespace FigmaUiImporter.Editor
             public string textImportMode;
             public string importedAt;
             public BoundsDto rootBounds;
+            public BoundsDto rootExportBounds;
+            public bool rootExportBoundsExact;
+            public int referenceTextureWidth;
+            public int referenceTextureHeight;
             public string referenceImage;
             public List<LayerDto> layers;
         }
@@ -480,6 +521,10 @@ namespace FigmaUiImporter.Editor
             public string image;
             public TextDto text;
             public BoundsDto bounds;
+            public BoundsDto exportBounds;
+            public bool exportBoundsExact;
+            public int textureWidth;
+            public int textureHeight;
             public UnityRectDto unity;
             public int siblingIndex;
             public string unityObjectPath;
