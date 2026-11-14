@@ -48,6 +48,72 @@ namespace FigmaUiImporter.Editor
 
             EditorGUILayout.Space(8f);
             DrawTextConversionControls((FigmaLayerBinding)target);
+
+            EditorGUILayout.Space(8f);
+            DrawBlurControls((FigmaLayerBinding)target);
+        }
+
+        private void DrawBlurControls(FigmaLayerBinding binding)
+        {
+            if (binding == null || !binding.HasBlurInfo)
+            {
+                return;
+            }
+
+            EditorGUILayout.LabelField(L("背景模糊", "Background Blur"), EditorStyles.boldLabel);
+            string status;
+            switch (binding.BlurMode)
+            {
+                case FigmaBlurMode.Baked:
+                    status = L("当前：烘焙模糊", "Current: Baked Blur");
+                    break;
+                case FigmaBlurMode.Dynamic:
+                    status = L("当前：动态模糊（Camera.main）", "Current: Dynamic Blur (Camera.main)");
+                    break;
+                default:
+                    status = L("当前：不使用模糊", "Current: No Blur");
+                    break;
+            }
+
+            EditorGUILayout.HelpBox(status, MessageType.None);
+
+            if (binding.BlurMode == FigmaBlurMode.Dynamic && Camera.main == null)
+            {
+                EditorGUILayout.HelpBox(
+                    L("动态模糊使用 Camera.main；当前场景没有 MainCamera 标记的相机，运行时会回退为无实时背景。",
+                        "Dynamic blur uses Camera.main; no MainCamera-tagged camera is present, so runtime blur may not update."),
+                    MessageType.Warning);
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button(L("不使用模糊效果", "No Blur")))
+                {
+                    SwitchBlur(binding, FigmaBlurMode.None);
+                }
+
+                if (GUILayout.Button(L("使用烘焙模糊效果", "Use Baked Blur")))
+                {
+                    SwitchBlur(binding, FigmaBlurMode.Baked);
+                }
+
+                if (GUILayout.Button(L("使用动态模糊", "Use Dynamic Blur")))
+                {
+                    SwitchBlur(binding, FigmaBlurMode.Dynamic);
+                }
+            }
+        }
+
+        private void SwitchBlur(FigmaLayerBinding binding, FigmaBlurMode mode)
+        {
+            if (!FigmaBlurHierarchyService.SwitchMode(binding, mode))
+            {
+                return;
+            }
+
+            serializedObject.Update();
+            Repaint();
+            SceneView.RepaintAll();
         }
 
         private static void DrawTextConversionControls(FigmaLayerBinding binding)

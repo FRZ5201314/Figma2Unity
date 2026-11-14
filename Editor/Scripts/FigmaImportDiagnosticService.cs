@@ -89,6 +89,7 @@ namespace FigmaUiImporter.Editor
 
             int layersWithoutExportBounds = 0;
             int estimatedExportBounds = 0;
+            int backgroundBlurLayerCount = 0;
             for (int i = 0; i < data.Layers.Count; i++)
             {
                 ImportedLayerInfo layer = data.Layers[i];
@@ -101,6 +102,16 @@ namespace FigmaUiImporter.Editor
                 node.kind = layer.IsTextLayer ? "text" : "image";
                 node.assetPath = layer.AssetPath;
                 node.unityObjectPath = layer.UnityObjectPath;
+                if (layer.HasUsableLayoutBounds)
+                {
+                    node.layoutBounds = ToBoundsDto(layer.LayoutBounds);
+                }
+                if (layer.BackgroundBlur != null && layer.BackgroundBlur.Enabled)
+                {
+                    backgroundBlurLayerCount++;
+                    node.backgroundBlurRadius = layer.BackgroundBlur.Radius;
+                    node.backgroundBlurBackdropNodeId = layer.BackgroundBlur.BackdropNodeId;
+                }
                 if (layer.HasUsableExportBounds)
                 {
                     node.exportBounds = ToBoundsDto(layer.ExportBounds);
@@ -134,6 +145,7 @@ namespace FigmaUiImporter.Editor
                     estimatedExportBounds));
             }
 
+            report.backgroundBlurLayerCount = backgroundBlurLayerCount;
             return WriteReport(data.OutputFolder, report);
         }
 
@@ -209,6 +221,7 @@ namespace FigmaUiImporter.Editor
             public string containerSliceStrategy;
             public string textImportMode;
             public int exportedLayerCount;
+            public int backgroundBlurLayerCount;
             public bool hasReferenceExportBounds;
             public BoundsDto rootExportBounds;
             public bool rootExportBoundsExact;
@@ -230,6 +243,9 @@ namespace FigmaUiImporter.Editor
             public string kind;
             public string assetPath;
             public string unityObjectPath;
+            public BoundsDto layoutBounds;
+            public float backgroundBlurRadius;
+            public string backgroundBlurBackdropNodeId;
             public BoundsDto exportBounds;
             public bool exportBoundsExact;
         }

@@ -38,3 +38,5 @@
 当前插件导出 `schemaVersion: 2`。manifest 会额外记录参考图的 `rootExportBounds`、每个切图的 `exportBounds` 和实际纹理尺寸。Unity 导入端据此按 PNG 的实际画布放置图层，避免把 effects/阴影的透明边距误当成缩放倍率。
 
 旧版 `schemaVersion: 1` 包仍可导入，但会回退到旧版几何推断（诊断报告会提示）。如果遇到整张图偏小或图层尺寸不一致，请用新版插件重新导出。
+
+对于带 `Background blur` 效果的节点，插件会在导出切图时临时关闭 blur，并在 manifest 中写入 `layoutBounds` 与 `backgroundBlur`（半径、圆角、backdrop 节点 ID）。Unity 导入端会从根背景层生成模糊背景，并把该节点仍作为独立图层导入。

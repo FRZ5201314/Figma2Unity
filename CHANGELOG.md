@@ -6,6 +6,8 @@
 - The Unity importer now places image layers directly from the recorded export canvas instead of inferring a pixel scale from the reference image. This fixes the whole layout shrinking by ~4.5%/7% when Figma's `exportAsync` adds transparent effect padding around the root/reference PNG.
 - The reference image overlay now uses `RawImage.uvRect` to sample the root-bounds region from the exported reference, instead of stretching the padded PNG into the root rectangle.
 - Added diagnostics for missing or estimated export bounds and a warning when a manifest must fall back to legacy geometry inference.
+- Detect Figma `BACKGROUND_BLUR` effects and export those layers separately with the blur disabled, plus `layoutBounds`/`backgroundBlur` metadata.
+- Generate a blurred backdrop and rounded-rect mask at import, and add a `FigmaBackgroundBlur` runtime component driven by a ComputeShader. This keeps background-blur nodes as independent layers and works with both Built-in and URP without pipeline-specific shaders.
 
 ## 0.7.16
 

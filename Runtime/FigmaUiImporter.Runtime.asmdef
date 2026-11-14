@@ -1,7 +1,9 @@
 {
   "name": "FigmaUiImporter.Runtime",
   "rootNamespace": "FigmaUiImporter",
-  "references": [],
+  "references": [
+    "UnityEngine.UI"
+  ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

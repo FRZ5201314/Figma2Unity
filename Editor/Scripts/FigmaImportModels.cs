@@ -28,6 +28,14 @@ namespace FigmaUiImporter.Editor
         Smart
     }
 
+    /// <summary>背景模糊节点的 Unity 生成模式。</summary>
+    public enum FigmaBackgroundBlurMode
+    {
+        None,
+        Baked,
+        Dynamic
+    }
+
     public enum ImportedLayerKind
     {
         Image,
@@ -44,6 +52,7 @@ namespace FigmaUiImporter.Editor
         public FigmaContainerSliceStrategy ContainerSliceStrategy = FigmaContainerSliceStrategy.Auto;
         public FigmaTextImportMode TextImportMode = FigmaTextImportMode.Smart;
         public float ImageScale = 1f;
+        public FigmaBackgroundBlurMode BackgroundBlurMode = FigmaBackgroundBlurMode.None;
         public bool CreateReference = true;
         public float ReferenceAlpha = 0.5f;
         public bool DisableRaycastTarget = true;
@@ -157,10 +166,20 @@ namespace FigmaUiImporter.Editor
         public bool HasExportBounds;
         /// <summary>false 表示导出边界由 PNG 尺寸对称估算，阴影偏移时可能有几像素误差。</summary>
         public bool ExportBoundsExact;
+        /// <summary>节点自身布局边界（不含阴影/effects），用于背景模糊的裁剪形状。</summary>
+        public Rect LayoutBounds;
+        public bool HasLayoutBounds;
+        /// <summary>Figma background blur 信息；为空表示普通图层。</summary>
+        public FigmaBackgroundBlurInfo BackgroundBlur;
 
         public bool HasUsableExportBounds
         {
             get { return HasExportBounds && ExportBounds.width > 0.01f && ExportBounds.height > 0.01f; }
+        }
+
+        public bool HasUsableLayoutBounds
+        {
+            get { return HasLayoutBounds && LayoutBounds.width > 0.01f && LayoutBounds.height > 0.01f; }
         }
 
         public bool HasTextStyle
@@ -251,6 +270,35 @@ namespace FigmaUiImporter.Editor
         public int LayerCount;
         public int AssetCount;
         public bool HasReferenceImage;
+    }
+
+    /// <summary>Figma background blur 参数；导入端据此生成模糊背景。</summary>
+    public sealed class FigmaBackgroundBlurInfo
+    {
+        public float Radius;
+        /// <summary>左上、右上、右下、左下圆角，单位与 Figma 设计像素一致。</summary>
+        public Vector4 CornerRadii;
+        public string BackdropNodeId;
+        /// <summary>实际带 background blur 的节点边界（可能是卡片的子层）。</summary>
+        public Rect Bounds;
+        public bool HasBounds;
+
+        public bool Enabled
+        {
+            get { return Radius > 0.01f; }
+        }
+    }
+
+    /// <summary>导入时生成的背景模糊资源（烘焙贴图、圆角遮罩、运行时模糊源）。</summary>
+    internal sealed class FigmaGeneratedBlurAssets
+    {
+        public Texture2D BlurredTexture;
+        public Sprite MaskSprite;
+        public Texture2D BackdropTexture;
+        public Rect BackdropExportBounds;
+        public Rect SourceUvRect;
+        public Rect BlurBounds;
+        public float BlurRadius;
     }
 
     /// <summary>参考图（reference.png）的实际导出画布与纹理尺寸，用于精确对齐和裁剪。</summary>

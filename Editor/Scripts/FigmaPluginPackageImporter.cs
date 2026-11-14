@@ -399,6 +399,8 @@ namespace FigmaUiImporter.Editor
             public string image;
             public TextDto text;
             public BoundsDto bounds;
+            public BoundsDto layoutBounds;
+            public BackgroundBlurDto backgroundBlur;
             public BoundsDto exportBounds;
             public bool exportBoundsExact;
             public int textureWidth;
@@ -406,6 +408,24 @@ namespace FigmaUiImporter.Editor
             public UnityRectDto unity;
             public int siblingIndex;
             public string unityObjectPath;
+        }
+
+        [Serializable]
+        private sealed class BackgroundBlurDto
+        {
+            public float radius;
+            public CornerRadiusDto cornerRadius;
+            public string backdropNodeId;
+            public BoundsDto bounds;
+        }
+
+        [Serializable]
+        private sealed class CornerRadiusDto
+        {
+            public float topLeft;
+            public float topRight;
+            public float bottomRight;
+            public float bottomLeft;
         }
 
         [Serializable]

@@ -1,0 +1,59 @@
+#pragma kernel BlurHorizontal
+#pragma kernel BlurVertical
+
+Texture2D<float4> _MainTex;
+RWTexture2D<float4> _Result;
+int _Width;
+int _Height;
+float _Radius;
+
+float4 SampleClamped(int2 coord)
+{
+    coord.x = clamp(coord.x, 0, _Width - 1);
+    coord.y = clamp(coord.y, 0, _Height - 1);
+    return _MainTex.Load(int3(coord, 0));
+}
+
+[numthreads(8, 8, 1)]
+void BlurHorizontal(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_Width || id.y >= (uint)_Height)
+    {
+        return;
+    }
+
+    int2 coord = int2(id.xy);
+    float step = max(1.0, _Radius * 0.25);
+    float4 color = SampleClamped(coord) * 0.2270270270;
+    int offset = (int)round(step);
+    color += (SampleClamped(coord + int2(offset, 0)) + SampleClamped(coord - int2(offset, 0))) * 0.1945945946;
+    offset = (int)round(step * 2.0);
+    color += (SampleClamped(coord + int2(offset, 0)) + SampleClamped(coord - int2(offset, 0))) * 0.1216216216;
+    offset = (int)round(step * 3.0);
+    color += (SampleClamped(coord + int2(offset, 0)) + SampleClamped(coord - int2(offset, 0))) * 0.0540540541;
+    offset = (int)round(step * 4.0);
+    color += (SampleClamped(coord + int2(offset, 0)) + SampleClamped(coord - int2(offset, 0))) * 0.0162162162;
+    _Result[coord] = color;
+}
+
+[numthreads(8, 8, 1)]
+void BlurVertical(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_Width || id.y >= (uint)_Height)
+    {
+        return;
+    }
+
+    int2 coord = int2(id.xy);
+    float step = max(1.0, _Radius * 0.25);
+    float4 color = SampleClamped(coord) * 0.2270270270;
+    int offset = (int)round(step);
+    color += (SampleClamped(coord + int2(0, offset)) + SampleClamped(coord - int2(0, offset))) * 0.1945945946;
+    offset = (int)round(step * 2.0);
+    color += (SampleClamped(coord + int2(0, offset)) + SampleClamped(coord - int2(0, offset))) * 0.1216216216;
+    offset = (int)round(step * 3.0);
+    color += (SampleClamped(coord + int2(0, offset)) + SampleClamped(coord - int2(0, offset))) * 0.0540540541;
+    offset = (int)round(step * 4.0);
+    color += (SampleClamped(coord + int2(0, offset)) + SampleClamped(coord - int2(0, offset))) * 0.0162162162;
+    _Result[coord] = color;
+}

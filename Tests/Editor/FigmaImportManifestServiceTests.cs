@@ -169,6 +169,40 @@ namespace FigmaUiImporter.Editor.Tests
         }
 
         [Test]
+        public void LoadForRebuildReadsBackgroundBlurMetadata()
+        {
+            string layerPath = FigmaPathUtility.CombineAssetPath(TestFolder, "layers", "234_192.png");
+            WriteEmptyAsset(layerPath);
+
+            string manifestPath = FigmaPathUtility.CombineAssetPath(TestFolder, "manifest.json");
+            WriteTextAsset(
+                manifestPath,
+                "{"
+                + "\"imageScale\":1,\"selectedNodeId\":\"234:94\",\"selectedNodeName\":\"Root\",\"selectedNodeType\":\"SECTION\","
+                + "\"rootBounds\":{\"x\":-3331,\"y\":42,\"width\":1920,\"height\":1080},"
+                + "\"layers\":[{"
+                + "\"nodeId\":\"234:192\",\"nodeName\":\"Card\",\"type\":\"FRAME\",\"kind\":\"image\","
+                + "\"image\":\"layers/234_192.png\","
+                + "\"bounds\":{\"x\":-2977,\"y\":179,\"width\":1258,\"height\":798},"
+                + "\"layoutBounds\":{\"x\":-2977,\"y\":179,\"width\":1230,\"height\":770},"
+                + "\"backgroundBlur\":{\"radius\":24,\"cornerRadius\":{\"topLeft\":12,\"topRight\":12,\"bottomRight\":12,\"bottomLeft\":12},\"backdropNodeId\":\"234:94\"},"
+                + "\"unity\":{\"anchoredPosition\":{\"x\":23,\"y\":4},\"sizeDelta\":{\"x\":1258,\"y\":798}},"
+                + "\"siblingIndex\":0,\"unityObjectPath\":\"\""
+                + "}]"
+                + "}");
+
+            FigmaManifestRebuildData data = new FigmaImportManifestService().LoadForRebuild(manifestPath);
+
+            Assert.AreEqual(1, data.Layers.Count);
+            Assert.IsTrue(data.Layers[0].HasUsableLayoutBounds);
+            Assert.AreEqual(new Rect(-2977f, 179f, 1230f, 770f), data.Layers[0].LayoutBounds);
+            Assert.IsNotNull(data.Layers[0].BackgroundBlur);
+            Assert.AreEqual(24f, data.Layers[0].BackgroundBlur.Radius);
+            Assert.AreEqual(12f, data.Layers[0].BackgroundBlur.CornerRadii.x);
+            Assert.AreEqual("234:94", data.Layers[0].BackgroundBlur.BackdropNodeId);
+        }
+
+        [Test]
         public void TryLoadTextStyleForLayerDoesNotRequireLayerAssets()
         {
             string manifestPath = FigmaPathUtility.CombineAssetPath(TestFolder, "manifest.json");

@@ -20,6 +20,7 @@ namespace FigmaUiImporter.Editor
         private const string PrefTextImportMode = "FigmaUiImporter.TextImportMode";
         private const string PrefFontMappingPath = "FigmaUiImporter.FontMappingPath";
         private const string PrefImageScale = "FigmaUiImporter.ImageScale";
+        private const string PrefBackgroundBlurMode = "FigmaUiImporter.BackgroundBlurModeV2";
         private const string PrefCompressionMode = "FigmaUiImporter.CompressionMode";
         private const string PrefReferenceAlpha = "FigmaUiImporter.ReferenceAlpha";
         private const string PrefCreateReference = "FigmaUiImporter.CreateReference";
@@ -102,6 +103,19 @@ namespace FigmaUiImporter.Editor
             }
         }
 
+        private static string[] BackgroundBlurModeLabels
+        {
+            get
+            {
+                return new[]
+                {
+                    L("无模糊（默认，按节点按钮切换）", "None (default; switch per node)"),
+                    L("烘焙贴图（导入时生成）", "Baked texture (generated on import)"),
+                    L("动态模糊（运行时 Camera.main）", "Dynamic (runtime, Camera.main)")
+                };
+            }
+        }
+
         private string _accessToken;
         private string _fileInput;
         private string _loadedFileKey;
@@ -112,6 +126,7 @@ namespace FigmaUiImporter.Editor
         private FigmaTextImportMode _textImportMode;
         private FigmaFontMappingAsset _fontMapping;
         private float _imageScale;
+        private FigmaBackgroundBlurMode _backgroundBlurMode;
         private TextureImporterCompressionMode _compressionMode;
         private bool _createReference;
         private float _referenceAlpha;
@@ -171,6 +186,9 @@ namespace FigmaUiImporter.Editor
                 _fontMapping = AssetDatabase.LoadAssetAtPath<FigmaFontMappingAsset>(FigmaFontMappingService.GlobalMappingAssetPath);
             }
             _imageScale = EditorPrefs.GetFloat(PrefImageScale, 1f);
+            _backgroundBlurMode = (FigmaBackgroundBlurMode)EditorPrefs.GetInt(
+                PrefBackgroundBlurMode,
+                (int)FigmaBackgroundBlurMode.None);
             _compressionMode = (TextureImporterCompressionMode)EditorPrefs.GetInt(
                 PrefCompressionMode,
                 (int)TextureImporterCompressionMode.None);
@@ -358,6 +376,10 @@ namespace FigmaUiImporter.Editor
                     L("纹理压缩", "Texture Compression"),
                     (int)_compressionMode,
                     CompressionModeLabels);
+                _backgroundBlurMode = (FigmaBackgroundBlurMode)EditorGUILayout.Popup(
+                    L("背景模糊模式", "Background Blur Mode"),
+                    (int)_backgroundBlurMode,
+                    BackgroundBlurModeLabels);
                 _createReference = EditorGUILayout.Toggle(L("创建参考图", "Create Reference Image"), _createReference);
                 using (new EditorGUI.DisabledScope(!_createReference))
                 {
@@ -1605,6 +1627,7 @@ namespace FigmaUiImporter.Editor
             settings.FontMapping = FigmaFontMappingService.GetOrCreateGlobalMapping();
             _fontMapping = settings.FontMapping;
             settings.ImageScale = _imageScale;
+            settings.BackgroundBlurMode = _backgroundBlurMode;
             settings.CompressionMode = _compressionMode;
             settings.CreateReference = _createReference;
             settings.ReferenceAlpha = _referenceAlpha;
@@ -1711,6 +1734,7 @@ namespace FigmaUiImporter.Editor
             EditorPrefs.SetInt(PrefTextImportMode, (int)_textImportMode);
             EditorPrefs.SetString(PrefFontMappingPath, _fontMapping == null ? string.Empty : AssetDatabase.GetAssetPath(_fontMapping));
             EditorPrefs.SetFloat(PrefImageScale, _imageScale);
+            EditorPrefs.SetInt(PrefBackgroundBlurMode, (int)_backgroundBlurMode);
             EditorPrefs.SetInt(PrefCompressionMode, (int)_compressionMode);
             EditorPrefs.SetFloat(PrefReferenceAlpha, _referenceAlpha);
             EditorPrefs.SetBool(PrefCreateReference, _createReference);

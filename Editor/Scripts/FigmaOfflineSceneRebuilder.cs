@@ -9,6 +9,7 @@ namespace FigmaUiImporter.Editor
     {
         private readonly FigmaImportManifestService _manifestService = new FigmaImportManifestService();
         private readonly UnitySpriteAssetImporter _spriteImporter = new UnitySpriteAssetImporter();
+        private readonly FigmaGeneratedAssetService _generatedAssetService = new FigmaGeneratedAssetService();
         private readonly FigmaSceneBuilder _sceneBuilder = new FigmaSceneBuilder();
         private readonly FigmaImportDiagnosticService _diagnosticService = new FigmaImportDiagnosticService();
         private readonly FigmaPrefabSaver _prefabSaver = new FigmaPrefabSaver();
@@ -56,13 +57,23 @@ namespace FigmaUiImporter.Editor
 
             _spriteImporter.ImportSprites(spritePaths, settings.CompressionMode);
 
+            progress.Report(new FigmaImportProgress(
+                L("生成背景模糊资源...", "Generating background blur assets..."),
+                0.72f));
+            System.Collections.Generic.Dictionary<string, FigmaGeneratedBlurAssets> blurAssets = null;
+            if (settings.BackgroundBlurMode != FigmaBackgroundBlurMode.None)
+            {
+                blurAssets = _generatedAssetService.Generate(settings, data, data.Layers);
+            }
+
             progress.Report(new FigmaImportProgress(L("生成场景对象...", "Building scene objects..."), 0.78f));
             GameObject rootObject = _sceneBuilder.BuildSceneObjects(
                 settings,
                 data.RootNode,
                 referenceAssetPath,
                 data.Layers,
-                data.ReferenceGeometry);
+                data.ReferenceGeometry,
+                blurAssets);
 
             progress.Report(new FigmaImportProgress(L("保存导入诊断报告...", "Saving diagnostics..."), 0.88f));
             string diagnosticReportPath = _diagnosticService.SaveOfflineReport(settings, data);

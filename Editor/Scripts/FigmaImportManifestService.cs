@@ -44,6 +44,28 @@ namespace FigmaUiImporter.Editor
                 dto.image = MakeRelativeAssetPath(outputFolder, layer.AssetPath);
                 dto.text = layer.HasTextStyle ? ToTextDto(layer.TextStyle) : null;
                 dto.bounds = ToBoundsDto(layer.FigmaBounds);
+                if (layer.HasUsableLayoutBounds)
+                {
+                    dto.layoutBounds = ToBoundsDto(layer.LayoutBounds);
+                }
+                if (layer.BackgroundBlur != null && layer.BackgroundBlur.Enabled)
+                {
+                    dto.backgroundBlur = new BackgroundBlurDto
+                    {
+                        radius = layer.BackgroundBlur.Radius,
+                        backdropNodeId = layer.BackgroundBlur.BackdropNodeId,
+                        bounds = layer.BackgroundBlur.HasBounds
+                            ? ToBoundsDto(layer.BackgroundBlur.Bounds)
+                            : null,
+                        cornerRadius = new CornerRadiusDto
+                        {
+                            topLeft = layer.BackgroundBlur.CornerRadii.x,
+                            topRight = layer.BackgroundBlur.CornerRadii.y,
+                            bottomRight = layer.BackgroundBlur.CornerRadii.z,
+                            bottomLeft = layer.BackgroundBlur.CornerRadii.w
+                        }
+                    };
+                }
                 if (layer.HasUsableExportBounds)
                 {
                     dto.exportBounds = ToBoundsDto(layer.ExportBounds);
@@ -124,6 +146,12 @@ namespace FigmaUiImporter.Editor
                     }
 
                     ImportedLayerInfo layer = CreateLayerInfo(outputFolder, data.RootNode.AbsoluteBounds, dto, i);
+                    if (string.Equals(layer.NodeId, data.RootNode.Id, StringComparison.Ordinal))
+                    {
+                        // 根节点是上下文背景，不应作为 blur 图层处理；兼容旧导出。
+                        layer.BackgroundBlur = null;
+                    }
+
                     EnsureAssetFileExists(layer.AssetPath, L("切图", "slice"));
                     data.Layers.Add(layer);
                 }
@@ -281,6 +309,45 @@ namespace FigmaUiImporter.Editor
             layer.AssetPath = ResolveAssetPath(outputFolder, dto.image);
             layer.TextStyle = dto.text != null ? ToTextStyle(dto.text) : null;
             layer.FigmaBounds = ToRect(dto.bounds);
+
+            Rect layoutBounds;
+            if (TryToRect(dto.layoutBounds, out layoutBounds))
+            {
+                layer.LayoutBounds = layoutBounds;
+                layer.HasLayoutBounds = true;
+            }
+            else
+            {
+                layer.LayoutBounds = layer.FigmaBounds;
+                layer.HasLayoutBounds = true;
+            }
+
+            if (dto.backgroundBlur != null && dto.backgroundBlur.radius > 0.01f)
+            {
+                CornerRadiusDto corners = dto.backgroundBlur.cornerRadius;
+                FigmaBackgroundBlurInfo blur = new FigmaBackgroundBlurInfo
+                {
+                    Radius = dto.backgroundBlur.radius,
+                    CornerRadii = corners != null
+                        ? new Vector4(corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft)
+                        : Vector4.zero,
+                    BackdropNodeId = dto.backgroundBlur.backdropNodeId
+                };
+
+                Rect blurBounds;
+                if (TryToRect(dto.backgroundBlur.bounds, out blurBounds))
+                {
+                    blur.Bounds = blurBounds;
+                    blur.HasBounds = true;
+                }
+                else
+                {
+                    blur.Bounds = layer.LayoutBounds;
+                    blur.HasBounds = layer.HasLayoutBounds;
+                }
+
+                layer.BackgroundBlur = blur;
+            }
 
             Rect exportBounds;
             if (TryToRect(dto.exportBounds, out exportBounds))
@@ -521,6 +588,8 @@ namespace FigmaUiImporter.Editor
             public string image;
             public TextDto text;
             public BoundsDto bounds;
+            public BoundsDto layoutBounds;
+            public BackgroundBlurDto backgroundBlur;
             public BoundsDto exportBounds;
             public bool exportBoundsExact;
             public int textureWidth;
@@ -528,6 +597,24 @@ namespace FigmaUiImporter.Editor
             public UnityRectDto unity;
             public int siblingIndex;
             public string unityObjectPath;
+        }
+
+        [Serializable]
+        private sealed class BackgroundBlurDto
+        {
+            public float radius;
+            public CornerRadiusDto cornerRadius;
+            public string backdropNodeId;
+            public BoundsDto bounds;
+        }
+
+        [Serializable]
+        private sealed class CornerRadiusDto
+        {
+            public float topLeft;
+            public float topRight;
+            public float bottomRight;
+            public float bottomLeft;
         }
 
         [Serializable]

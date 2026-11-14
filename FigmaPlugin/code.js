@@ -146,8 +146,12 @@ async function exportSelectedNode(options) {
 
     postProgress(tf("exportingSlice", i + 1, nodes.length), 0.25 + 0.65 * (i + 1) / Math.max(1, nodes.length));
     var hiddenDescendantPaths = collectNearestSelectedDescendantPaths(node, selectedMap);
-    var bytes = hiddenDescendantPaths.length > 0
-      ? await exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, scale)
+    // 背景模糊节点单独导出时先关闭 blur，避免失去背景后边框变深；
+    // 导入端会用 backdrop + blur 组件重新合成。
+    // 根节点本身是上下文背景，保留原样，避免把整张背景也当成 blur 图层。
+    var hasBackgroundBlur = node !== root && !!findBackgroundBlurNode(node);
+    var bytes = (hiddenDescendantPaths.length > 0 || hasBackgroundBlur)
+      ? await exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, scale, hasBackgroundBlur)
       : await exportNodePng(node, scale);
     var imagePath = "layers/" + safeFileName(node.id) + ".png";
     assets.push({
@@ -161,7 +165,7 @@ async function exportSelectedNode(options) {
     var pngSize = readPngSize(bytes);
     var hiddenIds = collectHiddenNodeIds(node, hiddenDescendantPaths);
     var exportInfo = resolveExportBounds(node, hiddenIds, pngSize, scale);
-    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length, exportInfo, pngSize));
+    layers.push(createLayerDto(rootBounds, node, bounds, imagePath, layers.length, exportInfo, pngSize, root.id));
   }
 
   postProgress(t("generatingPackage"), 0.95);
@@ -194,6 +198,9 @@ async function exportSelectedNode(options) {
     manifest.referenceTextureHeight = referencePngSize.height;
   }
 
+  // 诊断：列出子树里所有可见 effects/非 Normal 混合模式，便于定位边框/模糊来源。
+  manifest.effectDiagnostics = collectEffectDiagnostics(root);
+
   return {
     schemaVersion: PACKAGE_SCHEMA_VERSION,
     exportedAt: now,
@@ -218,12 +225,15 @@ async function exportNodePng(node, scale) {
   });
 }
 
-async function exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, scale) {
+async function exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, scale, disableBackgroundBlur) {
   var clone = node.clone();
   try {
     figma.currentPage.appendChild(clone);
     clone.x = node.x;
     clone.y = node.y;
+    if (disableBackgroundBlur) {
+      disableBackgroundBlurEffects(clone);
+    }
     for (var i = 0; i < hiddenDescendantPaths.length; i++) {
       var target = findNodeByChildPath(clone, hiddenDescendantPaths[i]);
       if (target) {
@@ -237,9 +247,10 @@ async function exportNodePngWithHiddenDescendants(node, hiddenDescendantPaths, s
   }
 }
 
-function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, exportInfo, pngSize) {
+function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, exportInfo, pngSize, rootNodeId) {
   var text = createTextDto(node);
   var layoutBounds = text ? getTextLayoutBounds(node, bounds) : bounds;
+  var nodeLayoutBounds = getRootBounds(node) || layoutBounds;
   var anchoredPosition = toUnityAnchoredPosition(rootBounds, layoutBounds);
   var result = {
     nodeId: node.id,
@@ -249,6 +260,8 @@ function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, expor
     image: imagePath,
     text: text,
     bounds: layoutBounds,
+    // 节点自身布局边界（不含阴影/effects），用于背景模糊的裁剪形状。
+    layoutBounds: nodeLayoutBounds,
     unity: {
       anchoredPosition: anchoredPosition,
       sizeDelta: {
@@ -269,6 +282,17 @@ function createLayerDto(rootBounds, node, bounds, imagePath, siblingIndex, expor
   if (pngSize) {
     result.textureWidth = pngSize.width;
     result.textureHeight = pngSize.height;
+  }
+
+  var blurNode = node.id === rootNodeId ? null : findBackgroundBlurNode(node);
+  var blurEffect = getBackgroundBlurEffect(blurNode);
+  if (blurEffect) {
+    result.backgroundBlur = {
+      radius: readNumberValue(blurEffect.radius),
+      cornerRadius: readCornerRadii(blurNode),
+      backdropNodeId: rootNodeId || "",
+      bounds: getRootBounds(blurNode) || nodeLayoutBounds
+    };
   }
 
   return result;
@@ -307,6 +331,173 @@ function createTextDto(node) {
 
 function getTextLayoutBounds(node, fallbackBounds) {
   return normalizeBounds(node && (node.absoluteBoundingBox || node.absoluteRenderBounds)) || fallbackBounds;
+}
+
+function getBackgroundBlurEffect(node) {
+  var effects = node && Array.isArray(node.effects) ? node.effects : [];
+  for (var i = 0; i < effects.length; i++) {
+    var effect = effects[i];
+    if (effect && effect.visible !== false && effect.type === "BACKGROUND_BLUR") {
+      return effect;
+    }
+  }
+
+  return null;
+}
+
+// 背景模糊可能挂在卡片的子层（例如边框层）上，需要递归查找。
+function findBackgroundBlurNode(node) {
+  if (!node) {
+    return null;
+  }
+
+  if (getBackgroundBlurEffect(node)) {
+    return node;
+  }
+
+  var children = getChildren(node);
+  for (var i = 0; i < children.length; i++) {
+    var found = findBackgroundBlurNode(children[i]);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function readCornerRadii(node) {
+  if (!node) {
+    return { topLeft: 0, topRight: 0, bottomRight: 0, bottomLeft: 0 };
+  }
+
+  if (isMixedValue(node.cornerRadius)) {
+    return {
+      topLeft: readNumberValue(node.topLeftRadius),
+      topRight: readNumberValue(node.topRightRadius),
+      bottomRight: readNumberValue(node.bottomRightRadius),
+      bottomLeft: readNumberValue(node.bottomLeftRadius)
+    };
+  }
+
+  var radius = readNumberValue(node.cornerRadius);
+  return {
+    topLeft: radius,
+    topRight: radius,
+    bottomRight: radius,
+    bottomLeft: radius
+  };
+}
+
+function collectPaintBlendModes(paints) {
+  var result = [];
+  if (!Array.isArray(paints)) {
+    return result;
+  }
+
+  for (var i = 0; i < paints.length; i++) {
+    var paint = paints[i];
+    if (paint && paint.visible !== false && paint.blendMode && paint.blendMode !== "NORMAL") {
+      result.push(paint.blendMode);
+    }
+  }
+
+  return result;
+}
+
+// 诊断用：找出节点树里所有可见 effects、非 Normal 混合模式，帮助定位边框/模糊来源。
+function collectEffectDiagnostics(root) {
+  var results = [];
+  walk(root);
+  return results;
+
+  function walk(node) {
+    if (!node || !isVisible(node)) {
+      return;
+    }
+
+    var effects = Array.isArray(node.effects) ? node.effects : [];
+    var visibleEffects = [];
+    for (var e = 0; e < effects.length; e++) {
+      var effect = effects[e];
+      if (effect && effect.visible !== false) {
+        visibleEffects.push({
+          type: effect.type,
+          radius: effect.radius,
+          offset: effect.offset,
+          visible: effect.visible
+        });
+      }
+    }
+
+    var blendMode = typeof node.blendMode === "string" ? node.blendMode : "";
+    var fillBlendModes = collectPaintBlendModes(node.fills);
+    var strokeBlendModes = collectPaintBlendModes(node.strokes);
+    var hasNonNormalBlend = blendMode
+      && blendMode !== "NORMAL"
+      && blendMode !== "PASS_THROUGH";
+    if (visibleEffects.length > 0
+      || hasNonNormalBlend
+      || fillBlendModes.length > 0
+      || strokeBlendModes.length > 0) {
+      results.push({
+        nodeId: node.id,
+        nodeName: node.name,
+        nodeType: node.type,
+        parentId: node.parent ? node.parent.id : "",
+        bounds: getRootBounds(node),
+        blendMode: blendMode,
+        effects: visibleEffects,
+        fillBlendModes: fillBlendModes,
+        strokeBlendModes: strokeBlendModes,
+        cornerRadius: readCornerRadii(node)
+      });
+    }
+
+    var children = getChildren(node);
+    for (var i = 0; i < children.length; i++) {
+      walk(children[i]);
+    }
+  }
+}
+
+// 导出背景模糊节点时临时关闭 blur；否则失去背景后边框/半透明区域会被渲染成深色。
+function disableBackgroundBlurEffects(node) {
+  if (!node) {
+    return;
+  }
+
+  try {
+    var effects = node.effects;
+    if (Array.isArray(effects)) {
+      var changed = false;
+      var next = [];
+      for (var i = 0; i < effects.length; i++) {
+        var effect = effects[i];
+        if (effect && effect.type === "BACKGROUND_BLUR") {
+          next.push({
+            type: effect.type,
+            radius: effect.radius,
+            visible: false
+          });
+          changed = true;
+        } else {
+          next.push(effect);
+        }
+      }
+
+      if (changed) {
+        node.effects = next;
+      }
+    }
+  } catch (error) {
+    // 某些实例节点的 effects 只读；保留原样，导入端会在诊断中提示。
+  }
+
+  var children = getChildren(node);
+  for (var i = 0; i < children.length; i++) {
+    disableBackgroundBlurEffects(children[i]);
+  }
 }
 
 function hasMixedTextStyles(node) {

@@ -16,7 +16,8 @@ namespace FigmaUiImporter.Editor
             FigmaNodeInfo selectedRoot,
             string referenceAssetPath,
             IList<ImportedLayerInfo> layers,
-            FigmaReferenceGeometry referenceGeometry = null)
+            FigmaReferenceGeometry referenceGeometry = null,
+            IReadOnlyDictionary<string, FigmaGeneratedBlurAssets> blurAssets = null)
         {
             Canvas canvas = GetOrCreateCanvas(settings.TargetCanvas);
             string baseName = "FigmaImport_"
@@ -69,15 +70,54 @@ namespace FigmaUiImporter.Editor
                         geometryResolver.Resolve(layer);
                     }
 
+                    // 背景模糊节点：用一个 Blur Group 同时容纳模糊背景和卡片，
+                    // 锚点/弹窗动画只需操作这个父节点，两者会一起移动。
+                    FigmaGeneratedBlurAssets blurAsset = null;
+                    bool hasBlur = blurAssets != null
+                        && blurAssets.TryGetValue(layer.NodeId, out blurAsset)
+                        && blurAsset != null;
+                    Rect blurBounds = new Rect();
+                    Transform layerParent = layersRoot.transform;
+                    GameObject blurGroup = null;
+                    FigmaBackgroundBlur blurComponent = null;
+                    if (hasBlur)
+                    {
+                        blurBounds = blurAsset.BlurBounds.width > 0.01f && blurAsset.BlurBounds.height > 0.01f
+                            ? blurAsset.BlurBounds
+                            : layer.HasUsableLayoutBounds ? layer.LayoutBounds : layer.FigmaBounds;
+
+                        blurGroup = CreateRectObject(
+                            FigmaPathUtility.SafeObjectName(layer.NodeName) + " Blur Group",
+                            layersRoot.transform);
+                        RectTransform groupRect = blurGroup.GetComponent<RectTransform>();
+                        SetRectFromFigmaBounds(groupRect, selectedRoot.AbsoluteBounds, blurBounds);
+                        layerParent = blurGroup.transform;
+                        blurComponent = CreateBlurBackdrop(
+                            layerParent,
+                            layersRoot.transform,
+                            selectedRoot,
+                            layer,
+                            blurAsset,
+                            settings);
+                    }
+
                     GameObject layerObject = CreateRectObject(
                         FigmaPathUtility.SafeObjectName(layer.NodeName),
-                        layersRoot.transform);
+                        layerParent);
                     RectTransform rectTransform = layerObject.GetComponent<RectTransform>();
                     rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
                     rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                     rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                    rectTransform.anchoredPosition = layer.AnchoredPosition;
-                    rectTransform.sizeDelta = layer.SizeDelta;
+                    if (hasBlur)
+                    {
+                        Rect cardBounds = layer.HasUsableExportBounds ? layer.ExportBounds : layer.FigmaBounds;
+                        SetRectRelativeToBounds(rectTransform, blurBounds, cardBounds);
+                    }
+                    else
+                    {
+                        rectTransform.anchoredPosition = layer.AnchoredPosition;
+                        rectTransform.sizeDelta = layer.SizeDelta;
+                    }
 
                     if (createTextLayer)
                     {
@@ -91,7 +131,44 @@ namespace FigmaUiImporter.Editor
                     FigmaLayerBinding binding = layerObject.AddComponent<FigmaLayerBinding>();
                     binding.SetLayerInfo(layer.NodeId, layer.NodeName, layer.NodeType, layer.AssetPath, layer.SiblingIndex);
 
-                    layerObject.transform.SetSiblingIndex(i);
+                    if (layer.BackgroundBlur != null && layer.BackgroundBlur.Enabled)
+                    {
+                        ImportedLayerInfo backdropLayer = FindLayerById(layers, layer.BackgroundBlur.BackdropNodeId);
+                        FigmaBlurLayerInfo blurInfo = new FigmaBlurLayerInfo
+                        {
+                            enabled = true,
+                            radius = layer.BackgroundBlur.Radius,
+                            cornerRadii = layer.BackgroundBlur.CornerRadii,
+                            bounds = layer.BackgroundBlur.HasBounds
+                                ? layer.BackgroundBlur.Bounds
+                                : layer.HasUsableLayoutBounds ? layer.LayoutBounds : layer.FigmaBounds,
+                            layoutBounds = layer.HasUsableLayoutBounds ? layer.LayoutBounds : layer.FigmaBounds,
+                            exportBounds = layer.HasUsableExportBounds ? layer.ExportBounds : layer.FigmaBounds,
+                            rootBounds = selectedRoot.AbsoluteBounds,
+                            backdropNodeId = layer.BackgroundBlur.BackdropNodeId ?? string.Empty,
+                            backdropAssetPath = backdropLayer != null ? backdropLayer.AssetPath : string.Empty,
+                            backdropExportBounds = backdropLayer != null && backdropLayer.HasUsableExportBounds
+                                ? backdropLayer.ExportBounds
+                                : new Rect(),
+                            generatedFolder = settings != null
+                                ? FigmaPathUtility.CombineAssetPath(settings.OutputFolder, "generated")
+                                : string.Empty
+                        };
+
+                        FigmaBlurMode bindingMode = hasBlur
+                            ? (settings != null && settings.BackgroundBlurMode == FigmaBackgroundBlurMode.Dynamic
+                                ? FigmaBlurMode.Dynamic
+                                : FigmaBlurMode.Baked)
+                            : FigmaBlurMode.None;
+                        binding.SetBlurInfo(blurInfo, bindingMode);
+                        if (hasBlur && blurComponent != null)
+                        {
+                            binding.SetBlurReferences(blurComponent, blurGroup, blurComponent.gameObject);
+                        }
+                    }
+
+                    // 按创建顺序排列；模糊背景会插在对应卡片之前，不能再用 manifest 索引
+                    // 直接 SetSiblingIndex，否则会打乱后续图层顺序。
                     layer.UnityObjectPath = GetHierarchyPath(layerObject.transform);
                 }
             }
@@ -99,6 +176,25 @@ namespace FigmaUiImporter.Editor
             EditorSceneManager.MarkSceneDirty(rootObject.scene);
             Selection.activeGameObject = rootObject;
             return rootObject;
+        }
+
+        private static ImportedLayerInfo FindLayerById(IList<ImportedLayerInfo> layers, string nodeId)
+        {
+            if (layers == null || string.IsNullOrEmpty(nodeId))
+            {
+                return null;
+            }
+
+            for (int i = 0; i < layers.Count; i++)
+            {
+                ImportedLayerInfo layer = layers[i];
+                if (layer != null && string.Equals(layer.NodeId, nodeId, System.StringComparison.Ordinal))
+                {
+                    return layer;
+                }
+            }
+
+            return null;
         }
 
         private static bool ShouldCreateTextLayer(FigmaImportSettings settings, ImportedLayerInfo layer)
@@ -235,6 +331,96 @@ namespace FigmaUiImporter.Editor
             canvasGroup.alpha = Mathf.Clamp01(settings.ReferenceAlpha);
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
+        }
+
+        private static FigmaBackgroundBlur CreateBlurBackdrop(
+            Transform parent,
+            Transform layersRoot,
+            FigmaNodeInfo selectedRoot,
+            ImportedLayerInfo layer,
+            FigmaGeneratedBlurAssets assets,
+            FigmaImportSettings settings)
+        {
+            GameObject backdropObject = CreateRectObject(
+                FigmaPathUtility.SafeObjectName(layer.NodeName) + " Blur Backdrop",
+                parent);
+            RectTransform backdropRect = backdropObject.GetComponent<RectTransform>();
+            StretchToParent(backdropRect);
+
+            GameObject maskObject = CreateRectObject("Mask", backdropObject.transform);
+            StretchToParent(maskObject.GetComponent<RectTransform>());
+            Image maskImage = maskObject.AddComponent<Image>();
+            maskImage.sprite = assets.MaskSprite;
+            maskImage.preserveAspect = false;
+            maskImage.raycastTarget = false;
+            Mask mask = maskObject.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+
+            GameObject blurObject = CreateRectObject("Blurred Backdrop", maskObject.transform);
+            StretchToParent(blurObject.GetComponent<RectTransform>());
+            RawImage rawImage = blurObject.AddComponent<RawImage>();
+            rawImage.texture = assets.BlurredTexture;
+            rawImage.uvRect = assets.SourceUvRect;
+            rawImage.raycastTarget = false;
+
+            FigmaBackgroundBlur runtimeBlur = backdropObject.AddComponent<FigmaBackgroundBlur>();
+            runtimeBlur.targetImage = rawImage;
+            runtimeBlur.sourceMode = FigmaBackgroundBlur.SourceMode.StaticTexture;
+            runtimeBlur.sourceTexture = assets.BackdropTexture;
+            runtimeBlur.sourceDesignSize = new Vector2(
+                assets.BackdropExportBounds.width,
+                assets.BackdropExportBounds.height);
+            runtimeBlur.sourceRoot = layersRoot as RectTransform;
+            runtimeBlur.sourceRootDesignBounds = selectedRoot.AbsoluteBounds;
+            runtimeBlur.sourceExportBounds = assets.BackdropExportBounds;
+            runtimeBlur.trackedRect = parent as RectTransform;
+            runtimeBlur.trackSourceUv = true;
+            runtimeBlur.radius = Mathf.Max(0.01f, assets.BlurRadius);
+            runtimeBlur.downsample = 2;
+            runtimeBlur.iterations = 3;
+            FigmaBackgroundBlurMode blurMode = settings != null
+                ? settings.BackgroundBlurMode
+                : FigmaBackgroundBlurMode.None;
+            runtimeBlur.useRuntimeBlur = blurMode == FigmaBackgroundBlurMode.Dynamic;
+            runtimeBlur.updateEveryFrame = blurMode == FigmaBackgroundBlurMode.Dynamic;
+            runtimeBlur.sourceMode = blurMode == FigmaBackgroundBlurMode.Dynamic
+                ? FigmaBackgroundBlur.SourceMode.Camera
+                : FigmaBackgroundBlur.SourceMode.StaticTexture;
+            runtimeBlur.sourceCamera = blurMode == FigmaBackgroundBlurMode.Dynamic
+                ? Camera.main
+                : null;
+            runtimeBlur.blurShader = Resources.Load<ComputeShader>("FigmaBackgroundBlur");
+            return runtimeBlur;
+        }
+
+        private static void SetRectFromFigmaBounds(RectTransform rectTransform, Rect rootBounds, Rect bounds)
+        {
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = FigmaCoordinateUtility.ToUnityAnchoredPosition(rootBounds, bounds);
+            rectTransform.sizeDelta = new Vector2(bounds.width, bounds.height);
+        }
+
+        private static void SetRectRelativeToBounds(RectTransform rectTransform, Rect parentBounds, Rect childBounds)
+        {
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            float localLeft = childBounds.x - parentBounds.x;
+            float localTop = childBounds.y - parentBounds.y;
+            rectTransform.anchoredPosition = new Vector2(
+                localLeft + childBounds.width * 0.5f - parentBounds.width * 0.5f,
+                parentBounds.height * 0.5f - localTop - childBounds.height * 0.5f);
+            rectTransform.sizeDelta = new Vector2(childBounds.width, childBounds.height);
+        }
+
+        private static void StretchToParent(RectTransform rectTransform)
+        {
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
         }
 
         private static Canvas GetOrCreateCanvas(Canvas targetCanvas)
